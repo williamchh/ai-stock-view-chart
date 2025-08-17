@@ -1,0 +1,24 @@
+{
+  "name": "lightweight-stock-chart",
+  "version": "1.0.0",
+  "description": "A lightweight, open-source stock chart library with advanced features",
+  "main": "dist/stock-chart.js",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "dev": "node ./src/index.js"
+  },
+  "keywords": [
+    "stock",
+    "chart",
+    "trading",
+    "finance",
+    "canvas",
+    "lightweight"
+  ],
+  "author": "Will",
+  "license": "MIT",
+  "devDependencies": {
+  }
+}

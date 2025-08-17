@@ -1,6 +1,6 @@
 /**
  * @fileoverview Light theme configuration for StockChart.
- * @author Your Name
+ * @author H Chen
  */
 
 const lightTheme = {

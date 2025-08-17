@@ -1,6 +1,6 @@
 /**
  * @fileoverview Utility functions for managing chart layout and plots.
- * @author Your Name
+ * @author H Chen
  */
 
 /**
@@ -20,30 +20,26 @@ export class PlotLayoutManager {
      */
     plotTotalWidth;
 
-    // Define constants for margins
+    // Define margins
     /**
      * @type {number}
-     * @readonly
      */
-    RIGHT_Y_AXIS_MARGIN = 80; // Space for Y-axis labels on the right
+    yAxisWidth = 80; // Space for Y-axis labels on the right, can be updated dynamically
 
     /**
      * @type {number}
-     * @readonly
      */
-    BOTTOM_X_AXIS_MARGIN = 40; // Space for X-axis labels at the bottom
+    bottomMargin = 40; // Space for X-axis labels at the bottom
 
     /**
      * @type {number}
-     * @readonly
      */
-    CHART_LEFT_MARGIN = 0; // Small left margin for the chart area
+    leftMargin = 0; // Small left margin for the chart area
 
     /**
      * @type {number}
-     * @readonly
      */
-    CHART_TOP_MARGIN = 0; // Small top margin for the chart area
+    topMargin = 0; // Small top margin for the chart area
 
     /**
      * @param {number} canvasWidth - The total width of the canvas.
@@ -79,13 +75,13 @@ export class PlotLayoutManager {
 
 
                 // Calculate available drawing area for plots
-                const availableWidth = this.canvasWidth - this.CHART_LEFT_MARGIN - this.RIGHT_Y_AXIS_MARGIN;
-                const availableHeight = this.canvasHeight - this.CHART_TOP_MARGIN - this.BOTTOM_X_AXIS_MARGIN;
+                const availableWidth = this.canvasWidth - this.leftMargin - this.yAxisWidth;
+                const availableHeight = this.canvasHeight - this.topMargin - this.bottomMargin;
 
                 const plotHeight = (config.heightRatio / totalRatio) * availableHeight;
                 this.plots[config.id] = {
-                    x: this.CHART_LEFT_MARGIN,
-                    y: currentY + this.CHART_TOP_MARGIN,
+                    x: this.leftMargin,
+                    y: currentY + this.topMargin,
                     width: availableWidth,
                     height: plotHeight,
                 };
@@ -94,7 +90,7 @@ export class PlotLayoutManager {
         });
 
         this.plotTotalHeight = currentY;
-        this.plotTotalWidth = this.canvasWidth - this.RIGHT_Y_AXIS_MARGIN; // Assuming 80px for the right Y-axis margin
+        this.plotTotalWidth = this.canvasWidth - this.yAxisWidth;
     }
 
     /**
@@ -111,9 +107,12 @@ export class PlotLayoutManager {
      * @param {number} newWidth - The new width of the canvas.
      * @param {number} newHeight - The new height of the canvas.
      */
-    updateCanvasDimensions(newWidth, newHeight) {
+    updateCanvasDimensions(newWidth, newHeight, yAxisWidth = undefined) {
         this.canvasWidth = newWidth;
         this.canvasHeight = newHeight;
+        if (yAxisWidth !== undefined) {
+            this.yAxisWidth = yAxisWidth;
+        }
         this.calculateLayout();
     }
 

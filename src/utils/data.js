@@ -1,6 +1,6 @@
 /**
  * @fileoverview Utility functions for data manipulation and scaling.
- * @author Your Name
+ * @author H Chen
  */
 
 /**
@@ -91,4 +91,22 @@ export function getYPixel(price, minPrice, maxPrice, plotHeight, plotY) {
 
     const normalizedPrice = (price - minPrice) / priceRange;
     return plotY + plotHeight - (normalizedPrice * plotHeight);
+}
+
+/**
+ * Calculates the value based on a Y-coordinate position within a plot.
+ * This is the inverse of getYPixel.
+ * @param {number} y - The y-coordinate on the canvas.
+ * @param {number} plotY - The y-coordinate of the top of the plot area.
+ * @param {number} plotHeight - The height of the plot area in pixels.
+ * @param {number} minValue - The minimum value in the visible range.
+ * @param {number} maxValue - The maximum value in the visible range.
+ * @returns {number} The value at the given y-coordinate.
+ */
+export function getValueBasedOnY(y, plotY, plotHeight, minValue, maxValue) {
+    if (plotHeight === 0) return (maxValue + minValue) / 2; // Avoid division by zero
+
+    const normalizedY = 1 - ((y - plotY) / plotHeight); // Invert Y axis
+    const valueRange = maxValue - minValue;
+    return minValue + (normalizedY * valueRange);
 }

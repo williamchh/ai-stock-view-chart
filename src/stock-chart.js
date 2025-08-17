@@ -1,6 +1,6 @@
 /**
  * @fileoverview Main entry point for the StockChart library.
- * @author Your Name
+ * @author H Chen
  */
 
 /**
@@ -10,7 +10,7 @@ import lightTheme from './themes/light.js';
 import darkTheme from './themes/dark.js';
 import { drawCandlestick, drawLine } from './utils/drawing.js';
 import { PlotLayoutManager } from './utils/layout.js';
-import { DataViewport, getXPixel, getYPixel } from './utils/data.js';
+import { DataViewport, getXPixel, getYPixel, getValueBasedOnY } from './utils/data.js';
 
 /**
  * @typedef {import('./stock-chart.d.ts').StockChartOptions} StockChartOptions
@@ -58,6 +58,14 @@ class StockChart {
         this.ctx = this.canvas.getContext('2d');
         this.container.appendChild(this.canvas);
 
+        // Initialize dataViewport first
+        const mainPlot = this.options.plots?.find(p => p.id === 'main');
+        if (!mainPlot) {
+            throw new Error("StockChart options must include a plot with id 'main'.");
+        }
+        this.dataViewport = new DataViewport(mainPlot.data || [], this.options.initialVisibleCandles, 8);
+
+        // Then initialize plot layout with calculated Y-axis width
         this.plotLayoutManager = new PlotLayoutManager(
             this.canvas.width,
             this.canvas.height,
@@ -65,12 +73,6 @@ class StockChart {
         );
 
         this.resize();
-
-        const mainPlot = this.options.plots?.find(p => p.id === 'main');
-        if (!mainPlot) {
-            throw new Error("StockChart options must include a plot with id 'main'.");
-        }
-        this.dataViewport = new DataViewport(mainPlot.data || [], this.options.initialVisibleCandles, 8);
 
         this.isDragging = false;
         this.isResizingPlot = false;
@@ -135,6 +137,106 @@ class StockChart {
     static themes = { light: lightTheme, dark: darkTheme };
 
     /**
+     * Calculates the price range for a given plot configuration and visible data.
+     * @param { PlotConfig} plotConfig - The configuration object for the plot.
+     * @param {Array} visibleData - The data that is currently visible in the viewport.
+     * @param {DataViewport} dataViewport - The current data viewport information.
+     * @returns An object containing the minPrice and maxPrice for the plot.
+     */
+    calculatePriceRange(plotConfig, visibleData, dataViewport) {
+        let minPrice, maxPrice;
+        
+        if (plotConfig.type === 'volume') {
+            minPrice = 0;
+            maxPrice = Math.max(...visibleData.map(d => d.volume || 1));
+        } else if (plotConfig.type === 'line') {
+            const plotVisibleData = plotConfig.data.slice(dataViewport.startIndex, dataViewport.startIndex + dataViewport.visibleCount);
+            const values = plotVisibleData.map(d => d.value);
+            const currentMinPrice = Math.min(...values);
+            const currentMaxPrice = Math.max(...values);
+            const priceRange = currentMaxPrice - currentMinPrice;
+            const padding = priceRange * 0.1; // 10% padding
+            minPrice = currentMinPrice - padding;
+            maxPrice = currentMaxPrice + padding;
+        } else {
+            const lows = visibleData.map(d => d.low);
+            const highs = visibleData.map(d => d.high);
+            const currentMinPrice = Math.min(...lows);
+            const currentMaxPrice = Math.max(...highs);
+            const priceRange = currentMaxPrice - currentMinPrice;
+            const padding = priceRange * 0.1; // 10% padding
+            minPrice = currentMinPrice - padding;
+            maxPrice = currentMaxPrice + padding;
+        }
+        
+        return { minPrice, maxPrice };
+    }
+
+    /**
+     * Calculate the maximum width needed for Y-axis labels across all plots
+     * @private
+     * @returns {number} The maximum width needed for the Y-axis labels
+     */
+    calculateYAxisWidth() {
+        if (!this.ctx || !this.dataViewport) {
+            return 80; // Default width if not ready
+        }
+
+        const ctx = this.ctx;
+        let maxWidth = 0;
+        const fontSize = this.canvas.width < 600 ? 10 : 12;
+        ctx.font = `${fontSize}px Arial`;
+
+        // If no data is available yet, use some sample values
+        const visibleData = this.dataViewport.getVisibleData();
+        if (visibleData.length === 0) {
+            return 80; // Default width if no data
+        }
+
+        // Check each plot's min and max values
+        this.options.plots.forEach(plotConfig => {
+            const { minPrice, maxPrice } = this.calculatePriceRange(plotConfig, visibleData, this.dataViewport);
+            let testValues = [minPrice, maxPrice];
+
+            // Generate some sample values between min and max
+            const range = maxPrice - minPrice;
+            for (let i = 1; i < 4; i++) {
+                testValues.push(minPrice + (range * i / 4));
+            }
+
+            // Format each value and measure its width
+            testValues.forEach(value => {
+                let label;
+                if (plotConfig.type === 'volume') {
+                    if (value >= 1000000) {
+                        label = (value / 1000000).toFixed(1) + 'M';
+                    } else if (value >= 1000) {
+                        label = (value / 1000).toFixed(1) + 'K';
+                    } else {
+                        label = Math.round(value).toLocaleString();
+                    }
+                } else {
+                    if (value >= 1000) {
+                        label = value.toFixed(0);
+                    } else if (value >= 100) {
+                        label = value.toFixed(1);
+                    } else if (value >= 10) {
+                        label = value.toFixed(2);
+                    } else {
+                        label = value.toFixed(3);
+                    }
+                }
+                
+                const width = ctx.measureText(label).width;
+                maxWidth = Math.max(maxWidth, width);
+            });
+        });
+
+        // Add padding
+        return maxWidth + (this.canvas.width < 600 ? 4 : 8);
+    }
+
+    /**
      * Resizes the canvas to match the container's dimensions and redraws the chart.
      * @private
      */
@@ -151,7 +253,10 @@ class StockChart {
 
         this.canvas.width = clientWidth;
         this.canvas.height = clientHeight;
-        this.plotLayoutManager.updateCanvasDimensions(clientWidth, clientHeight);
+
+        // Calculate Y-axis width and update layout
+        const yAxisWidth = this.calculateYAxisWidth();
+        this.plotLayoutManager.updateCanvasDimensions(clientWidth, clientHeight, yAxisWidth);
     }
 
     /**
@@ -211,42 +316,8 @@ class StockChart {
 
         const barWidth = this.canvas.width / this.dataViewport.visibleCount;
 
-        // Helper function to calculate price range
-        /**
-         * Calculates the price range for a given plot configuration and visible data.
-         * @param { PlotConfig} plotConfig - The configuration object for the plot.
-         * @param {Array} visibleData - The data that is currently visible in the viewport.
-         * @param {DataViewport} dataViewport - The current data viewport information.
-         * @returns An object containing the minPrice and maxPrice for the plot.
-         */
-        function calculatePriceRange(plotConfig, visibleData, dataViewport) {
-            let minPrice, maxPrice;
-            
-            if (plotConfig.type === 'volume') {
-                minPrice = 0;
-                maxPrice = Math.max(...visibleData.map(d => d.volume || 1));
-            } else if (plotConfig.type === 'line') {
-                const plotVisibleData = plotConfig.data.slice(dataViewport.startIndex, dataViewport.startIndex + dataViewport.visibleCount);
-                const values = plotVisibleData.map(d => d.value);
-                const currentMinPrice = Math.min(...values);
-                const currentMaxPrice = Math.max(...values);
-                const priceRange = currentMaxPrice - currentMinPrice;
-                const padding = priceRange * 0.1; // 10% padding
-                minPrice = currentMinPrice - padding;
-                maxPrice = currentMaxPrice + padding;
-            } else {
-                const lows = visibleData.map(d => d.low);
-                const highs = visibleData.map(d => d.high);
-                const currentMinPrice = Math.min(...lows);
-                const currentMaxPrice = Math.max(...highs);
-                const priceRange = currentMaxPrice - currentMinPrice;
-                const padding = priceRange * 0.1; // 10% padding
-                minPrice = currentMinPrice - padding;
-                maxPrice = currentMaxPrice + padding;
-            }
-            
-            return { minPrice, maxPrice };
-        }
+        // Calculate price range using class method
+        // const { minPrice, maxPrice } = this.calculatePriceRange(plotConfig, visibleData, this.dataViewport);
 
         // Simplified main rendering code
         this.options.plots.forEach(plotConfig => {
@@ -282,7 +353,7 @@ class StockChart {
                 }
 
                 // Calculate price range once
-                const { minPrice, maxPrice } = calculatePriceRange(plotConfig, visibleData, this.dataViewport);
+                const { minPrice, maxPrice } = this.calculatePriceRange(plotConfig, visibleData, this.dataViewport);
 
                 // Draw Y-axis labels before clipping
                 this.drawYAxisLabels(plotConfig, plotLayout, minPrice, maxPrice);
@@ -394,8 +465,8 @@ class StockChart {
             const plot = this.options.plots[i];
             if (!plot.overlay) {
                 const layout = this.plotLayoutManager.getPlotLayout(plot.id);
-                const handleY = layout.y + layout.height - this.resizeHandleHeight / 2;
-                if (Math.abs(mouseY - handleY - this.resizeHandleHeight / 2) < this.resizeHandleHeight) {
+                const handleY = layout.y + layout.height;
+                if (Math.abs(mouseY - handleY) < this.resizeHandleHeight) {
                     this.isResizingPlot = true;
                     this.resizingPlotId = plot.id;
                     this.lastMouseY = event.clientY;
@@ -435,7 +506,8 @@ class StockChart {
                 
                 // Calculate new height ratios
                 const totalRatio = plot.heightRatio + nextPlot.heightRatio;
-                const pixelsPerRatio = this.canvas.height / totalRatio;
+                const plotLayout = this.plotLayoutManager.getPlotLayout(plot.id);
+                const pixelsPerRatio = plotLayout.height / plot.heightRatio;
                 const ratioChange = deltaY / pixelsPerRatio;
                 
                 // Ensure minimum height for both plots (10% of their combined height)
@@ -445,7 +517,8 @@ class StockChart {
                 plot.heightRatio = newRatio;
                 nextPlot.heightRatio = totalRatio - newRatio;
                 
-                // Recalculate layout
+                // Recalculate layout and render
+                this.resize();
                 this.render();
             }
         } else if (this.isDragging) {
@@ -465,8 +538,8 @@ class StockChart {
                 const plot = this.options.plots[i];
                 if (!plot.overlay) {
                     const layout = this.plotLayoutManager.getPlotLayout(plot.id);
-                    const handleY = layout.y + layout.height - this.resizeHandleHeight / 2;
-                    if (Math.abs(this.crosshairY - handleY - this.resizeHandleHeight / 2) < this.resizeHandleHeight) {
+                    const handleY = layout.y + layout.height;
+                    if (Math.abs(this.crosshairY - handleY) < this.resizeHandleHeight) {
                         this.canvas.style.cursor = 'row-resize';
                         isOverHandle = true;
                         break;
@@ -751,7 +824,7 @@ class StockChart {
             }
 
             // Draw label in the right margin area with better positioning
-            const x = plotLayout.x + plotLayout.width + (this.canvas.width < 600 ? 2 : 4);
+            const x = plotLayout.x + plotLayout.width + 4;
             this.ctx.fillText(label, x, y + fontSize / 3);
         });
 
@@ -787,16 +860,45 @@ class StockChart {
                 this.ctx.fillStyle = this.currentTheme.overlayTextColor;
                 this.ctx.font = '12px Arial';
 
-                // Show current price to the right of crosshair
-                // if (plotConfig.id === 'main' && dataPoint.close !== undefined) {
-                const cursorY = this.crosshairY;
-                // const cursorYPriceText = this.plotLayoutManager.getValueBasedOnY(plotConfig.id, cursorY);
-                // const priceText = dataPoint.close.toFixed(2);
-                // const yPrice = this.plotLayoutManager.getPlotYForValue(dataPoint.close);
-                this.ctx.textAlign = 'left';
-                const priceX = this.plotLayoutManager.getPlotTotalWidth() + 5;
-                this.ctx.fillText('cursorYPriceText', priceX, this.crosshairY);
-                // }
+                // Show value at cursor Y position to the right of crosshair
+                if (this.crosshairY >= plotLayout.y && 
+                    this.crosshairY <= plotLayout.y + plotLayout.height) {
+                    const { minPrice, maxPrice } = this.calculatePriceRange(plotConfig, visibleData, this.dataViewport);
+                    const cursorValue = getValueBasedOnY(
+                        this.crosshairY,
+                        plotLayout.y,
+                        plotLayout.height,
+                        minPrice,
+                        maxPrice
+                    );
+
+                    // Format the value based on plot type and magnitude
+                    let valueText;
+                    if (plotConfig.type === 'volume') {
+                        if (cursorValue >= 1000000) {
+                            valueText = (cursorValue / 1000000).toFixed(2) + 'M';
+                        } else if (cursorValue >= 1000) {
+                            valueText = (cursorValue / 1000).toFixed(2) + 'K';
+                        } else {
+                            valueText = Math.round(cursorValue).toString();
+                        }
+                    } else {
+                        // For price values, use appropriate decimal places
+                        if (cursorValue >= 1000) {
+                            valueText = cursorValue.toFixed(0);
+                        } else if (cursorValue >= 100) {
+                            valueText = cursorValue.toFixed(1);
+                        } else if (cursorValue >= 10) {
+                            valueText = cursorValue.toFixed(2);
+                        } else {
+                            valueText = cursorValue.toFixed(3);
+                        }
+                    }
+
+                    this.ctx.textAlign = 'left';
+                    const valueX = this.plotLayoutManager.getPlotTotalWidth() + 5;
+                    this.ctx.fillText(valueText, valueX, this.crosshairY);
+                }
 
                 // Show date at the bottom of crosshair
                 if (plotConfig.id === 'main' && dataPoint.time !== undefined) {

@@ -1,6 +1,6 @@
 /**
  * @fileoverview Utility functions for drawing on the canvas.
- * @author Your Name
+ * @author H Chen
  */
 
 /**

@@ -21,6 +21,12 @@ export interface PlotConfig {
     type: 'candlestick' | 'line' | 'volume';
     overlay?: boolean;
     data: Array<StockData | number | any>;
+    style?: {
+        lineColor?: string;
+        lineWidth?: number;
+        fillColor?: string;
+        opacity?: number;
+    };
 }
 
 /**

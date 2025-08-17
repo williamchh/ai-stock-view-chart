@@ -323,13 +323,15 @@ class StockChart {
         this.options.plots.forEach(plotConfig => {
             const plotLayout = this.plotLayoutManager.getPlotLayout(plotConfig.id);
             if (plotLayout) {
-                // Draw plot background
-                this.ctx.fillStyle = this.currentTheme.chartAreaBackground;
-                this.ctx.fillRect(plotLayout.x, plotLayout.y, plotLayout.width, plotLayout.height);
+                // Draw plot background and border only for non-overlay plots
+                if (!plotConfig.overlay) {
+                    this.ctx.fillStyle = this.currentTheme.chartAreaBackground;
+                    this.ctx.fillRect(plotLayout.x, plotLayout.y, plotLayout.width, plotLayout.height);
 
-                this.ctx.strokeStyle = this.currentTheme.gridColor;
-                this.ctx.lineWidth = 1;
-                this.ctx.strokeRect(plotLayout.x, plotLayout.y, plotLayout.width, plotLayout.height);
+                    this.ctx.strokeStyle = this.currentTheme.gridColor;
+                    this.ctx.lineWidth = 1;
+                    this.ctx.strokeRect(plotLayout.x, plotLayout.y, plotLayout.width, plotLayout.height);
+                }
 
                 // Draw resize handle if not the last plot
                 const isLastPlot = this.options.plots.indexOf(plotConfig) === this.options.plots.length - 1;
@@ -386,7 +388,9 @@ class StockChart {
                                 const y1 = getYPixel(prevDataPoint.value, minPrice, maxPrice, plotLayout.height, plotLayout.y);
                                 const x2 = getXPixel(this.dataViewport.startIndex + i, this.dataViewport.startIndex, this.dataViewport.visibleCount, plotLayout.width, barWidth) + barWidth / 2;
                                 const y2 = getYPixel(dataPoint.value, minPrice, maxPrice, plotLayout.height, plotLayout.y);
-                                drawLine(this.ctx, x1, y1, x2, y2, this.currentTheme.lineColor, 2);
+                                const lineColor = plotConfig.style?.lineColor || this.currentTheme.lineColor;
+                                const lineWidth = plotConfig.style?.lineWidth || 2;
+                                drawLine(this.ctx, x1, y1, x2, y2, lineColor, lineWidth);
                             }
                         });
                         break;

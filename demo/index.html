@@ -51,19 +51,79 @@
        return data;
    }
 
+   function calculateSMA(data, period) {
+       const smaData = [];
+       for (let i = 0; i < data.length; i++) {
+           if (i < period - 1) {
+               // Not enough data for SMA yet
+               smaData.push({
+                   time: data[i].time,
+                   value: null
+               });
+               continue;
+           }
+
+           // Calculate sum of closing prices for the period
+           let sum = 0;
+           for (let j = 0; j < period; j++) {
+               sum += data[i - j].close;
+           }
+
+           // Calculate average and add to SMA data
+           smaData.push({
+               time: data[i].time,
+               value: sum / period
+           });
+       }
+       return smaData;
+   }
+
     const candlestickData = generateCandlestickData(3000);
 
+    // Calculate SMAs
+    const sma20Data = calculateSMA(candlestickData, 20);
+    const sma50Data = calculateSMA(candlestickData, 50);
     const lineData = candlestickData.map(d => ({ date: d.date, value: d.close }));
-    const volumeData = candlestickData.map(d => ({ date: d.date, volume: d.volume }));
+
+    const volumeData = candlestickData.map(d => ({ time: d.time, volume: d.volume }));
 
     StockChart.init('chart-container', {
       theme: 'dark',
-      chartType: 'candlestick',
       initialVisibleCandles: 50,
       plots: [
-        { id: 'main', type: 'candlestick', heightRatio: 0.7, data: candlestickData },
+        { 
+          id: 'main', 
+          type: 'candlestick', 
+          heightRatio: 0.7, 
+          data: candlestickData 
+        },
+        { 
+          id: 'sma20', 
+          type: 'line', 
+          data: sma20Data,
+          overlay: true,
+          style: {
+            lineColor: 'rgba(255, 140, 0, 0.8)',  // Orange
+            lineWidth: 1.5
+          }
+        },
+        { 
+          id: 'sma50', 
+          type: 'line', 
+          data: sma50Data,
+          overlay: true,
+          style: {
+            lineColor: 'rgba(70, 130, 180, 0.8)',  // Steel Blue
+            lineWidth: 5
+          }
+        },
         { id: 'closeLine', type: 'line', heightRatio: 0.2, data: lineData, overlay: false },
-        { id: 'volume', type: 'volume', heightRatio: 0.1, data: volumeData }
+        { 
+          id: 'volume', 
+          type: 'volume', 
+          heightRatio: 0.1, 
+          data: volumeData 
+        }
       ]
     });
   </script>

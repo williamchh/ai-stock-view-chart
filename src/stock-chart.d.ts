@@ -1,8 +1,15 @@
 export interface StockChartOptions {
   theme?: 'light' | 'dark';
+  chartName?: ChartName;
   chartType?: 'candlestick' | 'line';
   plots?: Array<PlotConfig>;
   initialVisibleCandles?: number;
+}
+
+export interface ChartName {
+  name?: string;
+  code?: string;
+  metaString?: string;
 }
 
 export interface StockData {

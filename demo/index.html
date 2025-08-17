@@ -68,7 +68,12 @@
 
     StockChart.init('chart-container', {
       theme: 'dark',
-      initialVisibleCandles: 50,
+      chartName: {
+        name: 'Apple Inc.',
+        code: 'AAPL',
+        metaString: 'NASDAQ, 1D'
+      },
+      initialVisibleCandles: 100,
       plots: [
         { 
           id: 'main', 

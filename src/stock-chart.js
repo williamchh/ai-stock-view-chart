@@ -472,8 +472,11 @@ class StockChart {
         // Draw X-axis labels
         this.drawXAxisLabels();
 
+        // Draw chart name, code, and meta string
+        this.drawChartName();
+
         // Debug overlay
-        this.ctx.fillText(`Canvas: ${this.canvas.width}x${this.canvas.height}`, 20, 60);
+        // this.ctx.fillText(`Canvas: ${this.canvas.width}x${this.canvas.height}`, 20, 60);
 
         // Draw crosshair
         if (this.crosshairX !== -1 && this.crosshairY !== -1) {
@@ -824,6 +827,42 @@ class StockChart {
         this.crosshairX = -1;
         this.crosshairY = -1;
         this.render();
+    }
+
+    /**
+     * Draws the chart name, code, and meta string on the top-left corner of the chart.
+     */
+    drawChartName() {
+        const { chartName } = this.options;
+        if (!chartName) {
+            return;
+        }
+
+        const { name, code, metaString } = chartName;
+        const { textColor } = this.currentTheme;
+        const fontSize = this.canvas.width < 600 ? 10 : 14;
+        const padding = 10;
+        let yPos = 20;
+
+        this.ctx.fillStyle = textColor;
+        this.ctx.textAlign = 'left';
+
+        if (name) {
+            this.ctx.font = `bold ${fontSize + 2}px Arial`;
+            this.ctx.fillText(name, padding, yPos);
+            yPos += fontSize + 4;
+        }
+
+        if (code) {
+            this.ctx.font = `${fontSize}px Arial`;
+            this.ctx.fillText(code, padding, yPos);
+            yPos += fontSize + 2;
+        }
+
+        if (metaString) {
+            this.ctx.font = `italic ${fontSize - 1}px Arial`;
+            this.ctx.fillText(metaString, padding, yPos);
+        }
     }
 
     drawXAxisLabels() {

@@ -1,24 +1,34 @@
 {
-  "name": "lightweight-stock-chart",
+  "name": "ai-stock-view-chart",
   "version": "1.0.0",
-  "description": "A lightweight, open-source stock chart library with advanced features",
-  "main": "dist/stock-chart.js",
+  "description": "Interactive stock charting library with candlestick, line charts, crosshair sync, overlays, and theming.",
+  "main": "src/stock-chart.js",
+  "module": "src/stock-chart.js",
+  "types": "src/stock-chart.d.ts",
   "files": [
-    "dist"
+    "dist",
+    "src"
   ],
   "scripts": {
-    "dev": "node ./src/index.js"
+    "build": "echo 'Add build tooling if required'",
+    "test": "echo \\\"No tests yet\\\" && exit 0",
+    "demo": "echo \\\"Run demo app via /demo/index.html\\\""
   },
   "keywords": [
     "stock",
-    "chart",
-    "trading",
     "finance",
-    "canvas",
-    "lightweight"
+    "chart",
+    "candlestick",
+    "technical-analysis"
   ],
   "author": "Will",
   "license": "MIT",
-  "devDependencies": {
-  }
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/ai-stock-view-chart.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/ai-stock-view-chart/issues"
+  },
+  "homepage": "https://github.com/yourusername/ai-stock-view-chart#readme"
 }

@@ -73,11 +73,15 @@ class StockChart {
         this.dataViewport = new DataViewport(mainPlot.data || [], this.options.initialVisibleCandles, 8);
 
         this.isDragging = false;
+        this.isResizingPlot = false;
+        this.resizingPlotId = null;
         this.lastMouseX = 0;
+        this.lastMouseY = 0;
         this.lastTouchX = 0;
         this.lastTouchY = 0;
         this.crosshairX = -1;
         this.crosshairY = -1;
+        this.resizeHandleHeight = 10; // Height of the resize handle area
         this.minPrice = 0; // Will be updated in render
         this.maxPrice = 0; // Will be updated in render
         this.priceScale = 1.0; // vertical zoom/scale factor
@@ -85,8 +89,8 @@ class StockChart {
         this.canvas.addEventListener('mousedown', this.handleMouseDown.bind(this));
         this.canvas.addEventListener('mousemove', this.handleMouseMove.bind(this));
         // Custom event listener for external cursor sync
-        window.addEventListener('broadcastCursor', e => {
-            const { x, y } = e.detail;
+        window.addEventListener('broadcastCursor', (e) => {
+            const { x, y } = /** @type {CustomEvent<{x: number, y: number}>} */ (e).detail;
             this.crosshairX = x;
             this.crosshairY = y;
             this.render();
@@ -121,9 +125,8 @@ class StockChart {
      */
     static defaultOptions = {
         theme: 'light', // 'light' or 'dark'
-        chartType: 'candlestick', // 'candlestick' or 'line'
         plots: [
-            { id: 'main', heightRatio: 0.7, type: 'candlestick', data: [] }
+            { id: 'main', heightRatio: 0.7, data: [], type: 'line' }
         ],
         initialVisibleCandles: 100,
         // Add more default options as needed
@@ -257,6 +260,27 @@ class StockChart {
                 this.ctx.lineWidth = 1;
                 this.ctx.strokeRect(plotLayout.x, plotLayout.y, plotLayout.width, plotLayout.height);
 
+                // Draw resize handle if not the last plot
+                const isLastPlot = this.options.plots.indexOf(plotConfig) === this.options.plots.length - 1;
+                if (!isLastPlot && !plotConfig.overlay) {
+                    // Draw resize handle
+                    const handleY = plotLayout.y + plotLayout.height - this.resizeHandleHeight / 2;
+                    this.ctx.fillStyle = this.isResizingPlot && this.resizingPlotId === plotConfig.id ? 
+                        'rgba(150, 150, 150, 0.3)' : 'rgba(100, 100, 100, 0.1)';
+                    this.ctx.fillRect(plotLayout.x, handleY, plotLayout.width, this.resizeHandleHeight);
+                    
+                    // Draw handle dots
+                    this.ctx.fillStyle = this.currentTheme.gridColor;
+                    const dotSpacing = 6;
+                    const dotsWidth = 30;
+                    const startX = plotLayout.x + (plotLayout.width - dotsWidth) / 2;
+                    for (let x = startX; x < startX + dotsWidth; x += dotSpacing) {
+                        this.ctx.beginPath();
+                        this.ctx.arc(x, handleY + this.resizeHandleHeight / 2, 1, 0, Math.PI * 2);
+                        this.ctx.fill();
+                    }
+                }
+
                 // Calculate price range once
                 const { minPrice, maxPrice } = calculatePriceRange(plotConfig, visibleData, this.dataViewport);
 
@@ -321,20 +345,30 @@ class StockChart {
             this.ctx.lineWidth = 1;
             this.ctx.setLineDash([5, 5]); // Dashed line
 
-            // Vertical line
-            this.ctx.beginPath();
-            this.ctx.moveTo(this.crosshairX, 0);
-            this.ctx.lineTo(this.crosshairX, this.plotLayoutManager.getPlotTotalHeight());
-            this.ctx.stroke();
-
-            // Horizontal line (only in main plot for now)
-            const mainPlotLayout = this.plotLayoutManager.getPlotLayout('main');
-            if (mainPlotLayout && this.crosshairY >= mainPlotLayout.y && this.crosshairY <= mainPlotLayout.y + mainPlotLayout.height) {
+            // Vertical line - only within plot area, not in y-axis label area
+            const firstPlot = this.options.plots[0];
+            const plotLayout = this.plotLayoutManager.getPlotLayout(firstPlot.id);
+            if (plotLayout && this.crosshairX <= plotLayout.x + plotLayout.width) {
                 this.ctx.beginPath();
-                this.ctx.moveTo(0, this.crosshairY);
-                this.ctx.lineTo(this.plotLayoutManager.getPlotTotalWidth(), this.crosshairY);
+                this.ctx.moveTo(this.crosshairX, 0);
+                this.ctx.lineTo(this.crosshairX, this.plotLayoutManager.getPlotTotalHeight());
                 this.ctx.stroke();
             }
+
+            // Horizontal line for any plot the cursor is over
+            this.options.plots.forEach(plot => {
+                if (plot.overlay) return; // Skip overlay plots
+                const plotLayout = this.plotLayoutManager.getPlotLayout(plot.id);
+                if (plotLayout && 
+                    this.crosshairY >= plotLayout.y && 
+                    this.crosshairY <= plotLayout.y + plotLayout.height) {
+                    // Draw horizontal line for this plot
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(0, this.crosshairY);
+                    this.ctx.lineTo(this.plotLayoutManager.getPlotTotalWidth(), this.crosshairY);
+                    this.ctx.stroke();
+                }
+            });
             this.ctx.setLineDash([]); // Reset line dash
 
             // Display price and indicator info overlay
@@ -352,6 +386,25 @@ class StockChart {
      * @param {MouseEvent} event - The mouse event.
      */
     handleMouseDown(event) {
+        const rect = this.canvas.getBoundingClientRect();
+        const mouseY = event.clientY - rect.top;
+        
+        // Check if clicking on a resize handle
+        for (let i = 0; i < this.options.plots.length - 1; i++) {
+            const plot = this.options.plots[i];
+            if (!plot.overlay) {
+                const layout = this.plotLayoutManager.getPlotLayout(plot.id);
+                const handleY = layout.y + layout.height - this.resizeHandleHeight / 2;
+                if (Math.abs(mouseY - handleY - this.resizeHandleHeight / 2) < this.resizeHandleHeight) {
+                    this.isResizingPlot = true;
+                    this.resizingPlotId = plot.id;
+                    this.lastMouseY = event.clientY;
+                    return;
+                }
+            }
+        }
+
+        // If not resizing, then it's regular dragging
         this.isDragging = true;
         this.lastMouseX = event.clientX;
     }
@@ -365,7 +418,37 @@ class StockChart {
         this.crosshairX = event.clientX - rect.left;
         this.crosshairY = event.clientY - rect.top;
 
-        if (this.isDragging) {
+        if (this.isResizingPlot) {
+            const deltaY = event.clientY - this.lastMouseY;
+            this.lastMouseY = event.clientY;
+
+            // Find the plot being resized and the next plot
+            const plotIndex = this.options.plots.findIndex(p => p.id === this.resizingPlotId);
+            let nextPlotIndex = plotIndex + 1;
+            while (nextPlotIndex < this.options.plots.length && this.options.plots[nextPlotIndex].overlay) {
+                nextPlotIndex++;
+            }
+
+            if (plotIndex >= 0 && nextPlotIndex < this.options.plots.length) {
+                const plot = this.options.plots[plotIndex];
+                const nextPlot = this.options.plots[nextPlotIndex];
+                
+                // Calculate new height ratios
+                const totalRatio = plot.heightRatio + nextPlot.heightRatio;
+                const pixelsPerRatio = this.canvas.height / totalRatio;
+                const ratioChange = deltaY / pixelsPerRatio;
+                
+                // Ensure minimum height for both plots (10% of their combined height)
+                const minRatio = totalRatio * 0.1;
+                const newRatio = Math.max(minRatio, Math.min(totalRatio - minRatio, plot.heightRatio + ratioChange));
+                
+                plot.heightRatio = newRatio;
+                nextPlot.heightRatio = totalRatio - newRatio;
+                
+                // Recalculate layout
+                this.render();
+            }
+        } else if (this.isDragging) {
             const deltaX = event.clientX - this.lastMouseX;
             const barWidth = this.canvas.width / this.dataViewport.visibleCount;
             const scrollAmount = Math.round(deltaX / barWidth);
@@ -376,6 +459,23 @@ class StockChart {
                 this.render();
             }
         } else {
+            // Check if mouse is over a resize handle
+            let isOverHandle = false;
+            for (let i = 0; i < this.options.plots.length - 1; i++) {
+                const plot = this.options.plots[i];
+                if (!plot.overlay) {
+                    const layout = this.plotLayoutManager.getPlotLayout(plot.id);
+                    const handleY = layout.y + layout.height - this.resizeHandleHeight / 2;
+                    if (Math.abs(this.crosshairY - handleY - this.resizeHandleHeight / 2) < this.resizeHandleHeight) {
+                        this.canvas.style.cursor = 'row-resize';
+                        isOverHandle = true;
+                        break;
+                    }
+                }
+            }
+            if (!isOverHandle) {
+                this.canvas.style.cursor = 'default';
+            }
             this.render();
         }
     }
@@ -385,6 +485,9 @@ class StockChart {
      */
     handleMouseUp() {
         this.isDragging = false;
+        this.isResizingPlot = false;
+        this.resizingPlotId = null;
+        this.canvas.style.cursor = 'default';
     }
 
     /**
@@ -503,41 +606,62 @@ class StockChart {
         const mainPlotLayout = this.plotLayoutManager.getPlotLayout('main');
         if (!mainPlotLayout) return;
 
-        // Responsive font size for X-axis labels
-        const fontSize = this.canvas.width < 600 ? 9 : 11;
-        const xAxisY = this.canvas.height - (this.canvas.width < 600 ? 6 : 10);
+        // Calculate the amount of space we have for labels
+        const availableWidth = mainPlotLayout.width;
+        const fontSize = Math.max(10, Math.min(12, Math.floor(availableWidth / 50))); // Responsive font size
+        const minLabelSpacing = fontSize * 8; // Minimum pixels between labels
+        
+        // Calculate optimal number of labels based on available space
+        const _maxLabels = Math.floor(availableWidth / minLabelSpacing);
+        const maxLabels = _maxLabels > 10 ? 10 : _maxLabels;
+        const labelInterval = Math.max(1, Math.floor(visibleData.length / maxLabels));
+
+        // Set up text properties
         this.ctx.fillStyle = this.currentTheme.textColor;
         this.ctx.font = `${fontSize}px Arial`;
         this.ctx.textAlign = 'center';
+        
+        // Position labels just above bottom margin
+        const xAxisY = this.canvas.height - fontSize;
 
-        // Adjust label interval based on canvas width and data density
-        const maxLabels = Math.max(2, Math.floor(this.canvas.width / (fontSize * 6)));
-        const labelInterval = Math.max(1, Math.floor(this.dataViewport.visibleCount / maxLabels));
+        // Get date range for format selection
+        const firstDate = new Date(visibleData[0].time * 1000);
+        const lastDate = new Date(visibleData[visibleData.length - 1].time * 1000);
+        const daysDiff = (lastDate.getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24);
 
+        // Helper function to format date based on range and available space
+        const formatDate = (date) => {
+            if (daysDiff > 365) {
+                // For ranges over a year
+                return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short' });
+            } else if (daysDiff > 30) {
+                // For ranges over a month
+                return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+            } else {
+                // For shorter ranges
+                return date.toLocaleDateString(undefined, { month: 'numeric', day: 'numeric' });
+            }
+        };
+
+        // Draw the labels
         for (let i = 0; i < visibleData.length; i += labelInterval) {
             const dataPoint = visibleData[i];
-            const barWidth = this.canvas.width / this.dataViewport.visibleCount;
-            const x = getXPixel(this.dataViewport.startIndex + i, this.dataViewport.startIndex, this.dataViewport.visibleCount, mainPlotLayout.width, barWidth);
+            if (!dataPoint || !dataPoint.time) continue;
 
-            if (dataPoint && dataPoint.time) {
-                const date = new Date(dataPoint.time * 1000);
-                
-                // Format date based on available space
-                let label;
-                if (this.canvas.width < 400) {
-                    // Very small screens - just month/day
-                    label = `${date.getMonth() + 1}/${date.getDate()}`;
-                } else if (this.canvas.width < 600) {
-                    // Small screens - short date
-                    label = date.toLocaleDateString('en-US', {
-                        month: 'short',
-                        day: 'numeric'
-                    });
-                } else {
-                    // Larger screens - full date
-                    label = date.toLocaleDateString();
-                }
-                
+            const x = getXPixel(
+                this.dataViewport.startIndex + i,
+                this.dataViewport.startIndex,
+                this.dataViewport.visibleCount,
+                mainPlotLayout.width,
+                mainPlotLayout.width / this.dataViewport.visibleCount
+            );
+
+            const date = new Date(dataPoint.time * 1000);
+            // const label = formatDate(date);
+            const label = date.toLocaleDateString(undefined, { year: 'numeric', month: 'numeric', day: 'numeric' });
+            
+            // Only draw if the label would be within the plot area
+            if (x >= mainPlotLayout.x && x <= mainPlotLayout.x + mainPlotLayout.width) {
                 this.ctx.fillText(label, x, xAxisY);
             }
         }
@@ -663,6 +787,32 @@ class StockChart {
                 this.ctx.fillStyle = this.currentTheme.overlayTextColor;
                 this.ctx.font = '12px Arial';
 
+                // Show current price to the right of crosshair
+                // if (plotConfig.id === 'main' && dataPoint.close !== undefined) {
+                const cursorY = this.crosshairY;
+                // const cursorYPriceText = this.plotLayoutManager.getValueBasedOnY(plotConfig.id, cursorY);
+                // const priceText = dataPoint.close.toFixed(2);
+                // const yPrice = this.plotLayoutManager.getPlotYForValue(dataPoint.close);
+                this.ctx.textAlign = 'left';
+                const priceX = this.plotLayoutManager.getPlotTotalWidth() + 5;
+                this.ctx.fillText('cursorYPriceText', priceX, this.crosshairY);
+                // }
+
+                // Show date at the bottom of crosshair
+                if (plotConfig.id === 'main' && dataPoint.time !== undefined) {
+                    const date = new Date(dataPoint.time * 1000);
+                    const dateText = date.toLocaleDateString(undefined, { 
+                        year: 'numeric', 
+                        month: 'numeric', 
+                        day: 'numeric'
+                    });
+                    this.ctx.textAlign = 'center';
+                    // Position the date text 5 pixels below the bottom of the plot area
+                    const dateY = this.plotLayoutManager.getPlotTotalHeight() + 15; // Use total height for bottom margin
+                    this.ctx.fillText(dateText, this.crosshairX, dateY);
+                }
+
+                // Show summary in top-right corner
                 let infoText = Object.entries(dataPoint)
                     .map(([key, value]) => {
                         if (key === 'time' || key === 'date') return null;

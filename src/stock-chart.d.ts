@@ -1,7 +1,6 @@
 export interface StockChartOptions {
   theme?: 'light' | 'dark';
   chartType?: 'candlestick' | 'line';
-  data: Array<StockData>;
   plots?: Array<PlotConfig>;
   initialVisibleCandles?: number;
 }
@@ -19,7 +18,9 @@ export interface PlotConfig {
     id: string;
     heightRatio: number;
     yPosition?: number;
-    height?: number;
+    type: 'candlestick' | 'line' | 'volume';
+    overlay?: boolean;
+    data: Array<StockData | number | any>;
 }
 
 /**

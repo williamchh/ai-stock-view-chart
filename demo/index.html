@@ -24,19 +24,31 @@
   <script type="module">
     import StockChart from '../src/stock-chart.js';
 
-    const data = [
+    const candlestickData = [
       { date: '2025-01-01', open: 100, high: 110, low: 95, close: 105, volume: 5000 },
       { date: '2025-01-02', open: 105, high: 115, low: 100, close: 110, volume: 6000 },
       { date: '2025-01-03', open: 110, high: 118, low: 108, close: 115, volume: 4500 },
       { date: '2025-01-04', open: 115, high: 120, low: 112, close: 118, volume: 4800 },
-      { date: '2025-01-05', open: 118, high: 122, low: 115, close: 119, volume: 5200 }
+      { date: '2025-01-05', open: 118, high: 122, low: 115, close: 119, volume: 5200 },
+      { date: '2025-01-06', open: 119, high: 125, low: 118, close: 122, volume: 5800 },
+      { date: '2025-01-07', open: 122, high: 128, low: 121, close: 126, volume: 6200 },
+      { date: '2025-01-08', open: 126, high: 130, low: 125, close: 129, volume: 5500 },
+      { date: '2025-01-09', open: 129, high: 135, low: 128, close: 132, volume: 6100 },
+      { date: '2025-01-10', open: 132, high: 138, low: 131, close: 135, volume: 6700 }
     ];
+
+    const lineData = candlestickData.map(d => ({ date: d.date, value: d.close }));
+    const volumeData = candlestickData.map(d => ({ date: d.date, volume: d.volume }));
 
     StockChart.init('chart-container', {
       theme: 'light',
       chartType: 'candlestick',
-      data,
-      initialVisibleCandles: 50
+      initialVisibleCandles: 50,
+      plots: [
+        // { id: 'main', type: 'candlestick', heightRatio: 0.7, data: candlestickData },
+        // { id: 'closeLine', type: 'line', heightRatio: 0.0, data: lineData, overlay: true },
+        { id: 'volume', type: 'volume', heightRatio: 0.3, data: volumeData }
+      ]
     });
   </script>
 </body>

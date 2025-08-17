@@ -13,6 +13,18 @@ import { PlotLayoutManager } from './utils/layout.js';
 import { DataViewport, getXPixel, getYPixel } from './utils/data.js';
 
 /**
+ * @typedef {import('./stock-chart.d.ts').StockChartOptions} StockChartOptions
+ */
+
+/**
+ * @typedef {import('./stock-chart.d.ts').StockData} StockData
+ */
+
+/**
+ * @typedef {import('./stock-chart.d.ts').PlotConfig} PlotConfig
+ */
+
+/**
  * Represents the main StockChart class.
  * Provides rendering, interaction, and theming for financial charts.
  */
@@ -20,7 +32,7 @@ class StockChart {
     /**
      * Initializes a new StockChart instance.
      * @param {string} elementId - The ID of the HTML element to mount the chart to.
-     * @param {object} options - Configuration options for the chart.
+     * @param {StockChartOptions} options - Configuration options for the chart.
      */
     static init(elementId, options) {
         const container = document.getElementById(elementId);
@@ -35,8 +47,9 @@ class StockChart {
     }
 
     /**
+     * Constructs a new StockChart instance
      * @param {HTMLElement} container - The HTML element to mount the chart to.
-     * @param {object} options - Configuration options for the chart.
+     * @param {StockChartOptions} options - Configuration options for the chart.
      */
     constructor(container, options) {
         this.container = container;
@@ -51,7 +64,8 @@ class StockChart {
             this.options.plots
         );
 
-        this.dataViewport = new DataViewport(this.options.data, this.options.initialVisibleCandles);
+        const mainPlot = this.options.plots && this.options.plots.length > 0 ? this.options.plots.find(p => p.data && p.data.length > 0) : { data: [] };
+        this.dataViewport = new DataViewport(mainPlot ? mainPlot.data : [], this.options.initialVisibleCandles);
 
         this.isDragging = false;
         this.lastMouseX = 0;
@@ -89,15 +103,14 @@ class StockChart {
 
     /**
      * Default options for the StockChart.
-     * @type {object}
+     * @type {StockChartOptions}
      */
     static defaultOptions = {
         theme: 'light', // 'light' or 'dark'
         chartType: 'candlestick', // 'candlestick' or 'line'
-        data: [],
         plots: [
-            { id: 'main', heightRatio: 0.7 },
-            { id: 'volume', heightRatio: 0.3 }
+            { id: 'main', heightRatio: 0.7, type: 'candlestick', data: [] },
+            { id: 'volume', heightRatio: 0.3, type: 'volume', data: [] }
         ],
         initialVisibleCandles: 100,
         // Add more default options as needed
@@ -118,7 +131,7 @@ class StockChart {
 
     /**
      * Applies the specified theme to the chart.
-     * @param {string} themeName - The name of the theme to apply ('light' or 'dark').
+     * @param {'light' | 'dark'} themeName - The name of the theme to apply ('light' or 'dark').
      */
     applyTheme(themeName) {
         // This will be expanded to load themes from src/themes
@@ -173,26 +186,6 @@ class StockChart {
 
         const barWidth = this.canvas.width / this.dataViewport.visibleCount;
 
-        // Determine min/max price for visible data
-        // If minPrice and maxPrice are not set (first render or after data change), calculate them
-        // Otherwise, use the existing minPrice and maxPrice for vertical scaling
-        if (this.minPrice === 0 && this.maxPrice === 0) {
-            let currentMinPrice = Infinity;
-            let currentMaxPrice = -Infinity;
-            visibleData.forEach(d => {
-                currentMinPrice = Math.min(currentMinPrice, d.low);
-                currentMaxPrice = Math.max(currentMaxPrice, d.high);
-            });
-            const priceRange = currentMaxPrice - currentMinPrice;
-            const padding = priceRange * 0.1; // 10% padding
-            this.minPrice = currentMinPrice - padding;
-            this.maxPrice = currentMaxPrice + padding;
-        }
-
-        const minPrice = this.minPrice;
-        const maxPrice = this.maxPrice;
-
-
         // Render plots based on layout
         this.options.plots.forEach(plotConfig => {
             const plotLayout = this.plotLayoutManager.getPlotLayout(plotConfig.id);
@@ -210,44 +203,72 @@ class StockChart {
                 this.ctx.lineWidth = 1;
                 this.ctx.strokeRect(plotLayout.x, plotLayout.y, plotLayout.width, plotLayout.height);
 
-                // Draw data points
-                if (plotConfig.id === 'main') {
-                    visibleData.forEach((dataPoint, i) => {
-                        const x = getXPixel(this.dataViewport.startIndex + i, this.dataViewport.startIndex, this.dataViewport.visibleCount, plotLayout.width, barWidth);
+                let minPrice, maxPrice;
 
-                        const openY = getYPixel(dataPoint.open, minPrice, maxPrice, plotLayout.height, plotLayout.y);
-                        const highY = getYPixel(dataPoint.high, minPrice, maxPrice, plotLayout.height, plotLayout.y);
-                        const lowY = getYPixel(dataPoint.low, minPrice, maxPrice, plotLayout.height, plotLayout.y);
-                        const closeY = getYPixel(dataPoint.close, minPrice, maxPrice, plotLayout.height, plotLayout.y);
-
-                        if (this.options.chartType === 'candlestick') {
-                            drawCandlestick(
-                                this.ctx,
-                                dataPoint,
-                                x,
-                                openY,
-                                highY,
-                                lowY,
-                                closeY,
-                                barWidth * 0.7, // Adjust candlestick width
-                                this.currentTheme
-                            );
-                        } else if (this.options.chartType === 'line') {
-                            // For line chart, connect close prices
-                            if (i > 0) {
-                                const prevDataPoint = visibleData[i - 1];
-                                const prevX = getXPixel(this.dataViewport.startIndex + i - 1, this.dataViewport.startIndex, this.dataViewport.visibleCount, plotLayout.width, barWidth);
-                                const prevY = getYPixel(prevDataPoint.close, minPrice, maxPrice, plotLayout.height, plotLayout.y);
-                                drawLine(
-                                    this.ctx,
-                                    prevX + barWidth / 2, prevY,
-                                    x + barWidth / 2, closeY,
-                                    this.currentTheme.lineColor,
-                                    2
-                                );
-                            }
-                        }
+                if (plotConfig.type === 'volume') {
+                    minPrice = 0;
+                    maxPrice = Math.max(...visibleData.map(d => d.volume || 1));
+                } else if (plotConfig.type === 'line') {
+                    let currentMinPrice = Infinity;
+                    let currentMaxPrice = -Infinity;
+                    const plotVisibleData = plotConfig.data.slice(this.dataViewport.startIndex, this.dataViewport.startIndex + this.dataViewport.visibleCount);
+                    plotVisibleData.forEach(d => {
+                        currentMinPrice = Math.min(currentMinPrice, d.value);
+                        currentMaxPrice = Math.max(currentMaxPrice, d.value);
                     });
+                    const priceRange = currentMaxPrice - currentMinPrice;
+                    const padding = priceRange * 0.1; // 10% padding
+                    minPrice = currentMinPrice - padding;
+                    maxPrice = currentMaxPrice + padding;
+                } else {
+                    let currentMinPrice = Infinity;
+                    let currentMaxPrice = -Infinity;
+                    visibleData.forEach(d => {
+                        currentMinPrice = Math.min(currentMinPrice, d.low);
+                        currentMaxPrice = Math.max(currentMaxPrice, d.high);
+                    });
+                    const priceRange = currentMaxPrice - currentMinPrice;
+                    const padding = priceRange * 0.1; // 10% padding
+                    minPrice = currentMinPrice - padding;
+                    maxPrice = currentMaxPrice + padding;
+                }
+
+                const plotData = plotConfig.data && plotConfig.data.length > 0 ? plotConfig.data : visibleData;
+                const plotVisibleData = plotData.slice(this.dataViewport.startIndex, this.dataViewport.startIndex + this.dataViewport.visibleCount);
+
+                // Draw data points based on plot type
+                switch (plotConfig.type) {
+                    case 'candlestick':
+                        plotVisibleData.forEach((dataPoint, i) => {
+                            const x = getXPixel(this.dataViewport.startIndex + i, this.dataViewport.startIndex, this.dataViewport.visibleCount, plotLayout.width, barWidth);
+                            const openY = getYPixel(dataPoint.open, minPrice, maxPrice, plotLayout.height, plotLayout.y);
+                            const highY = getYPixel(dataPoint.high, minPrice, maxPrice, plotLayout.height, plotLayout.y);
+                            const lowY = getYPixel(dataPoint.low, minPrice, maxPrice, plotLayout.height, plotLayout.y);
+                            const closeY = getYPixel(dataPoint.close, minPrice, maxPrice, plotLayout.height, plotLayout.y);
+                            drawCandlestick(this.ctx, dataPoint, x, openY, highY, lowY, closeY, barWidth * 0.7, this.currentTheme);
+                        });
+                        break;
+                    case 'line':
+                        plotVisibleData.forEach((dataPoint, i) => {
+                            if (i > 0) {
+                                const prevDataPoint = plotVisibleData[i - 1];
+                                const x1 = getXPixel(this.dataViewport.startIndex + i - 1, this.dataViewport.startIndex, this.dataViewport.visibleCount, plotLayout.width, barWidth) + barWidth / 2;
+                                const y1 = getYPixel(prevDataPoint.value, minPrice, maxPrice, plotLayout.height, plotLayout.y);
+                                const x2 = getXPixel(this.dataViewport.startIndex + i, this.dataViewport.startIndex, this.dataViewport.visibleCount, plotLayout.width, barWidth) + barWidth / 2;
+                                const y2 = getYPixel(dataPoint.value, minPrice, maxPrice, plotLayout.height, plotLayout.y);
+                                drawLine(this.ctx, x1, y1, x2, y2, this.currentTheme.lineColor, 2);
+                            }
+                        });
+                        break;
+                    case 'volume':
+                        plotVisibleData.forEach((dataPoint, i) => {
+                            const x = getXPixel(this.dataViewport.startIndex + i, this.dataViewport.startIndex, this.dataViewport.visibleCount, plotLayout.width, barWidth);
+                            const volHeight = ((dataPoint.volume || 0) / maxPrice) * plotLayout.height;
+                            const y = plotLayout.y + plotLayout.height - volHeight;
+                            this.ctx.fillStyle = this.currentTheme.volumeColor || 'rgba(0, 150, 136, 0.6)';
+                            this.ctx.fillRect(x, y, barWidth * 0.7, volHeight);
+                        });
+                        break;
                 }
             }
         }); // end forEach visibleData
@@ -398,8 +419,9 @@ class StockChart {
        const dataIndexAtCrosshair = Math.floor(this.crosshairX / barWidth);
        const actualDataIndex = this.dataViewport.startIndex + dataIndexAtCrosshair;
 
-       if (actualDataIndex >= 0 && actualDataIndex < this.options.data.length) {
-           const dataPoint = this.options.data[actualDataIndex];
+       const mainPlot = this.options.plots.find(p => p.id === 'main');
+       if (mainPlot && actualDataIndex >= 0 && actualDataIndex < mainPlot.data.length) {
+           const dataPoint = mainPlot.data[actualDataIndex];
            const mainPlotLayout = this.plotLayoutManager.getPlotLayout('main');
 
            if (mainPlotLayout) {
@@ -443,3 +465,5 @@ class StockChart {
        this.ctx.restore();
    }
 }
+
+export default StockChart;

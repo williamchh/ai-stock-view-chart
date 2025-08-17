@@ -25,15 +25,25 @@ export class PlotLayoutManager {
      */
     calculateLayout() {
         let currentY = 0;
+        const mainPlotConfig = this.plotConfigs.find(p => p.id === 'main');
+        if (!mainPlotConfig) {
+            console.error("Main plot configuration is missing.");
+            return;
+        }
+
         this.plotConfigs.forEach(config => {
-            const plotHeight = this.canvasHeight * config.heightRatio;
-            this.plots[config.id] = {
-                x: 0,
-                y: currentY,
-                width: this.canvasWidth,
-                height: plotHeight,
-            };
-            currentY += plotHeight;
+            if (config.overlay) {
+                this.plots[config.id] = { ...this.plots['main'] };
+            } else {
+                const plotHeight = this.canvasHeight * config.heightRatio;
+                this.plots[config.id] = {
+                    x: 0,
+                    y: currentY,
+                    width: this.canvasWidth,
+                    height: plotHeight,
+                };
+                currentY += plotHeight;
+            }
         });
     }
 

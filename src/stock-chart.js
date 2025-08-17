@@ -77,6 +77,7 @@ class StockChart {
         this.isDragging = false;
         this.isResizingPlot = false;
         this.resizingPlotId = null;
+        this.isDraggingYAxis = false; // New: for Y-axis dragging
         this.lastMouseX = 0;
         this.lastMouseY = 0;
         this.lastTouchX = 0;
@@ -88,6 +89,7 @@ class StockChart {
         this.maxPrice = 0; // Will be updated in render
         this.priceScale = 1.0; // vertical zoom/scale factor
         this.priceOffset = 0; // vertical offset for panning
+        this.plotScales = new Map(); // Store scales for each plot
         this.canvas.addEventListener('mousedown', this.handleMouseDown.bind(this));
         this.canvas.addEventListener('mousemove', this.handleMouseMove.bind(this));
         // Custom event listener for external cursor sync
@@ -170,6 +172,18 @@ class StockChart {
             const padding = priceRange * 0.1; // 10% padding
             minPrice = currentMinPrice - padding;
             maxPrice = currentMaxPrice + padding;
+        }
+
+        // Apply the plot's scale if it exists
+        // Make sure we have plotScales initialized
+        if (this.plotScales instanceof Map && plotConfig && plotConfig.id) {
+            const plotScale = this.plotScales.get(plotConfig.id) || 1.0;
+            if (plotScale !== 1.0) {
+                const midPrice = (maxPrice + minPrice) / 2;
+                const halfRange = (maxPrice - minPrice) / 2;
+                minPrice = midPrice - (halfRange / plotScale);
+                maxPrice = midPrice + (halfRange / plotScale);
+            }
         }
         
         return { minPrice, maxPrice };
@@ -486,9 +500,32 @@ class StockChart {
      */
     handleMouseDown(event) {
         const rect = this.canvas.getBoundingClientRect();
+        const mouseX = event.clientX - rect.left;
         const mouseY = event.clientY - rect.top;
         
-        // Check if clicking on a resize handle
+        // First check if clicking in Y-axis area
+        for (const plot of this.options.plots) {
+            if (plot.overlay) continue;
+            const layout = this.plotLayoutManager.getPlotLayout(plot.id);
+            if (layout) {
+                const yAxisArea = {
+                    x: layout.x + layout.width,  // Y-axis is on the right
+                    y: layout.y,
+                    width: 50,  // Y-axis width
+                    height: layout.height
+                };
+
+                if (mouseX >= yAxisArea.x && mouseX <= yAxisArea.x + yAxisArea.width &&
+                    mouseY >= yAxisArea.y && mouseY <= yAxisArea.y + yAxisArea.height) {
+                    this.isDraggingYAxis = true;
+                    this.resizingPlotId = plot.id;
+                    this.lastMouseY = event.clientY;
+                    return;
+                }
+            }
+        }
+        
+        // Then check if clicking on a resize handle
         for (let i = 0; i < this.options.plots.length - 1; i++) {
             const plot = this.options.plots[i];
             if (!plot.overlay) {
@@ -503,7 +540,7 @@ class StockChart {
             }
         }
 
-        // If not resizing, then it's regular dragging
+        // If not resizing or Y-axis dragging, then it's regular dragging
         this.isDragging = true;
         this.lastMouseX = event.clientX;
     }
@@ -516,6 +553,27 @@ class StockChart {
         const rect = this.canvas.getBoundingClientRect();
         this.crosshairX = event.clientX - rect.left;
         this.crosshairY = event.clientY - rect.top;
+
+        if (this.isDraggingYAxis && this.resizingPlotId) {
+            const deltaY = event.clientY - this.lastMouseY;
+            this.lastMouseY = event.clientY;
+            
+            // Get the current plot's scale
+            let plotScale = this.plotScales.get(this.resizingPlotId) || 1.0;
+            
+            // Adjust scale based on drag direction (up = increase, down = decrease)
+            const scaleFactor = Math.exp(-deltaY * 0.01);
+            plotScale *= scaleFactor;
+            
+            // Limit the scale to reasonable bounds
+            plotScale = Math.max(0.1, Math.min(10, plotScale));
+            
+            // Store the new scale
+            this.plotScales.set(this.resizingPlotId, plotScale);
+            
+            this.render();
+            return;
+        }
 
         if (this.isResizingPlot) {
             const deltaY = event.clientY - this.lastMouseY;
@@ -560,21 +618,36 @@ class StockChart {
                 this.render();
             }
         } else {
-            // Check if mouse is over a resize handle
-            let isOverHandle = false;
-            for (let i = 0; i < this.options.plots.length - 1; i++) {
-                const plot = this.options.plots[i];
-                if (!plot.overlay) {
-                    const layout = this.plotLayoutManager.getPlotLayout(plot.id);
+            // Check if mouse is over a resize handle or Y-axis
+            let specialCursor = false;
+            for (const plot of this.options.plots) {
+                if (plot.overlay) continue;
+                const layout = this.plotLayoutManager.getPlotLayout(plot.id);
+                if (layout) {
+                    // Check resize handle
                     const handleY = layout.y + layout.height;
                     if (Math.abs(this.crosshairY - handleY) < this.resizeHandleHeight) {
                         this.canvas.style.cursor = 'row-resize';
-                        isOverHandle = true;
+                        specialCursor = true;
+                        break;
+                    }
+
+                    // Check Y-axis area
+                    const yAxisArea = {
+                        x: layout.x + layout.width,
+                        y: layout.y,
+                        width: 50,
+                        height: layout.height
+                    };
+                    if (this.crosshairX >= yAxisArea.x && this.crosshairX <= yAxisArea.x + yAxisArea.width &&
+                        this.crosshairY >= yAxisArea.y && this.crosshairY <= yAxisArea.y + yAxisArea.height) {
+                        this.canvas.style.cursor = 'ns-resize';
+                        specialCursor = true;
                         break;
                     }
                 }
             }
-            if (!isOverHandle) {
+            if (!specialCursor) {
                 this.canvas.style.cursor = 'default';
             }
             this.render();
@@ -584,11 +657,41 @@ class StockChart {
     /**
      * Handles mouse up events.
      */
-    handleMouseUp() {
+    handleMouseUp(event) {
         this.isDragging = false;
         this.isResizingPlot = false;
+        this.isDraggingYAxis = false;
         this.resizingPlotId = null;
         this.canvas.style.cursor = 'default';
+
+        // Handle double click on Y-axis
+        if (event && event.detail === 2) { // Double click
+            const rect = this.canvas.getBoundingClientRect();
+            const mouseX = event.clientX - rect.left;
+            const mouseY = event.clientY - rect.top;
+
+            // Check if double click was in Y-axis area
+            for (const plot of this.options.plots) {
+                if (plot.overlay) continue;
+                const layout = this.plotLayoutManager.getPlotLayout(plot.id);
+                if (layout) {
+                    const yAxisArea = {
+                        x: layout.x + layout.width,
+                        y: layout.y,
+                        width: 50,
+                        height: layout.height
+                    };
+
+                    if (mouseX >= yAxisArea.x && mouseX <= yAxisArea.x + yAxisArea.width &&
+                        mouseY >= yAxisArea.y && mouseY <= yAxisArea.y + yAxisArea.height) {
+                        // Reset scale for this plot
+                        this.plotScales.delete(plot.id);
+                        this.render();
+                        break;
+                    }
+                }
+            }
+        }
     }
 
     /**

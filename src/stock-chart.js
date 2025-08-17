@@ -63,7 +63,7 @@ class StockChart {
         if (!mainPlot) {
             throw new Error("StockChart options must include a plot with id 'main'.");
         }
-        this.dataViewport = new DataViewport(mainPlot.data || [], this.options.initialVisibleCandles, 8);
+        this.dataViewport = new DataViewport(mainPlot.data || [], this.options.initialVisibleCandles, 5);
 
         // Then initialize plot layout with calculated Y-axis width
         this.plotLayoutManager = new PlotLayoutManager(
@@ -770,15 +770,81 @@ class StockChart {
      * Handles touch start events for mobile dragging.
      * @param {TouchEvent} event - The touch event.
      */
+    // Track the last touch time and position for double tap detection
+    lastTapTime = 0;
+    lastTapX = 0;
+    lastTapY = 0;
+
     handleTouchStart(event) {
         event.preventDefault();
         if (event.touches.length === 1) {
-            this.isDragging = true;
             const touch = event.touches[0];
             const rect = this.canvas.getBoundingClientRect();
-            this.lastMouseX = touch.clientX - rect.left;
-            this.lastTouchX = touch.clientX - rect.left;
-            this.lastTouchY = touch.clientY - rect.top;
+            const touchX = touch.clientX - rect.left;
+            const touchY = touch.clientY - rect.top;
+
+            // Check for Y-axis touch first
+            for (const plot of this.options.plots) {
+                if (plot.overlay) continue;
+                const layout = this.plotLayoutManager.getPlotLayout(plot.id);
+                if (layout) {
+                    const yAxisArea = {
+                        x: layout.x + layout.width,
+                        y: layout.y,
+                        width: 50,
+                        height: layout.height
+                    };
+
+                    if (touchX >= yAxisArea.x && touchX <= yAxisArea.x + yAxisArea.width &&
+                        touchY >= yAxisArea.y && touchY <= yAxisArea.y + yAxisArea.height) {
+                        // Check for double tap
+                        const currentTime = new Date().getTime();
+                        const tapLength = currentTime - this.lastTapTime;
+                        const tapDistance = Math.sqrt(
+                            Math.pow(touchX - this.lastTapX, 2) + 
+                            Math.pow(touchY - this.lastTapY, 2)
+                        );
+
+                        if (tapLength < 300 && tapDistance < 30) { // 300ms and 30px threshold
+                            // Double tap detected - reset scale
+                            this.plotScales.delete(plot.id);
+                            this.render();
+                            this.lastTapTime = 0; // Reset to prevent triple tap
+                            return;
+                        }
+
+                        // Store tap info for next time
+                        this.lastTapTime = currentTime;
+                        this.lastTapX = touchX;
+                        this.lastTapY = touchY;
+
+                        this.isDraggingYAxis = true;
+                        this.resizingPlotId = plot.id;
+                        this.lastTouchY = touchY;
+                        return;
+                    }
+                }
+            }
+
+            // Then check for plot resize handle touch
+            for (let i = 0; i < this.options.plots.length - 1; i++) {
+                const plot = this.options.plots[i];
+                if (!plot.overlay) {
+                    const layout = this.plotLayoutManager.getPlotLayout(plot.id);
+                    const handleY = layout.y + layout.height;
+                    if (Math.abs(touchY - handleY) < this.resizeHandleHeight) {
+                        this.isResizingPlot = true;
+                        this.resizingPlotId = plot.id;
+                        this.lastTouchY = touchY;
+                        return;
+                    }
+                }
+            }
+
+            // If not Y-axis or resize, then it's regular chart dragging
+            this.isDragging = true;
+            this.lastTouchX = touchX;
+            this.lastTouchY = touchY;
         }
     }
 
@@ -797,7 +863,49 @@ class StockChart {
             this.crosshairX = touchX;
             this.crosshairY = touchY;
 
-            if (this.isDragging) {
+            if (this.isDraggingYAxis && this.resizingPlotId) {
+                // Handle Y-axis dragging
+                const deltaY = touchY - this.lastTouchY;
+                this.lastTouchY = touchY;
+                
+                let plotScale = this.plotScales.get(this.resizingPlotId) || 1.0;
+                const scaleFactor = Math.exp(-deltaY * 0.01);
+                plotScale *= scaleFactor;
+                plotScale = Math.max(0.1, Math.min(10, plotScale));
+                this.plotScales.set(this.resizingPlotId, plotScale);
+                
+                this.render();
+            } else if (this.isResizingPlot && this.resizingPlotId) {
+                // Handle plot resize
+                const deltaY = touchY - this.lastTouchY;
+                this.lastTouchY = touchY;
+
+                const plotIndex = this.options.plots.findIndex(p => p.id === this.resizingPlotId);
+                let nextPlotIndex = plotIndex + 1;
+                while (nextPlotIndex < this.options.plots.length && this.options.plots[nextPlotIndex].overlay) {
+                    nextPlotIndex++;
+                }
+
+                if (plotIndex >= 0 && nextPlotIndex < this.options.plots.length) {
+                    const plot = this.options.plots[plotIndex];
+                    const nextPlot = this.options.plots[nextPlotIndex];
+                    
+                    const totalRatio = plot.heightRatio + nextPlot.heightRatio;
+                    const plotLayout = this.plotLayoutManager.getPlotLayout(plot.id);
+                    const pixelsPerRatio = plotLayout.height / plot.heightRatio;
+                    const ratioChange = deltaY / pixelsPerRatio;
+                    
+                    const minRatio = totalRatio * 0.1;
+                    const newRatio = Math.max(minRatio, Math.min(totalRatio - minRatio, plot.heightRatio + ratioChange));
+                    
+                    plot.heightRatio = newRatio;
+                    nextPlot.heightRatio = totalRatio - newRatio;
+                    
+                    this.resize();
+                    this.render();
+                }
+            } else if (this.isDragging) {
+                // Handle chart dragging
                 const deltaX = touchX - this.lastTouchX;
                 const barWidth = this.canvas.width / this.dataViewport.visibleCount;
                 const scrollAmount = Math.round(deltaX / barWidth);
@@ -805,13 +913,8 @@ class StockChart {
                 if (scrollAmount !== 0) {
                     this.dataViewport.scroll(-scrollAmount);
                     this.lastTouchX = touchX;
-                    this.lastTouchY = touchY;
-                    this.render();
-                } else {
                     this.render();
                 }
-            } else {
-                this.render();
             }
         }
     }
@@ -823,6 +926,9 @@ class StockChart {
     handleTouchEnd(event) {
         event.preventDefault();
         this.isDragging = false;
+        this.isResizingPlot = false;
+        this.isDraggingYAxis = false;
+        this.resizingPlotId = null;
         // Hide crosshair on touch end for better mobile experience
         this.crosshairX = -1;
         this.crosshairY = -1;

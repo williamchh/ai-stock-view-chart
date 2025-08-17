@@ -13,8 +13,12 @@ export class DataViewport {
      */
     constructor(allData, initialVisibleCount, rightPadding = 0) {
         this.allData = allData;
-        this.visibleCount = initialVisibleCount;
-        this.startIndex = Math.max(0, allData.length - initialVisibleCount + rightPadding);
+        this.visibleCount = Math.min(initialVisibleCount, allData.length + rightPadding);
+        this.rightPadding = rightPadding;
+        // Include rightPadding in maxStartIndex calculation
+        this.maxStartIndex = allData.length - this.visibleCount + rightPadding;
+        // Set initial position to show right padding
+        this.startIndex = Math.max(0, this.maxStartIndex);
     }
 
     /**
@@ -22,7 +26,8 @@ export class DataViewport {
      * @returns {Array<object>} An array of data points within the current viewport.
      */
     getVisibleData() {
-        return this.allData.slice(this.startIndex, this.startIndex + this.visibleCount);
+        const endIndex = Math.min(this.startIndex + this.visibleCount, this.allData.length);
+        return this.allData.slice(this.startIndex, endIndex);
     }
 
     /**
@@ -30,7 +35,17 @@ export class DataViewport {
      * @param {number} delta - The number of data points to scroll. Positive scrolls right (newer data), negative scrolls left (older data).
      */
     scroll(delta) {
-        this.startIndex = Math.max(0, Math.min(this.allData.length - this.visibleCount + 8, this.startIndex + delta));
+        // Update maxStartIndex in case visibleCount has changed, including rightPadding
+        this.maxStartIndex = this.allData.length - this.visibleCount + this.rightPadding;
+        const newStartIndex = this.startIndex + delta;
+        
+        // Allow scrolling slightly past the edges for better UX
+        const overscrollAmount = Math.round(this.visibleCount * 0.1); // 10% overscroll
+        const minStart = -overscrollAmount;
+        const maxStart = this.maxStartIndex + overscrollAmount;
+        
+        // Ensure we can't scroll too far past the beginning or end of the data
+        this.startIndex = Math.max(minStart, Math.min(maxStart, newStartIndex));
     }
 
     /**
@@ -39,17 +54,35 @@ export class DataViewport {
      * @param {number} anchorIndex - The index within the *visible* data to anchor the zoom around.
      */
     zoom(zoomFactor, anchorIndex) {
-        const currentVisibleData = this.getVisibleData();
         const absoluteAnchorIndex = this.startIndex + anchorIndex;
+        
+        // Calculate new visible count with bounds
+        const newVisibleCount = Math.max(
+            10, // Minimum visible count
+            Math.min(
+                this.allData.length + this.rightPadding, // Maximum visible count
+                Math.round(this.visibleCount / zoomFactor)
+            )
+        );
 
-        const newVisibleCount = Math.max(10, Math.min(this.allData.length, Math.round(this.visibleCount / zoomFactor)));
-
+        // Calculate the ratio of where the anchor point is in the view
+        const ratio = anchorIndex / this.visibleCount;
+        
         // Calculate new start index to keep anchor point relatively stable
-        const ratio = anchorIndex / currentVisibleData.length;
-        const newStartIndex = Math.round(absoluteAnchorIndex - (newVisibleCount * ratio));
-
+        const targetPosition = Math.round(newVisibleCount * ratio);
+        const newStartIndex = absoluteAnchorIndex - targetPosition;
+        
+        // Update visible count and maxStartIndex, including rightPadding
         this.visibleCount = newVisibleCount;
-        this.startIndex = Math.max(0, Math.min(this.allData.length - this.visibleCount, newStartIndex));
+        this.maxStartIndex = this.allData.length - this.visibleCount + this.rightPadding;
+        
+        // Allow some overscroll for better UX
+        const overscrollAmount = Math.round(this.visibleCount * 0.1);
+        const minStart = -overscrollAmount;
+        const maxStart = this.maxStartIndex + overscrollAmount;
+        
+        // Set new start index with bounds checking
+        this.startIndex = Math.max(minStart, Math.min(maxStart, newStartIndex));
     }
 
     /**

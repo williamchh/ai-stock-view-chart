@@ -151,7 +151,10 @@ class StockChart {
             maxPrice = Math.max(...visibleData.map(d => d.volume || 1));
         } else if (plotConfig.type === 'line') {
             const plotVisibleData = plotConfig.data.slice(dataViewport.startIndex, dataViewport.startIndex + dataViewport.visibleCount);
-            const values = plotVisibleData.map(d => d.value);
+            const values = plotVisibleData.map(d => d.value).filter(v => v !== null && isFinite(v));
+            if (values.length === 0) {
+                return { minPrice: 0, maxPrice: 1 }; // Default range if no valid data
+            }
             const currentMinPrice = Math.min(...values);
             const currentMaxPrice = Math.max(...values);
             const priceRange = currentMaxPrice - currentMinPrice;
@@ -320,11 +323,33 @@ class StockChart {
         // const { minPrice, maxPrice } = this.calculatePriceRange(plotConfig, visibleData, this.dataViewport);
 
         // Simplified main rendering code
+        // Create a map to store calculated price ranges for non-overlay plots
+        const priceRanges = new Map();
+        const mainPlot = this.options.plots.find(p => p.id === 'main');
+        if (!mainPlot) {
+            return;
+        }
+        const mainVisibleData = mainPlot.data.slice(this.dataViewport.startIndex, this.dataViewport.startIndex + this.dataViewport.visibleCount);
+        priceRanges.set('main', this.calculatePriceRange(mainPlot, mainVisibleData, this.dataViewport));
+
         this.options.plots.forEach(plotConfig => {
-            const plotLayout = this.plotLayoutManager.getPlotLayout(plotConfig.id);
+            const isOverlay = plotConfig.overlay || false;
+            const targetPlotId = isOverlay ? (plotConfig.targetId || 'main') : plotConfig.id;
+            
+            const plotLayout = this.plotLayoutManager.getPlotLayout(targetPlotId);
+            if (!plotLayout) return;
+
+            // Calculate and store price range for non-overlay plots
+            if (!isOverlay && !priceRanges.has(plotConfig.id)) {
+                const plotVisibleData = plotConfig.data.slice(this.dataViewport.startIndex, this.dataViewport.startIndex + this.dataViewport.visibleCount);
+                priceRanges.set(plotConfig.id, this.calculatePriceRange(plotConfig, plotVisibleData, this.dataViewport));
+            }
+
+            const { minPrice, maxPrice } = priceRanges.get(targetPlotId);
+
             if (plotLayout) {
                 // Draw plot background and border only for non-overlay plots
-                if (!plotConfig.overlay) {
+                if (!isOverlay) {
                     this.ctx.fillStyle = this.currentTheme.chartAreaBackground;
                     this.ctx.fillRect(plotLayout.x, plotLayout.y, plotLayout.width, plotLayout.height);
 
@@ -335,13 +360,13 @@ class StockChart {
 
                 // Draw resize handle if not the last plot
                 const isLastPlot = this.options.plots.indexOf(plotConfig) === this.options.plots.length - 1;
-                if (!isLastPlot && !plotConfig.overlay) {
+                if (!isLastPlot && !isOverlay) {
                     // Draw resize handle
                     const handleY = plotLayout.y + plotLayout.height - this.resizeHandleHeight / 2;
-                    this.ctx.fillStyle = this.isResizingPlot && this.resizingPlotId === plotConfig.id ? 
+                    this.ctx.fillStyle = this.isResizingPlot && this.resizingPlotId === plotConfig.id ?
                         'rgba(150, 150, 150, 0.3)' : 'rgba(100, 100, 100, 0.1)';
                     this.ctx.fillRect(plotLayout.x, handleY, plotLayout.width, this.resizeHandleHeight);
-                    
+
                     // Draw handle dots
                     this.ctx.fillStyle = this.currentTheme.gridColor;
                     const dotSpacing = 6;
@@ -354,11 +379,10 @@ class StockChart {
                     }
                 }
 
-                // Calculate price range once
-                const { minPrice, maxPrice } = this.calculatePriceRange(plotConfig, visibleData, this.dataViewport);
-
-                // Draw Y-axis labels before clipping
-                this.drawYAxisLabels(plotConfig, plotLayout, minPrice, maxPrice);
+                // Draw Y-axis labels before clipping, only for non-overlay plots
+                if (!isOverlay) {
+                    this.drawYAxisLabels(plotConfig, plotLayout, minPrice, maxPrice);
+                }
 
                 this.ctx.save(); // Save context before clipping for plot data
                 this.ctx.beginPath();
@@ -372,7 +396,7 @@ class StockChart {
                 switch (plotConfig.type) {
                     case 'candlestick':
                         plotVisibleData.forEach((dataPoint, i) => {
-                            const x = getXPixel(this.dataViewport.startIndex + i, this.dataViewport.startIndex, this.dataViewport.visibleCount, plotLayout.width, barWidth);
+                            const x = plotLayout.x + getXPixel(this.dataViewport.startIndex + i, this.dataViewport.startIndex, this.dataViewport.visibleCount, plotLayout.width, barWidth);
                             const openY = getYPixel(dataPoint.open, minPrice, maxPrice, plotLayout.height, plotLayout.y);
                             const highY = getYPixel(dataPoint.high, minPrice, maxPrice, plotLayout.height, plotLayout.y);
                             const lowY = getYPixel(dataPoint.low, minPrice, maxPrice, plotLayout.height, plotLayout.y);
@@ -384,9 +408,9 @@ class StockChart {
                         plotVisibleData.forEach((dataPoint, i) => {
                             if (i > 0) {
                                 const prevDataPoint = plotVisibleData[i - 1];
-                                const x1 = getXPixel(this.dataViewport.startIndex + i - 1, this.dataViewport.startIndex, this.dataViewport.visibleCount, plotLayout.width, barWidth) + barWidth / 2;
+                                const x1 = plotLayout.x + getXPixel(this.dataViewport.startIndex + i - 1, this.dataViewport.startIndex, this.dataViewport.visibleCount, plotLayout.width, barWidth) + barWidth / 2;
                                 const y1 = getYPixel(prevDataPoint.value, minPrice, maxPrice, plotLayout.height, plotLayout.y);
-                                const x2 = getXPixel(this.dataViewport.startIndex + i, this.dataViewport.startIndex, this.dataViewport.visibleCount, plotLayout.width, barWidth) + barWidth / 2;
+                                const x2 = plotLayout.x + getXPixel(this.dataViewport.startIndex + i, this.dataViewport.startIndex, this.dataViewport.visibleCount, plotLayout.width, barWidth) + barWidth / 2;
                                 const y2 = getYPixel(dataPoint.value, minPrice, maxPrice, plotLayout.height, plotLayout.y);
                                 const lineColor = plotConfig.style?.lineColor || this.currentTheme.lineColor;
                                 const lineWidth = plotConfig.style?.lineWidth || 2;
@@ -396,7 +420,7 @@ class StockChart {
                         break;
                     case 'volume':
                         plotVisibleData.forEach((dataPoint, i) => {
-                            const x = getXPixel(this.dataViewport.startIndex + i, this.dataViewport.startIndex, this.dataViewport.visibleCount, plotLayout.width, barWidth);
+                            const x = plotLayout.x + getXPixel(this.dataViewport.startIndex + i, this.dataViewport.startIndex, this.dataViewport.visibleCount, plotLayout.width, barWidth);
                             const volHeight = ((dataPoint.volume || 0) / maxPrice) * plotLayout.height;
                             const y = plotLayout.y + plotLayout.height - volHeight;
                             this.ctx.fillStyle = this.currentTheme.volumeColor || 'rgba(0, 150, 136, 0.6)';

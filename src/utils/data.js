@@ -73,7 +73,7 @@ export class DataViewport {
  */
 export function getXPixel(index, startIndex, visibleCount, plotWidth, barWidth) {
     const dataIndexInView = index - startIndex;
-    return (dataIndexInView * barWidth) + (plotWidth / 2) - (visibleCount * barWidth / 2);
+    return (dataIndexInView * barWidth);
 }
 
 /**

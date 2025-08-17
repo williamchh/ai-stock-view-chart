@@ -20,6 +20,7 @@ export interface PlotConfig {
     yPosition?: number;
     type: 'candlestick' | 'line' | 'volume';
     overlay?: boolean;
+    targetId?: string; // ID of the plot to overlay on top of
     data: Array<StockData | number | any>;
     style?: {
         lineColor?: string;

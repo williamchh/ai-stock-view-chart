@@ -2,17 +2,16 @@
   "name": "ai-stock-view-chart",
   "version": "1.0.0",
   "description": "Interactive stock charting library with candlestick, line charts, crosshair sync, overlays, and theming.",
-  "main": "src/stock-chart.js",
+  "main": "dist/stock-chart.min.js",
   "module": "src/stock-chart.js",
   "types": "src/stock-chart.d.ts",
   "files": [
     "dist",
-    "src"
+    "src/stock-chart.d.ts"
   ],
   "scripts": {
     "start": "serve .",
-    "build": "echo 'Add build tooling if required'",
-    "test": "echo \\\"No tests yet\\\" && exit 0"
+    "build": "terser src/stock-chart.js --compress --mangle --output dist/stock-chart.min.js"
   },
   "keywords": [
     "stock",
@@ -24,7 +23,8 @@
   "author": "Will",
   "license": "MIT",
   "devDependencies": {
-    "serve": "^14.0.0"
+    "serve": "^14.0.0",
+    "terser": "^5.43.1"
   },
   "repository": {
     "type": "git",

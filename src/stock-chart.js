@@ -451,6 +451,19 @@ class StockChart {
                             this.ctx.fillRect(x, y, barWidth * 0.7, volHeight);
                         });
                         break;
+                    case 'histogram':
+                        plotVisibleData.forEach((dataPoint, i) => {
+                            const x = plotLayout.x + getXPixel(this.dataViewport.startIndex + i, this.dataViewport.startIndex, this.dataViewport.visibleCount, plotLayout.width, barWidth);
+                            const y = getYPixel(0, minPrice, maxPrice, plotLayout.height, plotLayout.y);
+                            const barHeight = getYPixel(dataPoint.value, minPrice, maxPrice, plotLayout.height, plotLayout.y) - y;
+
+                            this.ctx.fillStyle = dataPoint.value >= 0 ?
+                                (plotConfig.style?.positiveColor || this.currentTheme.positiveColor) :
+                                (plotConfig.style?.negativeColor || this.currentTheme.negativeColor);
+
+                            this.ctx.fillRect(x, y, barWidth * 0.7, -barHeight);
+                        });
+                        break;
                 }
             }
             this.ctx.restore();

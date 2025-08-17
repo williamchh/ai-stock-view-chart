@@ -18,7 +18,7 @@ export interface PlotConfig {
     id: string;
     heightRatio: number;
     yPosition?: number;
-    type: 'candlestick' | 'line' | 'volume';
+    type: 'candlestick' | 'line' | 'volume' | 'histogram';
     overlay?: boolean;
     targetId?: string; // ID of the plot to overlay on top of
     data: Array<StockData | number | any>;
@@ -27,6 +27,8 @@ export interface PlotConfig {
         lineWidth?: number;
         fillColor?: string;
         opacity?: number;
+        positiveColor?: string;
+        negativeColor?: string;
     };
 }
 

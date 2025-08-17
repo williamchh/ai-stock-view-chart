@@ -19,6 +19,8 @@ const lightTheme = {
     crosshairColor: '#9E9E9E',
     // Overlay text color
     overlayTextColor: '#333333',
+    positiveColor: 'rgba(76, 175, 80, 0.8)',
+    negativeColor: 'rgba(244, 67, 54, 0.8)',
 };
 
 export default lightTheme;

@@ -419,17 +419,27 @@ class StockChart {
                         });
                         break;
                     case 'line':
+                        let lastValidIndex = -1;
                         plotVisibleData.forEach((dataPoint, i) => {
-                            if (i > 0) {
-                                const prevDataPoint = plotVisibleData[i - 1];
-                                const x1 = plotLayout.x + getXPixel(this.dataViewport.startIndex + i - 1, this.dataViewport.startIndex, this.dataViewport.visibleCount, plotLayout.width, barWidth) + barWidth / 2;
+                            const value = dataPoint.value;
+                            // Skip if current point has no value or is zero
+                            if (value === null || value === undefined || value === 0) {
+                                lastValidIndex = -1;
+                                return;
+                            }
+
+                            // If we have a previous valid point, draw line
+                            if (lastValidIndex !== -1) {
+                                const prevDataPoint = plotVisibleData[lastValidIndex];
+                                const x1 = plotLayout.x + getXPixel(this.dataViewport.startIndex + lastValidIndex, this.dataViewport.startIndex, this.dataViewport.visibleCount, plotLayout.width, barWidth) + barWidth / 2;
                                 const y1 = getYPixel(prevDataPoint.value, minPrice, maxPrice, plotLayout.height, plotLayout.y);
                                 const x2 = plotLayout.x + getXPixel(this.dataViewport.startIndex + i, this.dataViewport.startIndex, this.dataViewport.visibleCount, plotLayout.width, barWidth) + barWidth / 2;
-                                const y2 = getYPixel(dataPoint.value, minPrice, maxPrice, plotLayout.height, plotLayout.y);
+                                const y2 = getYPixel(value, minPrice, maxPrice, plotLayout.height, plotLayout.y);
                                 const lineColor = plotConfig.style?.lineColor || this.currentTheme.lineColor;
                                 const lineWidth = plotConfig.style?.lineWidth || 2;
                                 drawLine(this.ctx, x1, y1, x2, y2, lineColor, lineWidth);
                             }
+                            lastValidIndex = i;
                         });
                         break;
                     case 'volume':

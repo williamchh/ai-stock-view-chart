@@ -23,67 +23,46 @@
 
   <script type="module">
     import StockChart from '../src/stock-chart.js';
+    import { calculateSMA, calculateMACD } from '../src/indicators/indicators.js';
 
-   function generateCandlestickData(count) {
-       const data = [];
-       let lastClose = 200;
-       let date = new Date('2015-01-01');
+    function generateCandlestickData(count) {
+        const data = [];
+        let lastClose = 200;
+        let date = new Date('2015-01-01');
 
-       for (let i = 0; i < count; i++) {
-           const open = lastClose + (Math.random() - 0.5) * 5;
-           const close = open + (Math.random() - 0.5) * 10;
-           const high = Math.max(open, close) + Math.random() * 5;
-           const low = Math.min(open, close) - Math.random() * 5;
-           const volume = Math.random() * 10000 + 1000;
-           
-           data.push({
-               time: date.getTime() / 1000,
-               open: open,
-               high: high,
-               low: low,
-               close: close,
-               volume: volume
-           });
+        for (let i = 0; i < count; i++) {
+            const open = lastClose + (Math.random() - 0.5) * 5;
+            const close = open + (Math.random() - 0.5) * 10;
+            const high = Math.max(open, close) + Math.random() * 5;
+            const low = Math.min(open, close) - Math.random() * 5;
+            const volume = Math.random() * 10000 + 1000;
+            
+            data.push({
+                time: date.getTime() / 1000,
+                open: open,
+                high: high,
+                low: low,
+                close: close,
+                volume: volume
+            });
 
-           lastClose = close;
-           date.setDate(date.getDate() + 1);
-       }
-       return data;
-   }
-
-   function calculateSMA(data, period) {
-       const smaData = [];
-       for (let i = 0; i < data.length; i++) {
-           if (i < period - 1) {
-               // Not enough data for SMA yet
-               smaData.push({
-                   time: data[i].time,
-                   value: null
-               });
-               continue;
-           }
-
-           // Calculate sum of closing prices for the period
-           let sum = 0;
-           for (let j = 0; j < period; j++) {
-               sum += data[i - j].close;
-           }
-
-           // Calculate average and add to SMA data
-           smaData.push({
-               time: data[i].time,
-               value: sum / period
-           });
-       }
-       return smaData;
-   }
+            lastClose = close;
+            date.setDate(date.getDate() + 1);
+        }
+        return data;
+    }
 
     const candlestickData = generateCandlestickData(3000);
 
-    // Calculate SMAs
+    // Calculate indicators
     const sma20Data = calculateSMA(candlestickData, 20);
     const sma50Data = calculateSMA(candlestickData, 50);
-    const lineData = candlestickData.map(d => ({ date: d.date, value: d.close }));
+    const macdData = calculateMACD(candlestickData);
+
+    // Transform MACD data into separate line plots
+    const macdLine = macdData.map(d => ({ time: d.time, value: d.value }));
+    const signalLine = macdData.map(d => ({ time: d.time, value: d.signal }));
+    const histogramLine = macdData.map(d => ({ time: d.time, value: d.histogram }));
 
     const volumeData = candlestickData.map(d => ({ time: d.time, volume: d.volume }));
 
@@ -94,7 +73,7 @@
         { 
           id: 'main', 
           type: 'candlestick', 
-          heightRatio: 0.7, 
+          heightRatio: 0.5, 
           data: candlestickData 
         },
         { 
@@ -114,14 +93,43 @@
           overlay: true,
           style: {
             lineColor: 'rgba(70, 130, 180, 0.8)',  // Steel Blue
-            lineWidth: 5
+            lineWidth: 1.5
           }
         },
-        { id: 'closeLine', type: 'line', heightRatio: 0.2, data: lineData, overlay: false },
+        { 
+          id: 'macd', 
+          type: 'line', 
+          heightRatio: 0.2,
+          data: macdLine,
+          style: {
+            lineColor: 'rgba(0, 150, 136, 0.8)',  // Teal
+            lineWidth: 1.5
+          }
+        },
+        { 
+          id: 'signal', 
+          type: 'line',
+          data: signalLine,
+          overlay: true,
+          style: {
+            lineColor: 'rgba(233, 30, 99, 0.8)',  // Pink
+            lineWidth: 1.5
+          }
+        },
+        { 
+          id: 'histogram', 
+          type: 'line',
+          data: histogramLine,
+          overlay: true,
+          style: {
+            lineColor: 'rgba(156, 39, 176, 0.8)',  // Purple
+            lineWidth: 1.5
+          }
+        },
         { 
           id: 'volume', 
           type: 'volume', 
-          heightRatio: 0.1, 
+          heightRatio: 0.2, 
           data: volumeData 
         }
       ]

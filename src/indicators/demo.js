@@ -1,9 +1,5 @@
-import {
-    initSMAState,
-    updateSMA,
-    initMACDState,
-    updateMACD
-} from './indicator.js';
+import { initMACDState, updateMACD } from './macd.js';
+import { initSMAState, updateSMA } from './sma.js';
 
 /**
  * Calculate SMA for a series of data

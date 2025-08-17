@@ -18,6 +18,8 @@ export interface StockData {
 export interface PlotConfig {
     id: string;
     heightRatio: number;
+    yPosition?: number;
+    height?: number;
 }
 
 /**

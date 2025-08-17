@@ -7,10 +7,48 @@
  * Manages the layout of multiple plots within a given canvas area.
  */
 export class PlotLayoutManager {
+
+    /**
+     * @type {number}
+     * @private
+     */
+    plotTotalHeight;
+
+    /**
+     * @type {number}
+     * @private
+     */
+    plotTotalWidth;
+
+    // Define constants for margins
+    /**
+     * @type {number}
+     * @readonly
+     */
+    RIGHT_Y_AXIS_MARGIN = 80; // Space for Y-axis labels on the right
+
+    /**
+     * @type {number}
+     * @readonly
+     */
+    BOTTOM_X_AXIS_MARGIN = 40; // Space for X-axis labels at the bottom
+
+    /**
+     * @type {number}
+     * @readonly
+     */
+    CHART_LEFT_MARGIN = 0; // Small left margin for the chart area
+
+    /**
+     * @type {number}
+     * @readonly
+     */
+    CHART_TOP_MARGIN = 0; // Small top margin for the chart area
+
     /**
      * @param {number} canvasWidth - The total width of the canvas.
      * @param {number} canvasHeight - The total height of the canvas.
-     * @param {Array<object>} plotConfigs - An array of plot configurations, e.g., [{ id: 'main', heightRatio: 0.7 }, { id: 'volume', heightRatio: 0.3 }]
+     * @param {Array<import("../stock-chart").PlotConfig>} plotConfigs - An array of plot configurations, e.g., [{ id: 'main', heightRatio: 0.7 }, { id: 'volume', heightRatio: 0.3 }]
      */
     constructor(canvasWidth, canvasHeight, plotConfigs) {
         this.canvasWidth = canvasWidth;
@@ -22,29 +60,41 @@ export class PlotLayoutManager {
 
     /**
      * Recalculates the layout of plots based on canvas dimensions and plot configurations.
+     * @private
      */
     calculateLayout() {
         let currentY = 0;
-        const mainPlotConfig = this.plotConfigs.find(p => p.id === 'main');
-        if (!mainPlotConfig) {
-            console.error("Main plot configuration is missing.");
-            return;
-        }
+        const nonOverlayPlots = this.plotConfigs.filter(p => !p.overlay);
+        const totalRatio = nonOverlayPlots.reduce((sum, p) => sum + p.heightRatio, 0);
 
         this.plotConfigs.forEach(config => {
             if (config.overlay) {
-                this.plots[config.id] = { ...this.plots['main'] };
+                // An overlay plot should be drawn on top of a main plot.
+                // Find the main plot's layout and assign it to the overlay plot.
+                const mainPlotLayout = this.plots['main']; // Assuming 'main' is the ID of the main plot
+                if (mainPlotLayout) {
+                    this.plots[config.id] = { ...mainPlotLayout };
+                }
             } else {
-                const plotHeight = this.canvasHeight * config.heightRatio;
+
+
+                // Calculate available drawing area for plots
+                const availableWidth = this.canvasWidth - this.CHART_LEFT_MARGIN - this.RIGHT_Y_AXIS_MARGIN;
+                const availableHeight = this.canvasHeight - this.CHART_TOP_MARGIN - this.BOTTOM_X_AXIS_MARGIN;
+
+                const plotHeight = (config.heightRatio / totalRatio) * availableHeight;
                 this.plots[config.id] = {
-                    x: 0,
-                    y: currentY,
-                    width: this.canvasWidth,
+                    x: this.CHART_LEFT_MARGIN,
+                    y: currentY + this.CHART_TOP_MARGIN,
+                    width: availableWidth,
                     height: plotHeight,
                 };
                 currentY += plotHeight;
             }
         });
+
+        this.plotTotalHeight = currentY;
+        this.plotTotalWidth = this.canvasWidth - this.RIGHT_Y_AXIS_MARGIN; // Assuming 80px for the right Y-axis margin
     }
 
     /**
@@ -65,5 +115,21 @@ export class PlotLayoutManager {
         this.canvasWidth = newWidth;
         this.canvasHeight = newHeight;
         this.calculateLayout();
+    }
+
+    /**
+     * Gets the total width of all plots.
+     * @returns {number} - The total width of all plots.
+     */
+    getPlotTotalWidth() {
+        return this.plotTotalWidth;
+    }
+
+    /**
+     * Gets the total height of all plots.
+     * @returns {number} - The total height of all plots.
+     */
+    getPlotTotalHeight() {
+        return this.plotTotalHeight;
     }
 }

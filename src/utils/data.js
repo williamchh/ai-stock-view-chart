@@ -11,10 +11,10 @@ export class DataViewport {
      * @param {Array<object>} allData - The complete dataset.
      * @param {number} initialVisibleCount - The initial number of data points visible.
      */
-    constructor(allData, initialVisibleCount) {
+    constructor(allData, initialVisibleCount, rightPadding = 0) {
         this.allData = allData;
         this.visibleCount = initialVisibleCount;
-        this.startIndex = Math.max(0, allData.length - initialVisibleCount);
+        this.startIndex = Math.max(0, allData.length - initialVisibleCount + rightPadding);
     }
 
     /**
@@ -30,7 +30,7 @@ export class DataViewport {
      * @param {number} delta - The number of data points to scroll. Positive scrolls right (newer data), negative scrolls left (older data).
      */
     scroll(delta) {
-        this.startIndex = Math.max(0, Math.min(this.allData.length - this.visibleCount, this.startIndex + delta));
+        this.startIndex = Math.max(0, Math.min(this.allData.length - this.visibleCount + 8, this.startIndex + delta));
     }
 
     /**

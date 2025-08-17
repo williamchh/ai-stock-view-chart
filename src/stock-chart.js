@@ -153,7 +153,7 @@ class StockChart {
             maxPrice = Math.max(...visibleData.map(d => d.volume || 1));
         } else if (plotConfig.type === 'line') {
             const plotVisibleData = plotConfig.data.slice(dataViewport.startIndex, dataViewport.startIndex + dataViewport.visibleCount);
-            const values = plotVisibleData.map(d => d.value).filter(v => v !== null && isFinite(v));
+            const values = plotVisibleData.map(d => d.value ?? d.close).filter(v => v !== null && isFinite(v));
             if (values.length === 0) {
                 return { minPrice: 0, maxPrice: 1 }; // Default range if no valid data
             }
@@ -421,7 +421,7 @@ class StockChart {
                     case 'line':
                         let lastValidIndex = -1;
                         plotVisibleData.forEach((dataPoint, i) => {
-                            const value = dataPoint.value;
+                            const value = dataPoint.value ?? dataPoint.close;
                             // Skip if current point has no value or is zero
                             if (value === null || value === undefined || value === 0) {
                                 lastValidIndex = -1;
@@ -432,7 +432,7 @@ class StockChart {
                             if (lastValidIndex !== -1) {
                                 const prevDataPoint = plotVisibleData[lastValidIndex];
                                 const x1 = plotLayout.x + getXPixel(this.dataViewport.startIndex + lastValidIndex, this.dataViewport.startIndex, this.dataViewport.visibleCount, plotLayout.width, barWidth) + barWidth / 2;
-                                const y1 = getYPixel(prevDataPoint.value, minPrice, maxPrice, plotLayout.height, plotLayout.y);
+                                const y1 = getYPixel(prevDataPoint.value ?? prevDataPoint.close, minPrice, maxPrice, plotLayout.height, plotLayout.y);
                                 const x2 = plotLayout.x + getXPixel(this.dataViewport.startIndex + i, this.dataViewport.startIndex, this.dataViewport.visibleCount, plotLayout.width, barWidth) + barWidth / 2;
                                 const y2 = getYPixel(value, minPrice, maxPrice, plotLayout.height, plotLayout.y);
                                 const lineColor = plotConfig.style?.lineColor || this.currentTheme.lineColor;

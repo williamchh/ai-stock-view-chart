@@ -32,43 +32,97 @@ Include the library and create a chart:
 <script type="module">
   import StockChart from 'ai-stock-view-chart';
 
-  const data = [
-    { date: '2025-01-01', open: 100, high: 110, low: 95, close: 105, volume: 5000 },
-    { date: '2025-01-02', open: 105, high: 115, low: 100, close: 110, volume: 6000 },
-    // more candlesticks...
+  // Example data
+  const candlestickData = [
+    { time: 1672531200, open: 100, high: 110, low: 95, close: 105, volume: 5000 },
+    { time: 1672617600, open: 105, high: 115, low: 100, close: 110, volume: 6000 },
+    // ... more data points
   ];
+
+  const volumeData = candlestickData.map(d => ({ time: d.time, volume: d.volume }));
 
   StockChart.init('chart-container', {
     theme: 'light',
-    chartType: 'candlestick',
-    data,
-    initialVisibleCandles: 50
+    initialVisibleCandles: 50,
+    plots: [
+      {
+        id: 'main',
+        type: 'candlestick',
+        heightRatio: 0.7,
+        data: candlestickData,
+      },
+      {
+        id: 'volume',
+        type: 'volume',
+        heightRatio: 0.3,
+        data: volumeData,
+      }
+    ]
   });
 </script>
 ```
 
 ## Development
 
-Open the demo app to explore the features:
+To run the demo app locally, you can use a simple HTTP server.
 
-```bash
-npm run demo
-```
+1.  **Install dependencies**
 
-Or open [`demo/index.html`](demo/index.html) directly in a browser.
+    If you haven't already, install the development dependencies:
+
+    ```bash
+    npm install
+    ```
+
+2.  **Start the server**
+
+    From the root of the project, run the following command:
+
+    ```bash
+    npm start
+    ```
+
+    This uses the `serve` package to host the project.
+
+2.  **Open the demo**
+
+    Once the server is running, open your browser and navigate to the [`demo/index.html`](demo/index.html) page (e.g., `http://localhost:3000/demo/`).
 
 ## API
 
 ### StockChart.init(elementId, options)
 
-- `elementId`: The DOM element ID where the chart will be mounted.
-- `options`:
-  - `theme`: `"light"` or `"dark"`
-  - `chartType`: `"candlestick"` or `"line"`
-  - `data`: Array of OHLC+volume data
-  - `initialVisibleCandles`: Number of candles to show initially
-  - `plots`: Definitions of chart regions (e.g., price, volume)
+Initializes a new chart instance.
+
+- `elementId` (string): The ID of the DOM element where the chart will be mounted.
+- `options` (StockChartOptions): An object containing configuration options for the chart.
+
+#### StockChartOptions
+
+| Option                  | Type                                | Default                               | Description                                                                                                                                          |
+| ----------------------- | ----------------------------------- | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `theme`                 | `'light'` \| `'dark'`               | `'light'`                             | Sets the color theme for the chart.                                                                                                                  |
+| `chartName`             | `ChartName`                         | `undefined`                           | An object to display the name, code, and other metadata on the chart.                                                                                |
+| `initialVisibleCandles` | `number`                            | `100`                                 | The number of data points (e.g., candlesticks) to display when the chart is first loaded.                                                            |
+| `plots`                 | `Array<PlotConfig>`                 | `[{ id: 'main', ... }]`               | An array of plot configurations that define the different sections of the chart (e.g., price, volume, indicators).                                   |
+
+#### ChartName
+
+| Property     | Type     | Description                               |
+| ------------ | -------- | ----------------------------------------- |
+| `name`       | `string` | The main name or title (e.g., "Apple ").  |
+| `code`       | `string` | The ticker or symbol (e.g., "AAPL").      |
+| `metaString` | `string` | Additional info (e.g., "NASDAQ, 1D").     |
+
+#### PlotStyle
+
+| Property        | Type     | Description                                                              |
+| --------------- | -------- | ------------------------------------------------------------------------ |
+| `lineColor`     | `string` | Color for line charts.                                                   |
+| `lineWidth`     | `number` | Width for line charts.                                                   |
+| `positiveColor` | `string` | Color for positive values in a histogram.                                |
+| `negativeColor` | `string` | Color for negative values in a histogram.                                |
 
 ## License
 
-MIT © 2025 Will
+MIT © 2025 AI Stock View 

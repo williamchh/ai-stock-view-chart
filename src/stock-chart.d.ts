@@ -22,6 +22,7 @@ export interface PlotConfig {
     overlay?: boolean;
     targetId?: string; // ID of the plot to overlay on top of
     data: Array<StockData | number | any>;
+    keyLabel?: string;
     style?: {
         lineColor?: string;
         lineWidth?: number;

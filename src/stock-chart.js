@@ -1069,14 +1069,29 @@ class StockChart {
                 }
 
                 // Show summary in top-right corner
-                let infoText = Object.entries(dataPoint)
-                    .map(([key, value]) => {
-                        if (key === 'time' || key === 'date') return null;
-                        const formattedValue = typeof value === 'number' ? value.toFixed(2) : value;
-                        return `${key.charAt(0).toUpperCase() + key.slice(1)}: ${formattedValue}`;
-                    })
-                    .filter(Boolean)
-                    .join(' ');
+                const infoPlots = this.options.plots.filter(p => p.targetId === plotConfig.id || p.id === plotConfig.id);
+                let infoText = '';
+
+                infoPlots.forEach(infoPlot => {
+                    const infoPlotData = infoPlot.data && infoPlot.data.length > 0 ? infoPlot.data : visibleData;
+                    if (actualDataIndex >= 0 && actualDataIndex < infoPlotData.length) {
+                        const infoDataPoint = infoPlotData[actualDataIndex];
+                        const newText = Object.entries(infoDataPoint)
+                            .map(([key, value]) => {
+                                if (key === 'time' || key === 'date' || key === 'keyLabel') return null;
+                                const formattedValue = typeof value === 'number' ? value.toFixed(2) : value;
+                                const keyLabel = infoDataPoint.keyLabel || key.charAt(0).toUpperCase() + key.slice(1);
+                                return `${keyLabel}: ${formattedValue}`;
+                            })
+                            .filter(Boolean)
+                            .join(' | ');
+                        if (infoText && newText) {
+                            infoText += ' | ' + newText;
+                        } else if (newText) {
+                            infoText = newText;
+                        }
+                    }
+                });
 
                 // Position text in the top-right corner of the plot
                 const textY = plotLayout.y + 15;

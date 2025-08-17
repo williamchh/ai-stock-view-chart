@@ -60,9 +60,9 @@
     const macdData = calculateMACD(candlestickData);
 
     // Transform MACD data into separate line plots
-    const macdLine = macdData.map(d => ({ time: d.time, value: d.value }));
-    const signalLine = macdData.map(d => ({ time: d.time, value: d.signal }));
-    const histogramLine = macdData.map(d => ({ time: d.time, value: d.histogram }));
+    const macdLine = macdData.map(d => ({ time: d.time, value: d.value, keyLabel: 'Macd' }));
+    const signalLine = macdData.map(d => ({ time: d.time, value: d.signal, keyLabel: 'Signal' }));
+    const histogramLine = macdData.map(d => ({ time: d.time, value: d.histogram, keyLabel: 'Histogram' }));
 
     const volumeData = candlestickData.map(d => ({ time: d.time, volume: d.volume }));
 
@@ -74,13 +74,15 @@
           id: 'main', 
           type: 'candlestick', 
           heightRatio: 0.5, 
-          data: candlestickData 
+          data: candlestickData ,
+          targetId: 'main',
         },
         { 
           id: 'sma20', 
           type: 'line', 
           data: sma20Data,
           overlay: true,
+          targetId: 'main',
           style: {
             lineColor: 'rgba(255, 140, 0, 0.8)',  // Orange
             lineWidth: 1.5
@@ -91,10 +93,17 @@
           type: 'line', 
           data: sma50Data,
           overlay: true,
+          targetId: 'main',
           style: {
             lineColor: 'rgba(70, 130, 180, 0.8)',  // Steel Blue
             lineWidth: 1.5
           }
+        },
+        { 
+          id: 'volume', 
+          type: 'volume', 
+          heightRatio: 0.2, 
+          data: volumeData 
         },
         { 
           id: 'macd',
@@ -128,12 +137,7 @@
             negativeColor: 'rgba(233, 30, 99, 0.5)'
           }
         },
-        { 
-          id: 'volume', 
-          type: 'volume', 
-          heightRatio: 0.2, 
-          data: volumeData 
-        }
+
       ]
     });
   </script>

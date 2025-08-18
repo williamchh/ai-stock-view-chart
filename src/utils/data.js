@@ -16,9 +16,9 @@ export class DataViewport {
         this.visibleCount = Math.min(initialVisibleCount, allData.length + rightPadding);
         this.rightPadding = rightPadding;
         // Include rightPadding in maxStartIndex calculation
-        this.maxStartIndex = allData.length - this.visibleCount + rightPadding;
-        // Set initial position to show right padding
-        this.startIndex = Math.max(0, this.maxStartIndex);
+        this.maxStartIndex = Math.max(0, allData.length - this.visibleCount + rightPadding);
+        // Set initial position to show right padding, but ensure we have enough data
+        this.startIndex = Math.min(Math.max(0, this.maxStartIndex), Math.max(0, allData.length - this.visibleCount));
     }
 
     /**
@@ -39,9 +39,14 @@ export class DataViewport {
         this.maxStartIndex = this.allData.length - this.visibleCount + this.rightPadding;
         const newStartIndex = this.startIndex + delta;
         
-        // Allow scrolling slightly past the edges for better UX
-        const overscrollAmount = Math.round(this.visibleCount * 0.1); // 10% overscroll
-        const minStart = -overscrollAmount;
+        // Allow scrolling slightly past the edges for better UX, but prevent excessive overscroll
+        const overscrollAmount = Math.min(
+            Math.round(this.visibleCount * 0.1), // 10% overscroll
+            Math.round(this.allData.length * 0.1) // but no more than 10% of total data length
+        );
+        
+        // Calculate min and max start indices
+        const minStart = 0; // Don't allow scrolling past the start of data
         const maxStart = this.maxStartIndex + overscrollAmount;
         
         // Ensure we can't scroll too far past the beginning or end of the data

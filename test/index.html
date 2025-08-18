@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>AI Stock View Chart Demo (Standalone)</title>
+  <style>
+    body {
+      background: #f4f4f4;
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+    }
+
+    #chart-container {
+      width: 100%;
+      height: 800px;
+      border: 1px solid #ccc;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>AI Stock View Chart Test</h1>
+  <div id="chart-container"></div> 
+
+  <h1>AI Stock View Chart Demo</h1>
+  <div id="chart-container"></div>
+
+  <script type="module">
+    import StockChart from '../src/stock-chart.js';
+    import { calculateSMA, calculateMACD, generateCandlestickData } from '../src/indicators/demo.js';
+
+    const candlestickData = generateCandlestickData(300);
+
+    // Calculate indicators
+    const sma20Data = calculateSMA(candlestickData, 20);
+    const sma50Data = calculateSMA(candlestickData, 50);
+    const macdData = calculateMACD(candlestickData);
+
+    // Transform MACD data into separate line plots
+    const macdLine = macdData.map(d => ({ time: d.time, value: d.value, keyLabel: 'Macd' }));
+    const signalLine = macdData.map(d => ({ time: d.time, value: d.signal, keyLabel: 'Signal' }));
+    const histogramLine = macdData.map(d => ({ time: d.time, value: d.histogram, keyLabel: 'Histogram' }));
+
+    const volumeData = candlestickData.map(d => ({ time: d.time, volume: d.volume }));
+
+    StockChart.init('chart-container', {
+      theme: 'dark',
+      chartName: {
+        name: 'Apple Inc.',
+        code: 'AAPL',
+        metaString: 'NASDAQ, 1D'
+      },
+      initialVisibleCandles: 100,
+      plots: [
+        { 
+          id: 'main', 
+          type: 'candlestick',
+          heightRatio: 0.5, 
+          data: candlestickData ,
+          targetId: 'main',
+        },
+        { 
+          id: 'sma20', 
+          type: 'line', 
+          data: sma20Data,
+          overlay: true,
+          targetId: 'main',
+          style: {
+            lineColor: 'rgba(255, 140, 0, 0.8)',  // Orange
+            lineWidth: 1.5
+          }
+        },
+        { 
+          id: 'sma50', 
+          type: 'line', 
+          data: sma50Data,
+          overlay: true,
+          targetId: 'main',
+          style: {
+            lineColor: 'rgba(70, 130, 180, 0.8)',  // Steel Blue
+            lineWidth: 5
+          }
+        },
+        { 
+          id: 'volume', 
+          type: 'volume', 
+          heightRatio: 0.2, 
+          data: volumeData 
+        },
+        { 
+          id: 'macd',
+          type: 'line',
+          heightRatio: 0.2,
+          data: macdLine,
+          style: {
+            lineColor: 'rgba(0, 150, 136, 0.8)', // Teal
+            lineWidth: 3
+          }
+        },
+        {
+          id: 'signal',
+          type: 'line',
+          data: signalLine,
+          overlay: true,
+          targetId: 'macd',
+          style: {
+            lineColor: 'rgba(233, 30, 99, 0.8)', // Pink
+            lineWidth: 1.5
+          }
+        },
+        {
+          id: 'histogram',
+          type: 'histogram',
+          data: histogramLine,
+          overlay: true,
+          targetId: 'macd',
+          style: {
+            positiveColor: 'rgba(0, 150, 136, 0.5)',
+            negativeColor: 'rgba(233, 30, 99, 0.5)'
+          }
+        },
+
+      ]
+    });
+  </script>
+</body>
+
+</html>

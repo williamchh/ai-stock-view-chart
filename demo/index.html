@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="UTF-8">
-  <title>AI Stock View Chart Demo (Standalone)</title>
+  <title>AI Stock View Chart Demo</title>
   <style>
     body {
       background: #f4f4f4;
@@ -21,14 +21,14 @@
 </head>
 
 <body>
-  <h1>AI Stock View Chart Demo (Standalone - No Server Required)</h1>
+  <h1><a href="https://aistockview.com" style="text-decoration: none; color: inherit;">AI Stock View</a> Chart Demo (Standalone - No Server Required)</h1>
   <div id="chart-container"></div> <!-- Include UMD builds directly -->
-  <script src="../dist/stock-chart.umd.js"></script>
-  <script src="../dist/indicators/demo.umd.js"></script>
+  <script src="./stock-chart.umd.min.js"></script>
+  <script src="./demo.umd.min.js"></script>
   <script>
 
 
-    const candlestickData = Demo.generateCandlestickData(300);
+    const candlestickData = Demo.generateCandlestickData(3000);
 
     // Calculate indicators using global variables
     const sma20Data = Demo.calculateSMA(candlestickData, 20);

@@ -125,4 +125,4 @@ Initializes a new chart instance.
 
 ## License
 
-MIT © 2025 AI Stock View 
+MIT © 2025 [AI Stock View](https://aistockview.com/) 

@@ -24,9 +24,9 @@ export default {
         const data = generateCandlestickData(500)
 
         StockChart.init('chartContainer', {
-          theme: 'light',
+          theme: 'dark',
           chartName: {
-            name: 'Test Vue',
+            name: 'Test Vue AI Stock View chart',
             code: 'vue'
           },
           initialVisibleCandles: 100,

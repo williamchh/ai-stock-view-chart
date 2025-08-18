@@ -59,13 +59,31 @@ export class DataViewport {
      * @param {number} anchorIndex - The index within the *visible* data to anchor the zoom around.
      */
     zoom(zoomFactor, anchorIndex) {
+        // If zooming out (zoomFactor < 1) and we're already at the start of data
+        if (zoomFactor < 1 && this.startIndex <= 0) {
+            // Request more data before proceeding with zoom
+            window.dispatchEvent(new CustomEvent('requestOlderData', {
+                detail: {
+                    currentOldestDataTime: this.allData[0]?.time,
+                    requestedCount: Math.round(this.visibleCount * 0.5), // Request 50% more data
+                    zoomFactor: zoomFactor,
+                    anchorIndex: anchorIndex
+                }
+            }));
+            
+            // Don't proceed with zoom if we're at the data boundary
+            if (this.startIndex === 0) {
+                return;
+            }
+        }
+
         const absoluteAnchorIndex = this.startIndex + anchorIndex;
         
         // Calculate new visible count with bounds
         const newVisibleCount = Math.max(
             10, // Minimum visible count
             Math.min(
-                this.allData.length + this.rightPadding, // Maximum visible count
+                this.allData.length, // Maximum visible count (removed rightPadding for zoom)
                 Math.round(this.visibleCount / zoomFactor)
             )
         );
@@ -77,17 +95,27 @@ export class DataViewport {
         const targetPosition = Math.round(newVisibleCount * ratio);
         const newStartIndex = absoluteAnchorIndex - targetPosition;
         
-        // Update visible count and maxStartIndex, including rightPadding
+        // Update visible count and maxStartIndex
         this.visibleCount = newVisibleCount;
-        this.maxStartIndex = this.allData.length - this.visibleCount + this.rightPadding;
+        this.maxStartIndex = Math.max(0, this.allData.length - this.visibleCount);
         
-        // Allow some overscroll for better UX
-        const overscrollAmount = Math.round(this.visibleCount * 0.1);
-        const minStart = -overscrollAmount;
+        // Allow minimal overscroll for zoom operations
+        const overscrollAmount = Math.round(this.visibleCount * 0.05); // Reduced to 5%
+        const minStart = Math.max(-overscrollAmount, 0); // Prevent negative indices
         const maxStart = this.maxStartIndex + overscrollAmount;
         
-        // Set new start index with bounds checking
+        // Set new start index with strict bounds checking
         this.startIndex = Math.max(minStart, Math.min(maxStart, newStartIndex));
+
+        // Dispatch an event if we're at the start of the data and trying to zoom out
+        if (this.startIndex <= minStart && zoomFactor < 1) {
+            window.dispatchEvent(new CustomEvent('requestOlderData', {
+                detail: {
+                    currentOldestDataTime: this.allData[0]?.time,
+                    requestedCount: Math.round(this.visibleCount * 0.5) // Request 50% more data
+                }
+            }));
+        }
     }
 
     /**

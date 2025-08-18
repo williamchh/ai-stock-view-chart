@@ -50,3 +50,32 @@ export function calculateMACD(data, fastPeriod = 12, slowPeriod = 26, signalPeri
 
     return macdData;
 }
+
+/**
+ * @description Generate random candlestick data
+ * @param {number} count 
+ * @returns {Array} Array of candlestick data
+ */
+export function generateCandlestickData(count) {
+    const data = [];
+    let lastClose = 200;
+    let date = new Date('2015-01-01');
+    for (let i = 0; i < count; i++) {
+    const open = lastClose + (Math.random() - 0.5) * 5;
+    const close = open + (Math.random() - 0.5) * 10;
+    const high = Math.max(open, close) + Math.random() * 5;
+    const low = Math.min(open, close) - Math.random() * 5;
+    const volume = Math.random() * 10000 + 1000;
+    data.push({
+        time: date.getTime() / 1000,
+        open: open,
+        high: high,
+        low: low,
+        close: close,
+        volume: volume
+    });
+    lastClose = close;
+    date.setDate(date.getDate() + 1);
+    }
+    return data;
+}

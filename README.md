@@ -12,6 +12,10 @@ An interactive stock charting library supporting candlestick and line charts, mu
 - 📐 Responsive design with automatic resizing
 - 📦 Lightweight and optimized main chart bundle
 
+## Demo
+
+[Live](https://williamchh.github.io/ai-stock-view-chart/demo/)
+
 ## Installation
 
 ```bash

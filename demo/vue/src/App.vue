@@ -7,17 +7,17 @@
 
 <script>
 import { ref, onMounted } from 'vue'
-import { generateCandlestickData } from '../../../dist/indicators/demo.js'
+import { generateCandlestickData } from '../../../src/indicators/demo.js'
 
 export default {
   name: 'App',
   setup() {
     const chartContainer = ref(null)
-    import ('../../../dist/indicators/demo.js')
+    import ('../../../src/indicators/demo.js')
 
     onMounted(() => {
       // Import the stock chart library
-      import('../../../dist/stock-chart.js').then((module) => {
+      import('../../../src/stock-chart.js').then((module) => {
         const StockChart = module.default
         
         // Sample data

@@ -1,15 +1,16 @@
-# AI Stock View Chart
+# [AI Stock View](https://aistockview.com) Chart
 
 An interactive stock charting library supporting candlestick and line charts, multiple plots, crosshair synchronization, overlays for price and technical indicators, and light/dark themes.
 
 ## Features
 
-- 📈 Candlestick and line chart support
-- 🖱️ Crosshair with cursor broadcasting across multiple charts
-- 🔍 Zoom and pan interactions
-- 🎨 Theming (light and dark)
-- 📊 Overlay layer for price details and indicators
-- 📐 Responsive layout with automatic resizing
+- 📈 Supports candlestick and line charts
+- 🖱️ Crosshair cursor with synchronization across multiple charts
+- 🔍 Interactive zooming and panning
+- 🎨 Light and dark themes
+- 📊 Overlay layer for price details and technical indicators
+- 📐 Responsive design with automatic resizing
+- 📦 Lightweight and optimized main chart bundle
 
 ## Installation
 

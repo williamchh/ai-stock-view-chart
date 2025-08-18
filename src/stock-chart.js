@@ -60,6 +60,10 @@ class StockChart {
         this.canvas = document.createElement('canvas');
         this.ctx = this.canvas.getContext('2d');
         this.container.appendChild(this.canvas);
+        
+        // Initialize pinch-to-zoom state
+        this.initialPinchDistance = 0;
+        this.isPinching = false;
 
         // Initialize dataViewport first
         const mainPlot = this.options.plots?.find(p => p.id === 'main');
@@ -782,9 +786,33 @@ class StockChart {
 
     handleTouchStart(event) {
         event.preventDefault();
-        if (event.touches.length === 1) {
+        const rect = this.canvas.getBoundingClientRect();
+
+        if (event.touches.length === 2) {
+            // Initialize pinch-to-zoom
+            this.isPinching = true;
+            this.isDragging = false;
+            this.isResizingPlot = false;
+            this.isDraggingYAxis = false;
+
+            const touch1 = event.touches[0];
+            const touch2 = event.touches[1];
+            const touch1X = touch1.clientX - rect.left;
+            const touch1Y = touch1.clientY - rect.top;
+            const touch2X = touch2.clientX - rect.left;
+            const touch2Y = touch2.clientY - rect.top;
+
+            // Calculate initial pinch distance
+            this.initialPinchDistance = Math.sqrt(
+                Math.pow(touch2X - touch1X, 2) + 
+                Math.pow(touch2Y - touch1Y, 2)
+            );
+
+            // Calculate pinch center point
+            this.pinchCenterX = (touch1X + touch2X) / 2;
+            this.pinchCenterY = (touch1Y + touch2Y) / 2;
+        } else if (event.touches.length === 1) {
             const touch = event.touches[0];
-            const rect = this.canvas.getBoundingClientRect();
             const touchX = touch.clientX - rect.left;
             const touchY = touch.clientY - rect.top;
 
@@ -859,9 +887,70 @@ class StockChart {
      */
     handleTouchMove(event) {
         event.preventDefault();
-        if (event.touches.length === 1) {
+        const rect = this.canvas.getBoundingClientRect();
+
+        if (event.touches.length === 2 && this.isPinching) {
+            // Handle pinch-to-zoom
+            const touch1 = event.touches[0];
+            const touch2 = event.touches[1];
+            const touch1X = touch1.clientX - rect.left;
+            const touch1Y = touch1.clientY - rect.top;
+            const touch2X = touch2.clientX - rect.left;
+            const touch2Y = touch2.clientY - rect.top;
+
+            // Calculate current pinch distance
+            const currentPinchDistance = Math.sqrt(
+                Math.pow(touch2X - touch1X, 2) + 
+                Math.pow(touch2Y - touch1Y, 2)
+            );
+
+            // Calculate zoom factor based on the change in pinch distance
+            if (this.initialPinchDistance > 0) {
+                const zoomFactor = currentPinchDistance / this.initialPinchDistance;
+                
+                // Calculate the new pinch center
+                const newPinchCenterX = (touch1X + touch2X) / 2;
+                const newPinchCenterY = (touch1Y + touch2Y) / 2;
+
+                // Find which plot contains the pinch center
+                let targetPlotId = null;
+                for (const plot of this.options.plots) {
+                    if (plot.overlay) continue;
+                    const layout = this.plotLayoutManager.getPlotLayout(plot.id);
+                    if (layout && 
+                        newPinchCenterY >= layout.y && 
+                        newPinchCenterY <= layout.y + layout.height) {
+                        targetPlotId = plot.id;
+                        break;
+                    }
+                }
+
+                if (targetPlotId) {
+                    // Handle vertical zoom if pinch movement is mostly vertical
+                    const verticalChange = Math.abs(newPinchCenterY - this.pinchCenterY);
+                    const horizontalChange = Math.abs(newPinchCenterX - this.pinchCenterX);
+                    
+                    if (verticalChange > horizontalChange) {
+                        // Vertical pinch - adjust price scale
+                        let plotScale = this.plotScales.get(targetPlotId) || 1.0;
+                        plotScale *= zoomFactor > 1 ? 1.1 : 0.9;
+                        plotScale = Math.max(0.1, Math.min(10, plotScale));
+                        this.plotScales.set(targetPlotId, plotScale);
+                    } else {
+                        // Horizontal pinch - adjust time scale
+                        const zoomDirection = zoomFactor > 1 ? 1.1 : 0.9;
+                        const dataIndexAtPinch = Math.floor(newPinchCenterX / (this.canvas.width / this.dataViewport.visibleCount));
+                        this.dataViewport.zoom(zoomDirection, dataIndexAtPinch);
+                    }
+                }
+
+                this.pinchCenterX = newPinchCenterX;
+                this.pinchCenterY = newPinchCenterY;
+                this.initialPinchDistance = currentPinchDistance;
+                this.render();
+            }
+        } else if (event.touches.length === 1) {
             const touch = event.touches[0];
-            const rect = this.canvas.getBoundingClientRect();
             const touchX = touch.clientX - rect.left;
             const touchY = touch.clientY - rect.top;
 
@@ -934,6 +1023,8 @@ class StockChart {
         this.isResizingPlot = false;
         this.isDraggingYAxis = false;
         this.resizingPlotId = null;
+        this.isPinching = false;
+        this.initialPinchDistance = 0;
         // Hide crosshair on touch end for better mobile experience
         this.crosshairX = -1;
         this.crosshairY = -1;

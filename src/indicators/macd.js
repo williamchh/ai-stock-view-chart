@@ -1,9 +1,9 @@
 // MACD (Moving Average Convergence Divergence)
     /**
  * @typedef {Object} MACDState
- * @property {import("./ema").EMAState} fast - Fast EMA state
- * @property {import("./ema").EMAState} slow - Slow EMA state
- * @property {import("./ema").EMAState} signal - Signal line EMA state
+ * @property {import("./ema.js").EMAState} fast - Fast EMA state
+ * @property {import("./ema.js").EMAState} slow - Slow EMA state
+ * @property {import("./ema.js").EMAState} signal - Signal line EMA state
  */
 
 import { initEMAState, updateEMA } from "./ema.js";

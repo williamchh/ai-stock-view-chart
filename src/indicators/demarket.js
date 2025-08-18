@@ -6,12 +6,12 @@
  * @property {number} period - The DeMarker period length
  * @property {number|null} prevHigh - Previous period's high price
  * @property {number|null} prevLow - Previous period's low price
- * @property {import("./sma").SMAState} demaxSMA - SMA state for DeMax calculations
- * @property {import("./sma").SMAState} deminSMA - SMA state for DeMin calculations
+ * @property {import("./sma.js").SMAState} demaxSMA - SMA state for DeMax calculations
+ * @property {import("./sma.js").SMAState} deminSMA - SMA state for DeMin calculations
  */
 
 
-import { deserializeSMAState, initSMAState, serializeSMAState, updateSMA } from "./sma";
+import { deserializeSMAState, initSMAState, serializeSMAState, updateSMA } from "./sma.js";
 
 /**
  * Initializes state for DeMarker calculation

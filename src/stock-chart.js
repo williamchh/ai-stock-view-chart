@@ -52,6 +52,9 @@ class StockChart {
      * @param {StockChartOptions} options - Configuration options for the chart.
      */
     constructor(container, options) {
+        // Ensure container has a valid size
+        this.ensureContainerSize(container);
+
         this.container = container;
         this.options = { ...StockChart.defaultOptions, ...options };
         this.canvas = document.createElement('canvas');
@@ -111,7 +114,9 @@ class StockChart {
         this.canvas.addEventListener('touchcancel', this.handleTouchEnd.bind(this));
 
         this.resizeObserver = new ResizeObserver(entries => {
+            debugger
             for (let entry of entries) {
+                debugger
                 if (entry.target === this.container) {
                     this.resize();
                     this.render();
@@ -1259,6 +1264,16 @@ class StockChart {
         this.ctx.fillText('Overlay panels reserved for indicators', 10, this.canvas.height - 10);
         this.ctx.restore();
     }
-}
 
+    ensureContainerSize(container) {
+        if (container.clientHeight < 1) {
+            container.style.height = `${window.innerHeight * 0.9}px`;
+        }
+        if (container.clientWidth < 1) {
+            container.style.width = `${window.innerWidth * 0.9}px`;
+        }
+    }
+}
 export default StockChart;
+
+

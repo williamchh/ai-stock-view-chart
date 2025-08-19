@@ -1,6 +1,6 @@
 {
   "name": "ai-stock-view-chart",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Interactive stock charting library with candlestick, line charts, crosshair sync, overlays, and theming.",
   "main": "dist/stock-chart.min.js",
   "module": "dist/stock-chart.js",

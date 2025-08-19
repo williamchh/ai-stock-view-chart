@@ -819,20 +819,39 @@ class StockChart {
             this.touchHoldTimer = null;
         }
 
-        if (event.touches.length === 2) {
-            // Initialize pinch-to-zoom
-            this.isPinching = true;
+        // Reset all touch states first
+        if (event.touches.length !== this.lastTouchCount) {
+            this.isPinching = false;
             this.isDragging = false;
             this.isResizingPlot = false;
             this.isDraggingYAxis = false;
             this.isCrosshairMode = false;
+            this.initialPinchDistance = 0;
+        }
+        this.lastTouchCount = event.touches.length;
 
+        if (event.touches.length === 2) {
+            // Initialize pinch-to-zoom with validation
             const touch1 = event.touches[0];
             const touch2 = event.touches[1];
             const touch1X = touch1.clientX - rect.left;
             const touch1Y = touch1.clientY - rect.top;
             const touch2X = touch2.clientX - rect.left;
             const touch2Y = touch2.clientY - rect.top;
+
+            // Ensure touches are far enough apart to start pinch
+            const initialDistance = Math.sqrt(
+                Math.pow(touch2X - touch1X, 2) + 
+                Math.pow(touch2Y - touch1Y, 2)
+            );
+
+            if (initialDistance > 30) { // Minimum distance threshold
+                this.isPinching = true;
+                this.initialPinchDistance = initialDistance;
+                this.pinchCenterX = (touch1X + touch2X) / 2;
+                this.pinchCenterY = (touch1Y + touch2Y) / 2;
+                this.lastPinchDistance = initialDistance;
+            }
 
             // Calculate initial pinch distance
             this.initialPinchDistance = Math.sqrt(
@@ -964,22 +983,29 @@ class StockChart {
             const touch2X = touch2.clientX - rect.left;
             const touch2Y = touch2.clientY - rect.top;
 
-            // Calculate current pinch distance
+            // Calculate current pinch distance with better precision
             const currentPinchDistance = Math.sqrt(
                 Math.pow(touch2X - touch1X, 2) + 
                 Math.pow(touch2Y - touch1Y, 2)
             );
 
-            // Calculate zoom factor based on the change in pinch distance
-            if (this.initialPinchDistance > 0) {
-                // Add damping to make zooming less sensitive
-                const dampingFactor = 0.5; // Reduce sensitivity by 50%
+            // Skip processing if the distance is too small (avoid division by zero)
+            if (this.initialPinchDistance > 10 && currentPinchDistance > 10) {
+                // Calculate zoom factor with improved stability
                 const rawZoomFactor = currentPinchDistance / this.initialPinchDistance;
-                const zoomFactor = 1 + (rawZoomFactor - 1) * dampingFactor;
                 
-                // Calculate the new pinch center
+                // Calculate the new pinch center with smoothing
                 const newPinchCenterX = (touch1X + touch2X) / 2;
                 const newPinchCenterY = (touch1Y + touch2Y) / 2;
+
+                // Apply exponential smoothing to pinch centers
+                const smoothingFactor = 0.3;
+                const smoothedPinchCenterX = this.pinchCenterX ? 
+                    this.pinchCenterX * (1 - smoothingFactor) + newPinchCenterX * smoothingFactor :
+                    newPinchCenterX;
+                const smoothedPinchCenterY = this.pinchCenterY ? 
+                    this.pinchCenterY * (1 - smoothingFactor) + newPinchCenterY * smoothingFactor :
+                    newPinchCenterY;
 
                 // Find which plot contains the pinch center
                 let targetPlotId = null;
@@ -987,44 +1013,50 @@ class StockChart {
                     if (plot.overlay) continue;
                     const layout = this.plotLayoutManager.getPlotLayout(plot.id);
                     if (layout && 
-                        newPinchCenterY >= layout.y && 
-                        newPinchCenterY <= layout.y + layout.height) {
+                        smoothedPinchCenterY >= layout.y && 
+                        smoothedPinchCenterY <= layout.y + layout.height) {
                         targetPlotId = plot.id;
                         break;
                     }
                 }
 
                 if (targetPlotId) {
-                    // Handle vertical zoom if pinch movement is mostly vertical
-                    const verticalChange = Math.abs(newPinchCenterY - this.pinchCenterY);
-                    const horizontalChange = Math.abs(newPinchCenterX - this.pinchCenterX);
+                    // Determine zoom direction based on gesture
+                    const verticalChange = Math.abs(smoothedPinchCenterY - this.pinchCenterY);
+                    const horizontalChange = Math.abs(smoothedPinchCenterX - this.pinchCenterX);
                     
-                    // Add minimum threshold for zoom changes
-                    const minZoomChange = 0.05; // 5% minimum change threshold
-                    const normalizedZoomFactor = Math.abs(zoomFactor - 1);
+                    // Improved threshold and damping for zoom changes
+                    const minZoomChange = 0.02; // Reduced threshold for smoother response
+                    const normalizedZoomFactor = Math.abs(rawZoomFactor - 1);
                     
                     if (normalizedZoomFactor > minZoomChange) {
-                        if (verticalChange > horizontalChange) {
-                            // Vertical pinch - adjust price scale with reduced sensitivity
+                        // Apply non-linear damping for more controlled zooming
+                        const dampingFactor = Math.min(0.3, normalizedZoomFactor * 0.5);
+                        const zoomFactor = 1 + (rawZoomFactor - 1) * dampingFactor;
+                        
+                        if (verticalChange > horizontalChange * 1.2) { // Slight bias towards horizontal
+                            // Vertical pinch - adjust price scale with improved stability
                             let plotScale = this.plotScales.get(targetPlotId) || 1.0;
-                            // Reduce zoom factor sensitivity by 50%
-                            const verticalZoomFactor = 1 + (zoomFactor - 1) * 0.5;
+                            const verticalZoomFactor = Math.exp((zoomFactor - 1) * 0.3); // Exponential scaling
                             plotScale *= verticalZoomFactor;
                             plotScale = Math.max(0.1, Math.min(10, plotScale));
                             this.plotScales.set(targetPlotId, plotScale);
                         } else {
-                            // Horizontal pinch - adjust time scale with reduced sensitivity
-                            // Use a smoother zoom factor calculation
-                            const zoomStrength = 0.05; // Reduced from 0.1 to make it smoother
-                            const zoomDirection = 1 + (zoomFactor > 1 ? zoomStrength : -zoomStrength);
-                            const dataIndexAtPinch = Math.floor(newPinchCenterX / (this.canvas.width / this.dataViewport.visibleCount));
+                            // Horizontal pinch - adjust time scale with improved stability
+                            const zoomStrength = 0.03; // Further reduced for smoother zooming
+                            const zoomDirection = Math.exp((zoomFactor - 1) * zoomStrength);
+                            const plotLayout = this.plotLayoutManager.getPlotLayout(targetPlotId);
+                            const dataIndexAtPinch = Math.floor(
+                                (smoothedPinchCenterX - plotLayout.x) / 
+                                (plotLayout.width / this.dataViewport.visibleCount)
+                            );
                             this.dataViewport.zoom(zoomDirection, dataIndexAtPinch);
                         }
                     }
                 }
 
-                this.pinchCenterX = newPinchCenterX;
-                this.pinchCenterY = newPinchCenterY;
+                this.pinchCenterX = smoothedPinchCenterX;
+                this.pinchCenterY = smoothedPinchCenterY;
                 this.initialPinchDistance = currentPinchDistance;
                 this.render();
             }
@@ -1147,25 +1179,49 @@ class StockChart {
      */
     handleTouchEnd(event) {
         event.preventDefault();
+        
         // Clear the touch hold timer if it exists
         if (this.touchHoldTimer) {
             clearTimeout(this.touchHoldTimer);
             this.touchHoldTimer = null;
         }
 
-        this.isDragging = false;
-        this.isResizingPlot = false;
-        this.isDraggingYAxis = false;
-        this.resizingPlotId = null;
-        this.isPinching = false;
-        this.initialPinchDistance = 0;
-        // Only hide crosshair if we're not in crosshair mode
-        if (!this.isCrosshairMode) {
-            this.crosshairX = -1;
-            this.crosshairY = -1;
+        // Store the current touch count before resetting states
+        const previousTouchCount = this.lastTouchCount;
+        this.lastTouchCount = event.touches.length;
+
+        // If we're transitioning from 2 fingers to 1 finger, preserve some states
+        if (previousTouchCount === 2 && event.touches.length === 1) {
+            // Reset only pinch-related states
+            this.isPinching = false;
+            this.initialPinchDistance = 0;
+            this.lastPinchDistance = 0;
+            
+            // Re-initialize single touch tracking with the remaining finger
+            const touch = event.touches[0];
+            const rect = this.canvas.getBoundingClientRect();
+            this.lastTouchX = touch.clientX - rect.left;
+            this.lastTouchY = touch.clientY - rect.top;
+            this.isDragging = true; // Enable dragging for the remaining finger
+        } else if (event.touches.length === 0) {
+            // All fingers lifted, reset all states
+            this.isDragging = false;
+            this.isResizingPlot = false;
+            this.isDraggingYAxis = false;
+            this.resizingPlotId = null;
+            this.isPinching = false;
+            this.initialPinchDistance = 0;
+            this.lastPinchDistance = 0;
+            
+            // Handle crosshair mode
+            if (!this.isCrosshairMode) {
+                this.crosshairX = -1;
+                this.crosshairY = -1;
+            }
+            // Reset crosshair mode when all fingers are lifted
+            this.isCrosshairMode = false;
         }
-        // Reset crosshair mode if finger is lifted
-        this.isCrosshairMode = false;
+
         this.render();
     }
 

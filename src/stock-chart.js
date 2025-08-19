@@ -118,9 +118,7 @@ class StockChart {
         this.canvas.addEventListener('touchcancel', this.handleTouchEnd.bind(this));
 
         this.resizeObserver = new ResizeObserver(entries => {
-            debugger
             for (let entry of entries) {
-                debugger
                 if (entry.target === this.container) {
                     this.resize();
                     this.render();
@@ -906,7 +904,10 @@ class StockChart {
 
             // Calculate zoom factor based on the change in pinch distance
             if (this.initialPinchDistance > 0) {
-                const zoomFactor = currentPinchDistance / this.initialPinchDistance;
+                // Add damping to make zooming less sensitive
+                const dampingFactor = 0.5; // Reduce sensitivity by 50%
+                const rawZoomFactor = currentPinchDistance / this.initialPinchDistance;
+                const zoomFactor = 1 + (rawZoomFactor - 1) * dampingFactor;
                 
                 // Calculate the new pinch center
                 const newPinchCenterX = (touch1X + touch2X) / 2;
@@ -930,17 +931,27 @@ class StockChart {
                     const verticalChange = Math.abs(newPinchCenterY - this.pinchCenterY);
                     const horizontalChange = Math.abs(newPinchCenterX - this.pinchCenterX);
                     
-                    if (verticalChange > horizontalChange) {
-                        // Vertical pinch - adjust price scale
-                        let plotScale = this.plotScales.get(targetPlotId) || 1.0;
-                        plotScale *= zoomFactor > 1 ? 1.1 : 0.9;
-                        plotScale = Math.max(0.1, Math.min(10, plotScale));
-                        this.plotScales.set(targetPlotId, plotScale);
-                    } else {
-                        // Horizontal pinch - adjust time scale
-                        const zoomDirection = zoomFactor > 1 ? 1.1 : 0.9;
-                        const dataIndexAtPinch = Math.floor(newPinchCenterX / (this.canvas.width / this.dataViewport.visibleCount));
-                        this.dataViewport.zoom(zoomDirection, dataIndexAtPinch);
+                    // Add minimum threshold for zoom changes
+                    const minZoomChange = 0.05; // 5% minimum change threshold
+                    const normalizedZoomFactor = Math.abs(zoomFactor - 1);
+                    
+                    if (normalizedZoomFactor > minZoomChange) {
+                        if (verticalChange > horizontalChange) {
+                            // Vertical pinch - adjust price scale with reduced sensitivity
+                            let plotScale = this.plotScales.get(targetPlotId) || 1.0;
+                            // Reduce zoom factor sensitivity by 50%
+                            const verticalZoomFactor = 1 + (zoomFactor - 1) * 0.5;
+                            plotScale *= verticalZoomFactor;
+                            plotScale = Math.max(0.1, Math.min(10, plotScale));
+                            this.plotScales.set(targetPlotId, plotScale);
+                        } else {
+                            // Horizontal pinch - adjust time scale with reduced sensitivity
+                            // Use a smoother zoom factor calculation
+                            const zoomStrength = 0.05; // Reduced from 0.1 to make it smoother
+                            const zoomDirection = 1 + (zoomFactor > 1 ? zoomStrength : -zoomStrength);
+                            const dataIndexAtPinch = Math.floor(newPinchCenterX / (this.canvas.width / this.dataViewport.visibleCount));
+                            this.dataViewport.zoom(zoomDirection, dataIndexAtPinch);
+                        }
                     }
                 }
 
@@ -1315,13 +1326,14 @@ class StockChart {
 
                 infoPlots.forEach(infoPlot => {
                     const infoPlotData = infoPlot.data && infoPlot.data.length > 0 ? infoPlot.data : visibleData;
+                    let keyLabel = infoPlot.keyLabel || '';
                     if (actualDataIndex >= 0 && actualDataIndex < infoPlotData.length) {
                         const infoDataPoint = infoPlotData[actualDataIndex];
                         const newText = Object.entries(infoDataPoint)
                             .map(([key, value]) => {
                                 if (key === 'time' || key === 'date' || key === 'keyLabel') return null;
                                 const formattedValue = typeof value === 'number' ? value.toFixed(2) : value;
-                                const keyLabel = infoDataPoint.keyLabel || key.charAt(0).toUpperCase() + key.slice(1);
+                                keyLabel = keyLabel?.trim().length > 0 ? keyLabel : key.charAt(0).toUpperCase() + key.slice(1);
                                 return `${keyLabel}: ${formattedValue}`;
                             })
                             .filter(Boolean)

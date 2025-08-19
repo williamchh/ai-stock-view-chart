@@ -44,7 +44,7 @@ export class PlotLayoutManager {
     /**
      * @param {number} canvasWidth - The total width of the canvas.
      * @param {number} canvasHeight - The total height of the canvas.
-     * @param {Array<import("../stock-chart").PlotConfig>} plotConfigs - An array of plot configurations, e.g., [{ id: 'main', heightRatio: 0.7 }, { id: 'volume', heightRatio: 0.3 }]
+     * @param {Array<import("../stock-chart.js").PlotConfig>} plotConfigs - An array of plot configurations, e.g., [{ id: 'main', heightRatio: 0.7 }, { id: 'volume', heightRatio: 0.3 }]
      */
     constructor(canvasWidth, canvasHeight, plotConfigs) {
         this.canvasWidth = canvasWidth;

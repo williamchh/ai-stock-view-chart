@@ -797,14 +797,24 @@ class StockChart {
      * Handles touch start events for mobile dragging.
      * @param {TouchEvent} event - The touch event.
      */
-    // Track the last touch time and position for double tap detection
+    // State tracking for touch interactions
     lastTapTime = 0;
     lastTapX = 0;
     lastTapY = 0;
+    touchHoldTimer = null;
+    isCrosshairMode = false;
+    touchStartX = 0;
+    touchStartY = 0;
 
     handleTouchStart(event) {
         event.preventDefault();
         const rect = this.canvas.getBoundingClientRect();
+
+        // Clear any existing touch hold timer
+        if (this.touchHoldTimer) {
+            clearTimeout(this.touchHoldTimer);
+            this.touchHoldTimer = null;
+        }
 
         if (event.touches.length === 2) {
             // Initialize pinch-to-zoom
@@ -812,6 +822,7 @@ class StockChart {
             this.isDragging = false;
             this.isResizingPlot = false;
             this.isDraggingYAxis = false;
+            this.isCrosshairMode = false;
 
             const touch1 = event.touches[0];
             const touch2 = event.touches[1];
@@ -833,6 +844,10 @@ class StockChart {
             const touch = event.touches[0];
             const touchX = touch.clientX - rect.left;
             const touchY = touch.clientY - rect.top;
+
+            // Store initial touch position
+            this.touchStartX = touchX;
+            this.touchStartY = touchY;
 
             // Check for Y-axis touch first
             for (const plot of this.options.plots) {
@@ -896,6 +911,36 @@ class StockChart {
             this.isDragging = true;
             this.lastTouchX = touchX;
             this.lastTouchY = touchY;
+            // Hide crosshair initially
+            this.crosshairX = -1;
+            this.crosshairY = -1;
+
+            // Start the touch hold timer
+            this.touchHoldTimer = setTimeout(() => {
+                if (this.isDragging) {
+                    // Switch to crosshair mode after 1 second hold
+                    this.isCrosshairMode = true;
+                    // Update crosshair position
+                    const mainPlotLayout = this.plotLayoutManager.getPlotLayout('main');
+                    if (mainPlotLayout) {
+                        const barWidth = this.canvas.width / this.dataViewport.visibleCount;
+                        const candleWidth = barWidth * 0.7;
+                        const relativeX = touchX - mainPlotLayout.x;
+                        const dataIndex = Math.round(relativeX / barWidth - 0.5);
+                        const clampedIndex = Math.max(0, Math.min(this.dataViewport.visibleCount - 1, dataIndex));
+                        const candleX = mainPlotLayout.x + getXPixel(
+                            this.dataViewport.startIndex + clampedIndex,
+                            this.dataViewport.startIndex,
+                            this.dataViewport.visibleCount,
+                            mainPlotLayout.width,
+                            barWidth
+                        );
+                        this.crosshairX = candleX + (candleWidth / 2);
+                        this.crosshairY = touchY;
+                    }
+                    this.render();
+                }
+            }, 1000); // 1 second delay
         }
     }
 
@@ -992,6 +1037,8 @@ class StockChart {
             // Get the main plot layout for proper positioning
             const mainPlotLayout = this.plotLayoutManager.getPlotLayout('main');
             if (mainPlotLayout) {
+            // Only update crosshair position if in crosshair mode
+            if (this.isCrosshairMode) {
                 // Calculate which candlestick the touch is closest to
                 const relativeX = touchX - mainPlotLayout.x;  // Adjust for plot area x-offset
                 const dataIndex = Math.round(relativeX / barWidth - 0.5);
@@ -1002,10 +1049,13 @@ class StockChart {
                 // Calculate exact center of the candlestick using getXPixel and adding half candle width
                 const candleX = mainPlotLayout.x + getXPixel(this.dataViewport.startIndex + clampedIndex, this.dataViewport.startIndex, this.dataViewport.visibleCount, mainPlotLayout.width, barWidth);
                 this.crosshairX = candleX + (candleWidth / 2);
+                this.crosshairY = touchY;
+            } else {
+                // Hide crosshair during regular movement
+                this.crosshairX = -1;
+                this.crosshairY = -1;
             }
-            this.crosshairY = touchY;
-
-            if (this.isDraggingYAxis && this.resizingPlotId) {
+        }            if (this.isDraggingYAxis && this.resizingPlotId) {
                 // Handle Y-axis dragging
                 const deltaY = touchY - this.lastTouchY;
                 this.lastTouchY = touchY;
@@ -1052,10 +1102,37 @@ class StockChart {
                 const barWidth = this.canvas.width / this.dataViewport.visibleCount;
                 const scrollAmount = Math.round(deltaX / barWidth);
 
-                if (scrollAmount !== 0) {
-                    this.dataViewport.scroll(-scrollAmount);
-                    this.lastTouchX = touchX;
-                    this.render();
+                // Handle dragging and crosshair modes
+                if (!this.isCrosshairMode) {
+                    // In dragging mode
+                    if (scrollAmount !== 0) {
+                        this.dataViewport.scroll(-scrollAmount);
+                        this.lastTouchX = touchX;
+                        // Ensure crosshair is hidden during drag
+                        this.crosshairX = -1;
+                        this.crosshairY = -1;
+                        this.render();
+                    }
+                } else if (this.isCrosshairMode) {
+                    // In crosshair mode, only update the crosshair position
+                    const mainPlotLayout = this.plotLayoutManager.getPlotLayout('main');
+                    if (mainPlotLayout) {
+                        const barWidth = this.canvas.width / this.dataViewport.visibleCount;
+                        const candleWidth = barWidth * 0.7;
+                        const relativeX = touchX - mainPlotLayout.x;
+                        const dataIndex = Math.round(relativeX / barWidth - 0.5);
+                        const clampedIndex = Math.max(0, Math.min(this.dataViewport.visibleCount - 1, dataIndex));
+                        const candleX = mainPlotLayout.x + getXPixel(
+                            this.dataViewport.startIndex + clampedIndex,
+                            this.dataViewport.startIndex,
+                            this.dataViewport.visibleCount,
+                            mainPlotLayout.width,
+                            barWidth
+                        );
+                        this.crosshairX = candleX + (candleWidth / 2);
+                        this.crosshairY = touchY;
+                        this.render();
+                    }
                 }
             }
         }
@@ -1067,15 +1144,25 @@ class StockChart {
      */
     handleTouchEnd(event) {
         event.preventDefault();
+        // Clear the touch hold timer if it exists
+        if (this.touchHoldTimer) {
+            clearTimeout(this.touchHoldTimer);
+            this.touchHoldTimer = null;
+        }
+
         this.isDragging = false;
         this.isResizingPlot = false;
         this.isDraggingYAxis = false;
         this.resizingPlotId = null;
         this.isPinching = false;
         this.initialPinchDistance = 0;
-        // Hide crosshair on touch end for better mobile experience
-        this.crosshairX = -1;
-        this.crosshairY = -1;
+        // Only hide crosshair if we're not in crosshair mode
+        if (!this.isCrosshairMode) {
+            this.crosshairX = -1;
+            this.crosshairY = -1;
+        }
+        // Reset crosshair mode if finger is lifted
+        this.isCrosshairMode = false;
         this.render();
     }
 

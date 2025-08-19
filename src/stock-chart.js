@@ -584,8 +584,28 @@ class StockChart {
      */
     handleMouseMove(event) {
         const rect = this.canvas.getBoundingClientRect();
-        this.crosshairX = event.clientX - rect.left;
-        this.crosshairY = event.clientY - rect.top;
+        const mouseX = event.clientX - rect.left;
+        const mouseY = event.clientY - rect.top;
+
+        // Calculate the width of each candlestick bar
+        const barWidth = this.canvas.width / this.dataViewport.visibleCount;
+        const candleWidth = barWidth * 0.7; // Actual candlestick width
+        
+        // Get the main plot layout for proper positioning
+        const mainPlotLayout = this.plotLayoutManager.getPlotLayout('main');
+        if (mainPlotLayout) {
+            // Calculate which candlestick the mouse is closest to
+            const relativeX = mouseX - mainPlotLayout.x;  // Adjust for plot area x-offset
+            const dataIndex = Math.round(relativeX / barWidth - 0.5);
+            
+            // Ensure dataIndex stays within valid bounds
+            const clampedIndex = Math.max(0, Math.min(this.dataViewport.visibleCount - 1, dataIndex));
+            
+            // Calculate exact center of the candlestick using getXPixel and adding half candle width
+            const candleX = mainPlotLayout.x + getXPixel(this.dataViewport.startIndex + clampedIndex, this.dataViewport.startIndex, this.dataViewport.visibleCount, mainPlotLayout.width, barWidth);
+            this.crosshairX = candleX + (candleWidth / 2);
+        }
+        this.crosshairY = mouseY;
 
         if (this.isDraggingYAxis && this.resizingPlotId) {
             const deltaY = event.clientY - this.lastMouseY;
@@ -965,7 +985,24 @@ class StockChart {
             const touchX = touch.clientX - rect.left;
             const touchY = touch.clientY - rect.top;
 
-            this.crosshairX = touchX;
+            // Calculate the width of each candlestick bar
+            const barWidth = this.canvas.width / this.dataViewport.visibleCount;
+            const candleWidth = barWidth * 0.7; // Actual candlestick width
+            
+            // Get the main plot layout for proper positioning
+            const mainPlotLayout = this.plotLayoutManager.getPlotLayout('main');
+            if (mainPlotLayout) {
+                // Calculate which candlestick the touch is closest to
+                const relativeX = touchX - mainPlotLayout.x;  // Adjust for plot area x-offset
+                const dataIndex = Math.round(relativeX / barWidth - 0.5);
+                
+                // Ensure dataIndex stays within valid bounds
+                const clampedIndex = Math.max(0, Math.min(this.dataViewport.visibleCount - 1, dataIndex));
+                
+                // Calculate exact center of the candlestick using getXPixel and adding half candle width
+                const candleX = mainPlotLayout.x + getXPixel(this.dataViewport.startIndex + clampedIndex, this.dataViewport.startIndex, this.dataViewport.visibleCount, mainPlotLayout.width, barWidth);
+                this.crosshairX = candleX + (candleWidth / 2);
+            }
             this.crosshairY = touchY;
 
             if (this.isDraggingYAxis && this.resizingPlotId) {
@@ -1320,38 +1357,51 @@ class StockChart {
                     this.ctx.fillText(dateText, this.crosshairX, dateY);
                 }
 
-                // Show summary in top-right corner
+                // Show summary in top-right corner with each plot on a new line
                 const infoPlots = this.options.plots.filter(p => p.targetId === plotConfig.id || p.id === plotConfig.id);
-                let infoText = '';
+                const infoTexts = [];
 
                 infoPlots.forEach(infoPlot => {
                     const infoPlotData = infoPlot.data && infoPlot.data.length > 0 ? infoPlot.data : visibleData;
-                    let keyLabel = infoPlot.keyLabel || '';
                     if (actualDataIndex >= 0 && actualDataIndex < infoPlotData.length) {
                         const infoDataPoint = infoPlotData[actualDataIndex];
                         const newText = Object.entries(infoDataPoint)
                             .map(([key, value]) => {
                                 if (key === 'time' || key === 'date' || key === 'keyLabel') return null;
                                 const formattedValue = typeof value === 'number' ? value.toFixed(2) : value;
-                                keyLabel = keyLabel?.trim().length > 0 ? keyLabel : key.charAt(0).toUpperCase() + key.slice(1);
+                                const keyLabel = infoPlot.keyLabel?.trim().length > 0 
+                                    ? infoPlot.keyLabel 
+                                    : key.charAt(0).toUpperCase() + key.slice(1);
+
                                 return `${keyLabel}: ${formattedValue}`;
                             })
                             .filter(Boolean)
                             .join(' | ');
-                        if (infoText && newText) {
-                            infoText += ' | ' + newText;
-                        } else if (newText) {
-                            infoText = newText;
+
+                        if (newText) {
+                            infoTexts.push(newText);
                         }
                     }
                 });
 
-                // Position text in the top-right corner of the plot
-                const textY = plotLayout.y + 15;
-                const textX = plotLayout.x + plotLayout.width - 10; // 10px padding from right edge
+                // Position text in the top-right corner of the plot, with multiple lines
+                const lineHeight = 15;
+                const padding = 10;
+                const textX = plotLayout.x + plotLayout.width - padding; // padding from right edge
                 
                 this.ctx.textAlign = 'right';
-                this.ctx.fillText(infoText, textX, textY);
+
+                if (!infoPlots.some(p => p.id === 'main' || p.targetId === 'main')) {
+                    const nonMainInfo = infoTexts.join(' | ');
+                    infoTexts.length = 0;
+                    infoTexts.push(nonMainInfo);
+                }
+
+                // Draw each info text on a new line
+                infoTexts.forEach((text, index) => {
+                    const textY = plotLayout.y + (index + 1) * lineHeight;
+                    this.ctx.fillText(text, textX, textY);
+                });
                 this.ctx.textAlign = 'left'; // Reset alignment for other text
             }
         });

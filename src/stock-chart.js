@@ -285,14 +285,17 @@ class StockChart {
 
     /**
      * Applies the specified theme to the chart.
-     * @param {'light' | 'dark'} themeName - The name of the theme to apply ('light' or 'dark').
+     * @param {('light' | 'dark' | Object)} theme - The name of the built-in theme ('light' or 'dark') or a custom theme object.
      */
-    applyTheme(themeName) {
-        // This will be expanded to load themes from src/themes
-        const theme = StockChart.themes[themeName] || StockChart.themes.light;
-        this.currentTheme = theme;
+    applyTheme(theme) {
+        // If theme is a string, use built-in theme, otherwise use custom theme
+        const themeToApply = typeof theme === 'string' ? 
+            (StockChart.themes[theme] || StockChart.themes.light) : 
+            { ...StockChart.themes.light, ...theme }; // Merge with light theme for fallback values
+        
+        this.currentTheme = themeToApply;
         // Apply theme colors to canvas context or CSS variables
-        this.canvas.style.backgroundColor = theme.background;
+        this.canvas.style.backgroundColor = themeToApply.background;
         this.render(); // Redraw with new theme
     }
 

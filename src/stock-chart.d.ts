@@ -1,5 +1,19 @@
+export interface Theme {
+  background: string;
+  chartAreaBackground: string;
+  textColor: string;
+  gridColor: string;
+  lineColor: string;
+  positiveColor: string;
+  negativeColor: string;
+  volumeColor: string;
+  crosshairColor: string;
+  overlayTextColor: string;
+  candleBorderColor: string;
+}
+
 export interface StockChartOptions {
-  theme?: 'light' | 'dark';
+  theme?: 'light' | 'dark' | Theme;
   chartName?: ChartName;
   chartType?: 'candlestick' | 'line';
   plots?: Array<PlotConfig>;
@@ -46,7 +60,7 @@ export interface PlotConfig {
 export default class StockChart {
   static init(elementId: string, options: StockChartOptions): StockChart;
   constructor(container: HTMLElement, options: StockChartOptions);
-  applyTheme(themeName: 'light' | 'dark'): void;
+  applyTheme(theme: 'light' | 'dark' | Theme): void;
   resize(): void;
   render(): void;
 }

@@ -21,14 +21,76 @@
 
 <body>
   <h1>AI Stock View Chart Test</h1>
+  <div style="margin-bottom: 10px;">
+    <label for="theme-select">Theme:</label>
+    <select id="theme-select">
+      <option value="dark">Dark</option>
+      <option value="light">Light</option>
+      <option value="custom">Custom</option>
+    </select>
+  </div>
+  <div id="custom-theme-controls" style="display: none; margin-bottom: 20px; padding: 15px; border: 1px solid #ccc; border-radius: 5px;">
+    <h3 style="margin-top: 0;">Custom Theme Colors</h3>
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px;">
+      <div>
+        <label for="background">Background:</label>
+        <input type="color" id="background" value="#2C3E50">
+      </div>
+      <div>
+        <label for="chartAreaBackground">Chart Area:</label>
+        <input type="color" id="chartAreaBackground" value="#34495E">
+      </div>
+      <div>
+        <label for="textColor">Text:</label>
+        <input type="color" id="textColor" value="#ECF0F1">
+      </div>
+      <div>
+        <label for="gridColor">Grid:</label>
+        <input type="color" id="gridColor" value="#7F8C8D">
+      </div>
+      <div>
+        <label for="lineColor">Line:</label>
+        <input type="color" id="lineColor" value="#3498DB">
+      </div>
+      <div>
+        <label for="positiveColor">Positive:</label>
+        <input type="color" id="positiveColor" value="#2ECC71">
+      </div>
+      <div>
+        <label for="negativeColor">Negative:</label>
+        <input type="color" id="negativeColor" value="#E74C3C">
+      </div>
+      <div>
+        <label for="volumeColor">Volume:</label>
+        <input type="color" id="volumeColor" value="#9B59B6">
+      </div>
+      <div>
+        <label for="crosshairColor">Crosshair:</label>
+        <input type="color" id="crosshairColor" value="#ECF0F1">
+      </div>
+      <div>
+        <label for="overlayTextColor">Overlay Text:</label>
+        <input type="color" id="overlayTextColor" value="#ECF0F1">
+      </div>
+      <div>
+        <label for="candleUp">Candle Up:</label>
+        <input type="color" id="candleUp" value="#2ECC71">
+      </div>
+      <div>
+        <label for="candleDown">Candle Down:</label>
+        <input type="color" id="candleDown" value="#E74C3C">
+      </div>
+      <div>
+        <label for="candleBorderColor">Candle Border:</label>
+        <input type="color" id="candleBorderColor" value="#333333">
+      </div>
+    </div>
+  </div>
   <div id="chart-container"></div> 
-
-  <h1>AI Stock View Chart Demo</h1>
-  <div id="chart-container"></div>
 
   <script type="module">
     import StockChart from '../src/stock-chart.js';
-    import { calculateSMA, calculateMACD, generateCandlestickData } from '../src/indicators/demo.js';
+    import { calculateSMA, calculateMACD, calculateRSI, generateCandlestickData } from '../src/indicators/demo.js';
 
     const candlestickData = generateCandlestickData(1500);
 
@@ -36,6 +98,7 @@
     const sma20Data = calculateSMA(candlestickData, 20);
     const sma50Data = calculateSMA(candlestickData, 50);
     const macdData = calculateMACD(candlestickData);
+    const rsiData = calculateRSI(candlestickData);
 
     // Transform MACD data into separate line plots
     const macdLine = macdData.map(d => ({ time: d.time, value: d.value, keyLabel: 'Macd' }));
@@ -43,8 +106,65 @@
     const histogramLine = macdData.map(d => ({ time: d.time, value: d.histogram, keyLabel: 'Histogram' }));
 
     const volumeData = candlestickData.map(d => ({ time: d.time, volume: d.volume }));
+    let chartInstance;
 
-    StockChart.init('chart-container', {
+    // Custom theme example
+    const customTheme = {
+      background: '#2C3E50',
+      chartAreaBackground: '#34495E',
+      textColor: '#ECF0F1',
+      gridColor: '#7F8C8D',
+      lineColor: '#3498DB',
+      positiveColor: '#2ECC71',
+      negativeColor: '#E74C3C',
+      volumeColor: '#9B59B6',
+      crosshairColor: 'rgba(236, 240, 241, 0.5)',
+      overlayTextColor: '#ECF0F1',
+      candleUp: '#2ECC71',
+      candleDown: '#E74C3C',
+      candleBorderColor: '#8395A7'
+    };
+
+    // Function to update custom theme from color inputs
+    function updateCustomTheme() {
+      const theme = {};
+      // Get all color inputs
+      document.querySelectorAll('#custom-theme-controls input[type="color"]').forEach(input => {
+        let value = input.value;
+        // Convert to rgba for crosshair color
+        if (input.id === 'crosshairColor') {
+          const r = parseInt(value.substr(1,2), 16);
+          const g = parseInt(value.substr(3,2), 16);
+          const b = parseInt(value.substr(5,2), 16);
+          value = `rgba(${r}, ${g}, ${b}, 0.5)`;
+        }
+        theme[input.id] = value;
+      });
+      
+      // Apply the theme
+      if (chartInstance) {
+        chartInstance.applyTheme(theme);
+      }
+    }
+
+    // Setup theme change listener
+    document.getElementById('theme-select').addEventListener('change', (e) => {
+      const customControls = document.getElementById('custom-theme-controls');
+      if (e.target.value === 'custom') {
+        customControls.style.display = 'block';
+        updateCustomTheme();
+      } else {
+        customControls.style.display = 'none';
+        chartInstance.applyTheme(e.target.value);
+      }
+    });
+
+    // Add change listeners to all color inputs
+    document.querySelectorAll('#custom-theme-controls input[type="color"]').forEach(input => {
+      input.addEventListener('input', updateCustomTheme);
+    });
+
+    chartInstance = StockChart.init('chart-container', {
       theme: 'dark',
       chartName: {
         name: 'Test Chart Name',
@@ -56,7 +176,7 @@
         { 
           id: 'main', 
           type: 'candlestick',
-          heightRatio: 0.5, 
+          heightRatio: 0.6, 
           data: candlestickData ,
           targetId: 'main',
         },
@@ -87,13 +207,13 @@
         { 
           id: 'volume', 
           type: 'volume', 
-          heightRatio: 0.2, 
+          heightRatio: 0.1, 
           data: volumeData 
         },
         { 
           id: 'macd',
           type: 'line',
-          heightRatio: 0.2,
+          heightRatio: 0.15,
           data: macdLine,
           keyLabel: 'MACD',
           style: {
@@ -125,9 +245,20 @@
             negativeColor: 'rgba(233, 30, 99, 0.5)'
           }
         },
-
+        {
+          id: 'rsi',
+          type: 'line',
+          heightRatio: 0.15,
+          data: rsiData,
+          keyLabel: 'RSI',
+          style: {
+            lineColor: 'rgba(0, 150, 136, 1)', // Teal
+            lineWidth: 1.5
+          }
+        }
       ]
     });
+
   </script>
 </body>
 

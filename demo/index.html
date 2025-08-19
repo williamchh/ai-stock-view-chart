@@ -22,18 +22,85 @@
 
 <body>
   <h1><a href="https://aistockview.com" style="text-decoration: none; color: inherit;">AI Stock View</a> Chart Demo (Standalone - No Server Required)</h1>
+  <div style="margin-bottom: 10px;">
+    <label for="theme-select">Theme:</label>
+    <select id="theme-select" onchange="updateTheme()">
+      <option value="dark">Dark</option>
+      <option value="light">Light</option>
+      <option value="custom">Custom Theme</option>
+    </select>
+  </div>
+  <div id="custom-theme-controls" style="display: none; margin-bottom: 20px; padding: 15px; border: 1px solid #ccc; border-radius: 5px;">
+    <h3 style="margin-top: 0;">Custom Theme Colors</h3>
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px;">
+      <div>
+        <label for="background">Background:</label>
+        <input type="color" id="background" value="#1A1A1D" onchange="updateCustomTheme()">
+      </div>
+      <div>
+        <label for="chartAreaBackground">Chart Area:</label>
+        <input type="color" id="chartAreaBackground" value="#292930" onchange="updateCustomTheme()">
+      </div>
+      <div>
+        <label for="textColor">Text:</label>
+        <input type="color" id="textColor" value="#C5C6C7" onchange="updateCustomTheme()">
+      </div>
+      <div>
+        <label for="gridColor">Grid:</label>
+        <input type="color" id="gridColor" value="#4E4E50" onchange="updateCustomTheme()">
+      </div>
+      <div>
+        <label for="lineColor">Line:</label>
+        <input type="color" id="lineColor" value="#66FCF1" onchange="updateCustomTheme()">
+      </div>
+      <div>
+        <label for="positiveColor">Positive:</label>
+        <input type="color" id="positiveColor" value="#45A29E" onchange="updateCustomTheme()">
+      </div>
+      <div>
+        <label for="negativeColor">Negative:</label>
+        <input type="color" id="negativeColor" value="#C5433D" onchange="updateCustomTheme()">
+      </div>
+      <div>
+        <label for="volumeColor">Volume:</label>
+        <input type="color" id="volumeColor" value="#66FCF1" onchange="updateCustomTheme()">
+      </div>
+      <div>
+        <label for="crosshairColor">Crosshair:</label>
+        <input type="color" id="crosshairColor" value="#C5C6C7" onchange="updateCustomTheme()">
+      </div>
+      <div>
+        <label for="overlayTextColor">Overlay Text:</label>
+        <input type="color" id="overlayTextColor" value="#C5C6C7" onchange="updateCustomTheme()">
+      </div>
+      <div>
+        <label for="candleUp">Candle Up:</label>
+        <input type="color" id="candleUp" value="#45A29E" onchange="updateCustomTheme()">
+      </div>
+      <div>
+        <label for="candleDown">Candle Down:</label>
+        <input type="color" id="candleDown" value="#C5433D" onchange="updateCustomTheme()">
+      </div>
+      <div>
+        <label for="candleBorderColor">Candle Border:</label>
+        <input type="color" id="candleBorderColor" value="#4E4E50" onchange="updateCustomTheme()">
+      </div>
+    </div>
+  </div>
   <div id="chart-container"></div> <!-- Include UMD builds directly -->
   <script src="./stock-chart.umd.min.js"></script>
   <script src="./demo.umd.min.js"></script>
   <script>
 
 
+    let chartInstance;
     const candlestickData = Demo.generateCandlestickData(3000);
 
     // Calculate indicators using global variables
     const sma20Data = Demo.calculateSMA(candlestickData, 20);
     const sma50Data = Demo.calculateSMA(candlestickData, 50);
     const macdData = Demo.calculateMACD(candlestickData);
+    const rsiData = Demo.calculateRSI(candlestickData);
 
     // Transform MACD data into separate line plots
     const macdLine = macdData.map(d => ({ time: d.time, value: d.value, keyLabel: 'Macd' }));
@@ -42,55 +109,58 @@
     const volumeData = candlestickData.map(d => ({ time: d.time, volume: d.volume }));
 
     // Use the global StockChart object
-    StockChart.init('chart-container', {
+    window.chartInstance = StockChart.init('chart-container', {
       theme: 'dark',
       chartName: {
-        name: 'Apple Inc.',
-        code: 'AAPL',
+        name: 'Test ASV Chart',
+        code: 'stcd',
         metaString: 'NASDAQ, 1D'
       },
       initialVisibleCandles: 100,
       plots: [
-        {
-          id: 'main',
+        { 
+          id: 'main', 
           type: 'candlestick',
-          heightRatio: 0.5,
-          data: candlestickData,
+          heightRatio: 0.6, 
+          data: candlestickData ,
           targetId: 'main',
         },
-        {
-          id: 'sma20',
-          type: 'line',
+        { 
+          id: 'sma20', 
+          type: 'line', 
           data: sma20Data,
           overlay: true,
           targetId: 'main',
+          keyLabel: 'SMA 20',
           style: {
-            lineColor: 'rgba(255, 140, 0, 0.8)', // Orange
+            lineColor: 'rgba(255, 140, 0, 0.8)',  // Orange
             lineWidth: 1.5
           }
         },
-        {
-          id: 'sma50',
-          type: 'line',
+        { 
+          id: 'sma50', 
+          type: 'line', 
           data: sma50Data,
           overlay: true,
           targetId: 'main',
+          keyLabel: 'SMA 50',
           style: {
-            lineColor: 'rgba(70, 130, 180, 0.8)', // Steel Blue
+            lineColor: 'rgba(70, 130, 180, 0.8)',  // Steel Blue
             lineWidth: 5
           }
         },
-        {
-          id: 'volume',
-          type: 'volume',
-          heightRatio: 0.2,
-          data: volumeData
+        { 
+          id: 'volume', 
+          type: 'volume', 
+          heightRatio: 0.1, 
+          data: volumeData 
         },
-        {
+        { 
           id: 'macd',
           type: 'line',
-          heightRatio: 0.2,
+          heightRatio: 0.15,
           data: macdLine,
+          keyLabel: 'MACD',
           style: {
             lineColor: 'rgba(0, 150, 136, 0.8)', // Teal
             lineWidth: 3
@@ -102,6 +172,7 @@
           data: signalLine,
           overlay: true,
           targetId: 'macd',
+          keyLabel: 'Signal',
           style: {
             lineColor: 'rgba(233, 30, 99, 0.8)', // Pink
             lineWidth: 1.5
@@ -113,13 +184,59 @@
           data: histogramLine,
           overlay: true,
           targetId: 'macd',
+          keyLabel: 'Histogram',
           style: {
             positiveColor: 'rgba(0, 150, 136, 0.5)',
             negativeColor: 'rgba(233, 30, 99, 0.5)'
           }
+        },
+        {
+          id: 'rsi',
+          type: 'line',
+          heightRatio: 0.15,
+          data: rsiData,
+          keyLabel: 'RSI',
+          style: {
+            lineColor: 'rgba(0, 150, 136, 1)', // Teal
+            lineWidth: 1.5
+          }
         }
       ]
     });
+
+    function updateCustomTheme() {
+      const theme = {};
+      // Get all color inputs
+      document.querySelectorAll('#custom-theme-controls input[type="color"]').forEach(input => {
+        let value = input.value;
+        // Convert to rgba for crosshair color
+        if (input.id === 'crosshairColor') {
+          const r = parseInt(value.substr(1,2), 16);
+          const g = parseInt(value.substr(3,2), 16);
+          const b = parseInt(value.substr(5,2), 16);
+          value = `rgba(${r}, ${g}, ${b}, 0.5)`;
+        }
+        theme[input.id] = value;
+      });
+      
+      // Apply the theme
+      if (window.chartInstance) {
+        window.chartInstance.applyTheme(theme);
+      }
+    }
+
+    function updateTheme() {
+      const selectedTheme = document.getElementById('theme-select').value;
+      const customControls = document.getElementById('custom-theme-controls');
+      
+      if (selectedTheme === 'custom') {
+        customControls.style.display = 'block';
+        updateCustomTheme();
+      } else {
+        customControls.style.display = 'none';
+        window.chartInstance.applyTheme(selectedTheme);
+      }
+    }
   </script>
 </body>
 

@@ -12,7 +12,7 @@ const lightTheme = {
     // Candlestick colors
     candleUp: '#4CAF50', // Green
     candleDown: '#F44336', // Red
-    candleBorder: '#333333',
+    candleBorderColor: '#333333', // Border color for candlesticks
     // Line chart color
     lineColor: '#2196F3', // Blue
     // Crosshair color

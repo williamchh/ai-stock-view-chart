@@ -1,5 +1,6 @@
 import { initMACDState, updateMACD } from './macd.js';
 import { initSMAState, updateSMA } from './sma.js';
+import { initRSIState, updateRSI } from './rsi.js';
 
 /**
  * Calculate SMA for a series of data
@@ -49,6 +50,28 @@ export function calculateMACD(data, fastPeriod = 12, slowPeriod = 26, signalPeri
     }
 
     return macdData;
+}
+
+/**
+ * Calculate RSI for a series of data
+ * @param {Array} data - Array of price data
+ * @param {number} period - RSI period
+ * @returns {Array} Array of RSI values with timestamps
+ */
+export function calculateRSI(data, period = 14) {
+    let state = initRSIState(period);
+    const rsiData = [];
+
+    for (const point of data) {
+        const result = updateRSI(point.close, state);
+        rsiData.push({
+            time: point.time,
+            value: result.value
+        });
+        state = result.state;
+    }
+
+    return rsiData;
 }
 
 /**

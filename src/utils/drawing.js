@@ -18,7 +18,7 @@
 export function drawCandlestick(ctx, data, x, openY, highY, lowY, closeY, width, theme) {
     const isBullish = data.close > data.open;
     const bodyColor = isBullish ? theme.candleUp : theme.candleDown;
-    const borderColor = theme.candleBorder;
+    const borderColor = theme.candleBorderColor || theme.textColor; // Fall back to textColor if candleBorderColor is not set
 
     // Draw wick
     ctx.strokeStyle = borderColor;

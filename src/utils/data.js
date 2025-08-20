@@ -22,6 +22,12 @@ export class DataViewport {
     }
 
     /**
+     * @private
+     * @readonly
+     */
+    MIN_PORT_VISIBLE_COUNT = 10;
+
+    /**
      * Gets the currently visible data points.
      * @returns {Array<object>} An array of data points within the current viewport.
      */
@@ -78,13 +84,19 @@ export class DataViewport {
         }
 
         const absoluteAnchorIndex = this.startIndex + anchorIndex;
+
+        let adjustedZoomFactor = zoomFactor;
+        const projectedVisibleCount = Math.round(this.visibleCount / zoomFactor);
+        if (projectedVisibleCount > 200 && zoomFactor < 0.99) {
+            adjustedZoomFactor *= 0.99;
+        }
         
         // Calculate new visible count with bounds
         const newVisibleCount = Math.max(
-            10, // Minimum visible count
+            this.MIN_PORT_VISIBLE_COUNT, // Minimum visible count
             Math.min(
                 this.allData.length, // Maximum visible count (removed rightPadding for zoom)
-                Math.round(this.visibleCount / zoomFactor)
+                Math.round(this.visibleCount / adjustedZoomFactor)
             )
         );
 

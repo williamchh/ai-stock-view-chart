@@ -789,7 +789,7 @@ class StockChart {
             }
             this.render();
         } else { // Normal scroll for horizontal zoom
-            const zoomFactor = event.deltaY < 0 ? 1.1 : 1 / 1.1; // Zoom in or out
+            const zoomFactor = event.deltaY < 0 ? 1.1 : 0.901; //1 / 1.1; // Zoom in or out
             const dataIndexAtMouse = Math.floor(this.crosshairX / (this.canvas.width / this.dataViewport.visibleCount));
             this.dataViewport.zoom(zoomFactor, dataIndexAtMouse);
             this.render();
@@ -1026,7 +1026,7 @@ class StockChart {
                     const horizontalChange = Math.abs(smoothedPinchCenterX - this.pinchCenterX);
                     
                     // Improved threshold and damping for zoom changes
-                    const minZoomChange = 0.02; // Reduced threshold for smoother response
+                    const minZoomChange = 0.002; // Reduced threshold for smoother response
                     const normalizedZoomFactor = Math.abs(rawZoomFactor - 1);
                     
                     if (normalizedZoomFactor > minZoomChange) {
@@ -1043,14 +1043,14 @@ class StockChart {
                             this.plotScales.set(targetPlotId, plotScale);
                         } else {
                             // Horizontal pinch - adjust time scale with improved stability
-                            const zoomStrength = 0.03; // Further reduced for smoother zooming
+                            const zoomStrength = 0.02; // Further reduced for smoother zooming
                             const zoomDirection = Math.exp((zoomFactor - 1) * zoomStrength);
                             const plotLayout = this.plotLayoutManager.getPlotLayout(targetPlotId);
                             const dataIndexAtPinch = Math.floor(
                                 (smoothedPinchCenterX - plotLayout.x) / 
                                 (plotLayout.width / this.dataViewport.visibleCount)
                             );
-                            this.dataViewport.zoom(zoomDirection, dataIndexAtPinch);
+                            this.dataViewport.zoom(zoomDirection > 1 ? 1.03 : 0.97, dataIndexAtPinch);
                         }
                     }
                 }

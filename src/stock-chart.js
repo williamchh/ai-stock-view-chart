@@ -341,8 +341,6 @@ class StockChart {
             return;
         }
 
-        const barWidth = this.canvas.width / this.dataViewport.visibleCount;
-
         // Calculate price range using class method
         // const { minPrice, maxPrice } = this.calculatePriceRange(plotConfig, visibleData, this.dataViewport);
 
@@ -362,6 +360,8 @@ class StockChart {
             
             const plotLayout = this.plotLayoutManager.getPlotLayout(targetPlotId);
             if (!plotLayout) return;
+
+            const barWidth = plotLayout.width / this.dataViewport.visibleCount;
 
             // Calculate and store price range for non-overlay plots
             if (!isOverlay && !priceRanges.has(plotConfig.id)) {
@@ -420,12 +420,13 @@ class StockChart {
                 switch (plotConfig.type) {
                     case 'candlestick':
                         plotVisibleData.forEach((dataPoint, i) => {
-                            const x = plotLayout.x + getXPixel(this.dataViewport.startIndex + i, this.dataViewport.startIndex, this.dataViewport.visibleCount, plotLayout.width, barWidth);
+                            const candleWidth = barWidth * 0.7;
+                            const x = plotLayout.x + getXPixel(this.dataViewport.startIndex + i, this.dataViewport.startIndex, this.dataViewport.visibleCount, plotLayout.width, barWidth) + (barWidth - candleWidth) / 2;
                             const openY = getYPixel(dataPoint.open, minPrice, maxPrice, plotLayout.height, plotLayout.y);
                             const highY = getYPixel(dataPoint.high, minPrice, maxPrice, plotLayout.height, plotLayout.y);
                             const lowY = getYPixel(dataPoint.low, minPrice, maxPrice, plotLayout.height, plotLayout.y);
                             const closeY = getYPixel(dataPoint.close, minPrice, maxPrice, plotLayout.height, plotLayout.y);
-                            drawCandlestick(this.ctx, dataPoint, x, openY, highY, lowY, closeY, barWidth * 0.7, this.currentTheme);
+                            drawCandlestick(this.ctx, dataPoint, x, openY, highY, lowY, closeY, candleWidth, this.currentTheme);
                         });
                         break;
                     case 'line':
@@ -454,16 +455,18 @@ class StockChart {
                         break;
                     case 'volume':
                         plotVisibleData.forEach((dataPoint, i) => {
-                            const x = plotLayout.x + getXPixel(this.dataViewport.startIndex + i, this.dataViewport.startIndex, this.dataViewport.visibleCount, plotLayout.width, barWidth);
+                            const volWidth = barWidth * 0.7;
+                            const x = plotLayout.x + getXPixel(this.dataViewport.startIndex + i, this.dataViewport.startIndex, this.dataViewport.visibleCount, plotLayout.width, barWidth) + (barWidth - volWidth) / 2;
                             const volHeight = ((dataPoint.volume || 0) / maxPrice) * plotLayout.height;
                             const y = plotLayout.y + plotLayout.height - volHeight;
                             this.ctx.fillStyle = this.currentTheme.volumeColor || 'rgba(0, 150, 136, 0.6)';
-                            this.ctx.fillRect(x, y, barWidth * 0.7, volHeight);
+                            this.ctx.fillRect(x, y, volWidth, volHeight);
                         });
                         break;
                     case 'histogram':
                         plotVisibleData.forEach((dataPoint, i) => {
-                            const x = plotLayout.x + getXPixel(this.dataViewport.startIndex + i, this.dataViewport.startIndex, this.dataViewport.visibleCount, plotLayout.width, barWidth);
+                            const histoWidth = barWidth * 0.7;
+                            const x = plotLayout.x + getXPixel(this.dataViewport.startIndex + i, this.dataViewport.startIndex, this.dataViewport.visibleCount, plotLayout.width, barWidth) + (barWidth - histoWidth) / 2;
                             const y = getYPixel(0, minPrice, maxPrice, plotLayout.height, plotLayout.y);
                             const barHeight = getYPixel(dataPoint.value, minPrice, maxPrice, plotLayout.height, plotLayout.y) - y;
 
@@ -471,7 +474,7 @@ class StockChart {
                                 (plotConfig.style?.positiveColor || this.currentTheme.positiveColor) :
                                 (plotConfig.style?.negativeColor || this.currentTheme.negativeColor);
 
-                            this.ctx.fillRect(x, y, barWidth * 0.7, barHeight);
+                            this.ctx.fillRect(x, y, histoWidth, barHeight);
                         });
                         break;
                 }
@@ -590,13 +593,11 @@ class StockChart {
         const mouseX = event.clientX - rect.left;
         const mouseY = event.clientY - rect.top;
 
-        // Calculate the width of each candlestick bar
-        const barWidth = this.canvas.width / this.dataViewport.visibleCount;
-        const candleWidth = barWidth * 0.7; // Actual candlestick width
-        
         // Get the main plot layout for proper positioning
         const mainPlotLayout = this.plotLayoutManager.getPlotLayout('main');
         if (mainPlotLayout) {
+            const barWidth = mainPlotLayout.width / this.dataViewport.visibleCount;
+
             // Calculate which candlestick the mouse is closest to
             const relativeX = mouseX - mainPlotLayout.x;  // Adjust for plot area x-offset
             const dataIndex = Math.round(relativeX / barWidth - 0.5);
@@ -606,7 +607,7 @@ class StockChart {
             
             // Calculate exact center of the candlestick using getXPixel and adding half candle width
             const candleX = mainPlotLayout.x + getXPixel(this.dataViewport.startIndex + clampedIndex, this.dataViewport.startIndex, this.dataViewport.visibleCount, mainPlotLayout.width, barWidth);
-            this.crosshairX = candleX + (candleWidth / 2);
+            this.crosshairX = candleX + (barWidth / 2);
         }
         this.crosshairY = mouseY;
 
@@ -665,7 +666,8 @@ class StockChart {
             }
         } else if (this.isDragging) {
             const deltaX = event.clientX - this.lastMouseX;
-            const barWidth = this.canvas.width / this.dataViewport.visibleCount;
+            const mainPlotLayout = this.plotLayoutManager.getPlotLayout('main');
+            const barWidth = mainPlotLayout ? mainPlotLayout.width / this.dataViewport.visibleCount : this.canvas.width / this.dataViewport.visibleCount;
             const scrollAmount = Math.round(deltaX / barWidth);
 
             if (scrollAmount !== 0) {
@@ -947,8 +949,7 @@ class StockChart {
                     // Update crosshair position
                     const mainPlotLayout = this.plotLayoutManager.getPlotLayout('main');
                     if (mainPlotLayout) {
-                        const barWidth = this.canvas.width / this.dataViewport.visibleCount;
-                        const candleWidth = barWidth * 0.7;
+                        const barWidth = mainPlotLayout.width / this.dataViewport.visibleCount;
                         const relativeX = touchX - mainPlotLayout.x;
                         const dataIndex = Math.round(relativeX / barWidth - 0.5);
                         const clampedIndex = Math.max(0, Math.min(this.dataViewport.visibleCount - 1, dataIndex));
@@ -959,7 +960,7 @@ class StockChart {
                             mainPlotLayout.width,
                             barWidth
                         );
-                        this.crosshairX = candleX + (candleWidth / 2);
+                        this.crosshairX = candleX + (barWidth / 2);
                         this.crosshairY = touchY;
                     }
                     this.render();
@@ -1067,13 +1068,10 @@ class StockChart {
             const touchX = touch.clientX - rect.left;
             const touchY = touch.clientY - rect.top;
 
-            // Calculate the width of each candlestick bar
-            const barWidth = this.canvas.width / this.dataViewport.visibleCount;
-            const candleWidth = barWidth * 0.7; // Actual candlestick width
-            
             // Get the main plot layout for proper positioning
             const mainPlotLayout = this.plotLayoutManager.getPlotLayout('main');
             if (mainPlotLayout) {
+                const barWidth = mainPlotLayout.width / this.dataViewport.visibleCount;
             // Only update crosshair position if in crosshair mode
             if (this.isCrosshairMode) {
                 // Calculate which candlestick the touch is closest to
@@ -1085,7 +1083,7 @@ class StockChart {
                 
                 // Calculate exact center of the candlestick using getXPixel and adding half candle width
                 const candleX = mainPlotLayout.x + getXPixel(this.dataViewport.startIndex + clampedIndex, this.dataViewport.startIndex, this.dataViewport.visibleCount, mainPlotLayout.width, barWidth);
-                this.crosshairX = candleX + (candleWidth / 2);
+                this.crosshairX = candleX + (barWidth / 2);
                 this.crosshairY = touchY;
             } else if (this.isDragging) {
                 // Calculate distance moved from initial touch
@@ -1148,7 +1146,8 @@ class StockChart {
             } else if (this.isDragging) {
                 // Handle chart dragging
                 const deltaX = touchX - this.lastTouchX;
-                const barWidth = this.canvas.width / this.dataViewport.visibleCount;
+                const mainPlotLayout = this.plotLayoutManager.getPlotLayout('main');
+                const barWidth = mainPlotLayout ? mainPlotLayout.width / this.dataViewport.visibleCount : this.canvas.width / this.dataViewport.visibleCount;
                 const scrollAmount = Math.round(deltaX / barWidth);
 
                 // Handle dragging and crosshair modes
@@ -1163,8 +1162,7 @@ class StockChart {
                     // In crosshair mode, only update the crosshair position
                     const mainPlotLayout = this.plotLayoutManager.getPlotLayout('main');
                     if (mainPlotLayout) {
-                        const barWidth = this.canvas.width / this.dataViewport.visibleCount;
-                        const candleWidth = barWidth * 0.7;
+                        const barWidth = mainPlotLayout.width / this.dataViewport.visibleCount;
                         const relativeX = touchX - mainPlotLayout.x;
                         const dataIndex = Math.round(relativeX / barWidth - 0.5);
                         const clampedIndex = Math.max(0, Math.min(this.dataViewport.visibleCount - 1, dataIndex));
@@ -1175,7 +1173,7 @@ class StockChart {
                             mainPlotLayout.width,
                             barWidth
                         );
-                        this.crosshairX = candleX + (candleWidth / 2);
+                        this.crosshairX = candleX + (barWidth / 2);
                         this.crosshairY = touchY;
                         this.render();
                     }
@@ -1317,6 +1315,7 @@ class StockChart {
         };
 
         // Draw the labels
+        const barWidth = mainPlotLayout.width / this.dataViewport.visibleCount;
         for (let i = 0; i < visibleData.length; i += labelInterval) {
             const dataPoint = visibleData[i];
             if (!dataPoint || !dataPoint.time) continue;
@@ -1326,16 +1325,17 @@ class StockChart {
                 this.dataViewport.startIndex,
                 this.dataViewport.visibleCount,
                 mainPlotLayout.width,
-                mainPlotLayout.width / this.dataViewport.visibleCount
+                barWidth
             );
 
             const date = new Date(dataPoint.time * 1000);
             // const label = formatDate(date);
             const label = date.toLocaleDateString(undefined, { year: 'numeric', month: 'numeric', day: 'numeric' });
             
+            const labelX = mainPlotLayout.x + x + barWidth / 2;
             // Only draw if the label would be within the plot area
-            if (x >= mainPlotLayout.x && x <= mainPlotLayout.x + mainPlotLayout.width) {
-                this.ctx.fillText(label, x, xAxisY);
+            if (labelX >= mainPlotLayout.x && labelX <= mainPlotLayout.x + mainPlotLayout.width) {
+                this.ctx.fillText(label, labelX, xAxisY);
             }
         }
     }
@@ -1347,6 +1347,7 @@ class StockChart {
         const fontSize = this.canvas.width < 600 ? 10 : 12;
         this.ctx.font = `${fontSize}px Arial`;
         this.ctx.textAlign = 'left';
+        this.ctx.textBaseline = 'middle';
 
         // Adjust number of labels based on plot height to prevent overlap
         const minLabelSpacing = fontSize + 4; // Minimum spacing between labels
@@ -1425,8 +1426,10 @@ class StockChart {
 
             // Draw label in the right margin area with better positioning
             const x = plotLayout.x + plotLayout.width + 4;
-            this.ctx.fillText(label, x, y + fontSize / 3);
+            this.ctx.fillText(label, x, Math.round(y));
         });
+
+        this.ctx.textBaseline = 'alphabetic'; // Reset baseline
 
         // Draw the y-axis line last (so it's on top of grid lines)
         this.ctx.beginPath();
@@ -1444,8 +1447,12 @@ class StockChart {
         const visibleData = this.dataViewport.getVisibleData();
         if (visibleData.length === 0) return;
 
-        const barWidth = this.canvas.width / this.dataViewport.visibleCount;
-        const dataIndexAtCrosshair = Math.floor(this.crosshairX / barWidth);
+        const mainPlotLayout = this.plotLayoutManager.getPlotLayout('main');
+        if (!mainPlotLayout) return;
+
+        const barWidth = mainPlotLayout.width / this.dataViewport.visibleCount;
+        const relativeX = this.crosshairX - mainPlotLayout.x;
+        const dataIndexAtCrosshair = Math.max(0, Math.floor(relativeX / barWidth));
         const actualDataIndex = this.dataViewport.startIndex + dataIndexAtCrosshair;
 
         this.options.plots.forEach(plotConfig => {
@@ -1496,8 +1503,9 @@ class StockChart {
                     }
 
                     this.ctx.textAlign = 'left';
+                    this.ctx.textBaseline = 'middle';
                     const valueX = this.plotLayoutManager.getPlotTotalWidth() + 5;
-                    this.ctx.fillText(valueText, valueX, this.crosshairY);
+                    this.ctx.fillText(valueText, valueX, Math.round(this.crosshairY));
                 }
 
                 // Show date at the bottom of crosshair
@@ -1509,6 +1517,7 @@ class StockChart {
                         day: 'numeric'
                     });
                     this.ctx.textAlign = 'center';
+                    this.ctx.textBaseline = 'middle';
                     // Position the date text 5 pixels below the bottom of the plot area
                     const dateY = this.plotLayoutManager.getPlotTotalHeight() + 15; // Use total height for bottom margin
                     this.ctx.fillText(dateText, this.crosshairX, dateY);
@@ -1560,6 +1569,7 @@ class StockChart {
                     this.ctx.fillText(text, textX, textY);
                 });
                 this.ctx.textAlign = 'left'; // Reset alignment for other text
+                this.ctx.textBaseline = 'alphabetic'; // Reset baseline
             }
         });
     }

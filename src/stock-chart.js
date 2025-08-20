@@ -477,6 +477,10 @@ class StockChart {
                             this.ctx.fillRect(x, y, histoWidth, barHeight);
                         });
                         break;
+                    case 'signal':
+                        this.renderSignals(plotVisibleData, plotLayout, plotConfig, minPrice, maxPrice, barWidth);
+                        break;
+                        
                 }
             }
             this.ctx.restore();
@@ -528,10 +532,48 @@ class StockChart {
         }
     }
 
-    /**
-     * Handles mouse down events for dragging and viewport interaction.
-     * @param {MouseEvent} event
-     */
+    renderSignals(plotVisibleData, plotLayout, plotConfig, minPrice, maxPrice, barWidth) {
+        let lastValidIndex = -1;
+        let signalStart = null;
+        
+        plotVisibleData.forEach((dataPoint, i) => {
+            if (dataPoint.value === undefined || dataPoint.value === null) {
+                if (signalStart !== null) {
+                    // Draw the previous signal block
+                    this.drawSignalBlock(
+                        plotLayout,
+                        signalStart,
+                        lastValidIndex,
+                        plotConfig.style,
+                        minPrice,
+                        maxPrice,
+                        barWidth
+                    );
+                    signalStart = null;
+                }
+                return;
+            }
+
+            if (signalStart === null) {
+                signalStart = i;
+            }
+            lastValidIndex = i;
+        });
+
+        // Draw the last signal block if exists
+        // @ts-ignore
+        if (signalStart != null && lastValidIndex >= signalStart) {
+            this.drawSignalBlock(
+                plotLayout,
+                signalStart,
+                lastValidIndex,
+                plotConfig.style,
+                minPrice,
+                maxPrice,
+                barWidth
+            );
+        }
+    }
 
     /**
      * Handles mouse down events for dragging.
@@ -1574,6 +1616,47 @@ class StockChart {
         });
     }
 
+        /**
+     * Draw a signal block
+     * @private
+     */
+    drawSignalBlock(plotLayout, startIndex, endIndex, style, minPrice, maxPrice, barWidth) {
+        const startXPos = plotLayout.x + getXPixel(
+            this.dataViewport.startIndex + startIndex,
+            this.dataViewport.startIndex,
+            this.dataViewport.visibleCount,
+            plotLayout.width,
+            barWidth
+        );
+    
+        const endXPos = plotLayout.x + getXPixel(
+            this.dataViewport.startIndex + endIndex + 1,
+            this.dataViewport.startIndex,
+            this.dataViewport.visibleCount,
+            plotLayout.width,
+            barWidth
+        );
+    
+        const y = getYPixel(style.value, minPrice, maxPrice, plotLayout.height, plotLayout.y);
+        
+        // Draw block
+        this.ctx.fillStyle = style.color;
+        this.ctx.fillRect(
+            startXPos,
+            y - style.blockHeight / 2,
+            endXPos - startXPos,
+            style.blockHeight
+        );
+    
+        // Draw signal line
+        this.ctx.strokeStyle = style.lineColor;
+        this.ctx.beginPath();
+        this.ctx.moveTo(startXPos, y);
+        this.ctx.lineTo(endXPos, y);
+        this.ctx.stroke();
+    }
+
+    
     /**
      * Renders overlay panels for indicators (placeholder, extendable).
      */

@@ -75,30 +75,82 @@ export function calculateRSI(data, period = 14) {
 }
 
 /**
- * @description Generate random candlestick data
+ * @description Generate random candlestick data with signals
  * @param {number} count 
- * @returns {Array} Array of candlestick data
+ * @returns {Array} Array of candlestick data with signals
  */
 export function generateCandlestickData(count) {
     const data = [];
     let lastClose = 200;
     let date = new Date('2015-01-01');
+    let supportLevel = null;
+    let resistanceLevel = null;
+    let trendCount = 0;
+    
     for (let i = 0; i < count; i++) {
-    const open = lastClose + (Math.random() - 0.5) * 5;
-    const close = open + (Math.random() - 0.5) * 10;
-    const high = Math.max(open, close) + Math.random() * 5;
-    const low = Math.min(open, close) - Math.random() * 5;
-    const volume = Math.random() * 10000 + 1000;
-    data.push({
-        time: date.getTime() / 1000,
-        open: open,
-        high: high,
-        low: low,
-        close: close,
-        volume: volume
-    });
-    lastClose = close;
-    date.setDate(date.getDate() + 1);
+        const open = lastClose + (Math.random() - 0.5) * 5;
+        const close = open + (Math.random() - 0.5) * 10;
+        const high = Math.max(open, close) + Math.random() * 5;
+        const low = Math.min(open, close) - Math.random() * 5;
+        const volume = Math.random() * 10000 + 1000;
+        
+        // Initialize signals array
+        const signals = [];
+        
+        // Support level logic
+        if (supportLevel === null || low < supportLevel * 0.98) {
+            // Create new support level when price drops significantly
+            supportLevel = low;
+            trendCount = 0;
+        } else if (low > supportLevel && low < supportLevel * 1.02) {
+            // Add support signal when price tests support level
+            signals.push({
+                type: 'support',
+                value: supportLevel
+            });
+        }
+        
+        // Resistance level logic
+        if (resistanceLevel === null || high > resistanceLevel * 1.02) {
+            // Create new resistance level when price rises significantly
+            resistanceLevel = high;
+            trendCount = 0;
+        } else if (high < resistanceLevel && high > resistanceLevel * 0.98) {
+            // Add resistance signal when price tests resistance level
+            signals.push({
+                type: 'resistance',
+                value: resistanceLevel
+            });
+        }
+        
+        // Trend signals
+        trendCount++;
+        if (trendCount >= 5) {
+            if (close > open && close > lastClose) {
+                signals.push({
+                    type: 'uptrend',
+                    value: (low + supportLevel) / 2
+                });
+            } else if (close < open && close < lastClose) {
+                signals.push({
+                    type: 'downtrend',
+                    value: (high + resistanceLevel) / 2
+                });
+            }
+        }
+
+        data.push({
+            time: date.getTime() / 1000,
+            open: open,
+            high: high,
+            low: low,
+            close: close,
+            volume: volume,
+            signals: signals.length > 0 ? signals : undefined // Only add signals if there are any
+        });
+        
+        lastClose = close;
+        date.setDate(date.getDate() + 1);
     }
     return data;
 }

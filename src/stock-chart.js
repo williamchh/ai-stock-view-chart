@@ -470,7 +470,7 @@ class StockChart {
                             this.ctx.fillStyle = dataPoint.value >= 0 ?
                                 (plotConfig.style?.positiveColor || this.currentTheme.positiveColor) :
                                 (plotConfig.style?.negativeColor || this.currentTheme.negativeColor);
-console.log(`dataPoint ${dataPoint}, bar height ${barHeight}`)
+
                             this.ctx.fillRect(x, y, barWidth * 0.7, barHeight);
                         });
                         break;
@@ -867,9 +867,11 @@ console.log(`dataPoint ${dataPoint}, bar height ${barHeight}`)
             const touchX = touch.clientX - rect.left;
             const touchY = touch.clientY - rect.top;
 
-            // Store initial touch position
-            this.touchStartX = touchX;
-            this.touchStartY = touchY;
+            // Store initial touch position for movement detection
+            this.initialTouchX = touchX;
+            this.initialTouchY = touchY;
+            this.lastTouchX = touchX;
+            this.lastTouchY = touchY;
 
             // Check for Y-axis touch first
             for (const plot of this.options.plots) {
@@ -1085,15 +1087,27 @@ console.log(`dataPoint ${dataPoint}, bar height ${barHeight}`)
                 const candleX = mainPlotLayout.x + getXPixel(this.dataViewport.startIndex + clampedIndex, this.dataViewport.startIndex, this.dataViewport.visibleCount, mainPlotLayout.width, barWidth);
                 this.crosshairX = candleX + (candleWidth / 2);
                 this.crosshairY = touchY;
-            } else {
-                // Hide crosshair during regular movement
-                this.crosshairX = -1;
-                this.crosshairY = -1;
+            } else if (this.isDragging) {
+                // Calculate distance moved from initial touch
+                const distanceX = Math.abs(touchX - this.initialTouchX);
+                const distanceY = Math.abs(touchY - this.initialTouchY);
+                const totalDistance = Math.sqrt(distanceX * distanceX + distanceY * distanceY);
+
+                // If significant movement is detected, clear the timer and prevent crosshair mode
+                if (totalDistance > 10 && this.touchHoldTimer) { // 10 pixels threshold
+                    clearTimeout(this.touchHoldTimer);
+                    this.touchHoldTimer = null;
+                    this.isCrosshairMode = false; // Ensure crosshair mode is off
+                    this.crosshairX = -1; // Hide crosshair immediately
+                    this.crosshairY = -1;
+                }
             }
-        }            if (this.isDraggingYAxis && this.resizingPlotId) {
-                // Handle Y-axis dragging
-                const deltaY = touchY - this.lastTouchY;
-                this.lastTouchY = touchY;
+        }
+        
+        if (this.isDraggingYAxis && this.resizingPlotId) {
+            // Handle Y-axis dragging
+            const deltaY = touchY - this.lastTouchY;
+            this.lastTouchY = touchY;
                 
                 let plotScale = this.plotScales.get(this.resizingPlotId) || 1.0;
                 const scaleFactor = Math.exp(-deltaY * 0.01);
@@ -1139,16 +1153,13 @@ console.log(`dataPoint ${dataPoint}, bar height ${barHeight}`)
 
                 // Handle dragging and crosshair modes
                 if (!this.isCrosshairMode) {
-                    // In dragging mode
+                    // In dragging mode, only scroll if not in crosshair mode
                     if (scrollAmount !== 0) {
                         this.dataViewport.scroll(-scrollAmount);
                         this.lastTouchX = touchX;
-                        // Ensure crosshair is hidden during drag
-                        this.crosshairX = -1;
-                        this.crosshairY = -1;
                         this.render();
                     }
-                } else if (this.isCrosshairMode) {
+                } else {
                     // In crosshair mode, only update the crosshair position
                     const mainPlotLayout = this.plotLayoutManager.getPlotLayout('main');
                     if (mainPlotLayout) {

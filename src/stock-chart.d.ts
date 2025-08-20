@@ -27,8 +27,10 @@ export interface ChartName {
 }
 
 export interface Signal {
-    type: 'support' | 'resistance' | 'uptrend' | 'downtrend';
+    type: 'support' | 'resistance' | 'uptrend' | 'downtrend' | string;
     value: number;
+    description?: string;
+    strength?: number;
 }
 
 export interface StockData {

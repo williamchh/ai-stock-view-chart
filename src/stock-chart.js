@@ -532,6 +532,15 @@ class StockChart {
         }
     }
 
+    /**
+     * Renders the main chart area.
+     * @param {Array<import('./stock-chart.d.ts').Signal>} plotVisibleData 
+     * @param {PlaneLayout} plotLayout 
+     * @param {PlotConfig} plotConfig 
+     * @param {number} minPrice 
+     * @param {number} maxPrice 
+     * @param {number} barWidth 
+     */
     renderSignals(plotVisibleData, plotLayout, plotConfig, minPrice, maxPrice, barWidth) {
         let lastValidIndex = -1;
         let signalStart = null;
@@ -1637,22 +1646,24 @@ class StockChart {
             barWidth
         );
     
+        if (style.value != null) debugger;
+
         const y = getYPixel(style.value, minPrice, maxPrice, plotLayout.height, plotLayout.y);
-        
+        const height = 10;
         // Draw block
         this.ctx.fillStyle = style.color;
         this.ctx.fillRect(
             startXPos,
-            y - style.blockHeight / 2,
+            y - height / 2,
             endXPos - startXPos,
-            style.blockHeight
+            height
         );
     
         // Draw signal line
         this.ctx.strokeStyle = style.lineColor;
         this.ctx.beginPath();
         this.ctx.moveTo(startXPos, y);
-        this.ctx.lineTo(endXPos, y);
+        this.ctx.lineTo(endXPos + barWidth, y);
         this.ctx.stroke();
     }
 

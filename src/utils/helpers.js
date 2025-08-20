@@ -18,18 +18,36 @@ export function extractSignals(data) {
                 switch (signal.type) {
                     case 'support':
                         supportData.push(signalPoint);
+                        resistanceData.push({time, value: null});
+                        uptrendData.push({time, value: null});
+                        downtrendData.push({time, value: null});
                         break;
                     case 'resistance':
                         resistanceData.push(signalPoint);
+                        supportData.push({time, value: null});
+                        uptrendData.push({time, value: null});
+                        downtrendData.push({time, value: null});
                         break;
                     case 'uptrend':
                         uptrendData.push(signalPoint);
+                        supportData.push({time, value: null});
+                        resistanceData.push({time, value: null});
+                        downtrendData.push({time, value: null});
                         break;
                     case 'downtrend':
                         downtrendData.push(signalPoint);
+                        supportData.push({time, value: null});
+                        resistanceData.push({time, value: null});
+                        uptrendData.push({time, value: null});
                         break;
                 }
             });
+        }
+        else {
+            supportData.push({time, value: null});
+            resistanceData.push({time, value: null});
+            uptrendData.push({time, value: null});
+            downtrendData.push({time, value: null});
         }
     });
 
@@ -43,6 +61,7 @@ export function extractSignals(data) {
                 lineColor: 'rgba(0, 255, 0, 0.5)',
                 blockHeight: 20
             },
+            labelKey: 'Support',
             overlay: true,
             targetId: 'main'
         },
@@ -55,6 +74,7 @@ export function extractSignals(data) {
                 lineColor: 'rgba(255, 0, 0, 0.5)',
                 blockHeight: 20
             },
+            labelKey: 'Resistance',
             overlay: true,
             targetId: 'main'
         },
@@ -67,6 +87,7 @@ export function extractSignals(data) {
                 lineColor: 'rgba(0, 255, 255, 0.5)',
                 blockHeight: 20
             },
+            labelKey: 'Uptrend',
             overlay: true,
             targetId: 'main'
         },
@@ -79,6 +100,7 @@ export function extractSignals(data) {
                 lineColor: 'rgba(255, 165, 0, 0.5)',
                 blockHeight: 20
             },
+            labelKey: 'Downtrend',
             overlay: true,
             targetId: 'main'
         }

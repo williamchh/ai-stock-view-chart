@@ -92,7 +92,7 @@
     import StockChart from '../src/stock-chart.js';
     import { calculateSMA, calculateMACD, calculateRSI, generateCandlestickData } from '../src/indicators/demo.js';
 
-    const candlestickData = generateCandlestickData(1500);
+    const candlestickData = generateCandlestickData(2000);
 
     // Calculate indicators
     const sma20Data = calculateSMA(candlestickData, 20);
@@ -101,7 +101,7 @@
     const rsiData = calculateRSI(candlestickData);
 
     // Transform MACD data into separate line plots
-    const macdLine = macdData.map(d => ({ time: d.time, value: d.value, keyLabel: 'Macd' }));
+    const macdLine = macdData.map(d => ({ time: d.time, value: d.macd, keyLabel: 'Macd' }));
     const signalLine = macdData.map(d => ({ time: d.time, value: d.signal, keyLabel: 'Signal' }));
     const histogramLine = macdData.map(d => ({ time: d.time, value: d.histogram, keyLabel: 'Histogram' }));
 

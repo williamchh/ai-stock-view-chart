@@ -470,8 +470,8 @@ class StockChart {
                             this.ctx.fillStyle = dataPoint.value >= 0 ?
                                 (plotConfig.style?.positiveColor || this.currentTheme.positiveColor) :
                                 (plotConfig.style?.negativeColor || this.currentTheme.negativeColor);
-
-                            this.ctx.fillRect(x, y, barWidth * 0.7, -barHeight);
+console.log(`dataPoint ${dataPoint}, bar height ${barHeight}`)
+                            this.ctx.fillRect(x, y, barWidth * 0.7, barHeight);
                         });
                         break;
                 }

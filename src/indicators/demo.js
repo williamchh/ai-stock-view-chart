@@ -42,7 +42,7 @@ export function calculateMACD(data, fastPeriod = 12, slowPeriod = 26, signalPeri
         const result = updateMACD(point.close, state);
         macdData.push({
             time: point.time,
-            value: result.macdLine,
+            macd: result.macdLine,
             signal: result.signalLine,
             histogram: result.histogram
         });

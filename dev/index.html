@@ -94,7 +94,8 @@
     import { calculateSMA, calculateMACD, calculateRSI, generateCandlestickData } from '../src/indicators/demo.js';
 
     const candlestickData = generateCandlestickData(2000);
-    const signalPlots = extractSignals(candlestickData);
+
+    const signalArr = candlestickData.map(c => ({time: c.time, value: c.signals, keyLabel: c.type}));
 
     // Calculate indicators
     const sma20Data = calculateSMA(candlestickData, 20);
@@ -206,10 +207,14 @@
             lineWidth: 5
           }
         },
-        signalPlots.support,
-        signalPlots.resistance,
-        signalPlots.uptrend,
-        signalPlots.downtrend,
+        {
+          id: 'signal',
+          type: 'signal',
+          overlay: true,
+          targetId: 'main',
+          keyLabel: 'Signals',
+          data: signalArr
+        },
         { 
           id: 'volume', 
           type: 'volume', 

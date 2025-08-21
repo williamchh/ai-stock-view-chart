@@ -62,6 +62,13 @@ export interface PlotConfig {
     };
 }
 
+export interface PlotLayout {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 /**
  * Main interface for StockChart library
  */

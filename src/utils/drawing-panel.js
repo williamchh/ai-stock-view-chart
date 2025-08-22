@@ -14,6 +14,7 @@ import { DrawingItem, LineDrawing, RectangleDrawing, FibonacciDrawing } from './
  * @property {Function} dataViewport.getVisibleData - Function to get visible data
  * @property {Object} options - Chart options
  * @property {Array<Object>} options.plots - Array of plot configurations
+ * @property {Object} options.theme - Chart theme
  * @property {Function} calculatePriceRange - Function to calculate price range
  */
 
@@ -49,7 +50,7 @@ export class DrawingPanel {
                 fillStyle: 'rgba(255, 107, 53, 0.1)'
             },
             fibonacci: {
-                strokeStyle: '#4CAF50',
+                strokeStyle: stockChart.options.theme === 'dark' ? '#ffffffc5' : '#000000a9',
                 lineWidth: 1,
                 fillStyle: 'rgba(76, 175, 80, 0.1)'
             }
@@ -121,7 +122,7 @@ export class DrawingPanel {
                 this.currentDrawing = new RectangleDrawing();
                 break;
             case 'fibonacci':
-                this.currentDrawing = new FibonacciDrawing();
+                this.currentDrawing = new FibonacciDrawing(this.stockChart.options.theme);
                 break;
             default:
                 return;
@@ -211,24 +212,6 @@ export class DrawingPanel {
         this.currentDrawing = null;
     }
 
-    /**
-     * Cancel the current drawing
-     */
-    cancelDrawing() {
-        this.isDrawing = false;
-        this.currentDrawing = null;
-    }
-
-    /**
-     * Remove a drawing by ID
-     * @param {string} id - The drawing ID to remove
-     */
-    removeDrawing(id) {
-        this.drawings = this.drawings.filter(d => d.id !== id);
-        if (this.selectedDrawing?.id === id) {
-            this.selectedDrawing = null;
-        }
-    }
 
     /**
      * Clear all drawings
@@ -420,117 +403,7 @@ export class DrawingPanel {
         ctx.strokeRect(x, y, width, height);
     }
 
-    /**
-     * Convert screen coordinates to chart coordinates
-     * @param {number} screenX - Screen X coordinate
-     * @param {number} screenY - Screen Y coordinate
-     * @returns {{x: number, y: number, price: number, date: Date}} Chart coordinates
-     */
-    screenToChartCoordinates(screenX, screenY) {
-        const plotLayout = this.stockChart.plotLayoutManager.getPlotLayout('main');
-        if (!plotLayout) {
-            return { x: screenX, y: screenY, price: 0, date: new Date() };
-        }
 
-        // First check if we have valid data viewport
-        if (!this.stockChart.dataViewport?.allData) {
-            return { x: screenX, y: screenY, price: 0, date: new Date() };
-        }
-
-        const visibleData = this.stockChart.dataViewport.getVisibleData() || [];
-        if (visibleData.length === 0) {
-            return { x: screenX, y: screenY, price: 0, date: new Date() };
-        }
-
-        // Calculate price range
-        const lows = visibleData.map(d => d.low).filter(v => v !== undefined && v !== null);
-        const highs = visibleData.map(d => d.high).filter(v => v !== undefined && v !== null);
-        
-        if (lows.length === 0 || highs.length === 0) {
-            return { x: screenX, y: screenY, price: 0, date: new Date() };
-        }
-
-        const minPrice = Math.min(...lows);
-        const maxPrice = Math.max(...highs);
-        const priceRange = maxPrice - minPrice;
-        const paddedMinPrice = minPrice - (priceRange * 0.1);
-        const paddedMaxPrice = maxPrice + (priceRange * 0.1);
-
-        // Convert screen coordinates to chart coordinates
-        const x = screenX;
-        const y = screenY;
-        
-        // Calculate price at Y position
-        const price = getValueBasedOnY(
-            y,
-            plotLayout.y,
-            plotLayout.height,
-            paddedMinPrice,
-            paddedMaxPrice
-        );
-
-        // Calculate date at X position
-        let date = null;
-        if (this.stockChart.dataViewport && x >= plotLayout.x && x <= plotLayout.x + plotLayout.width) {
-            const barWidth = plotLayout.width / this.stockChart.dataViewport.visibleCount;
-            const dataIndex = Math.floor(this.stockChart.dataViewport.startIndex + 
-                (x - plotLayout.x) / barWidth);
-            
-            if (dataIndex >= 0 && dataIndex < this.stockChart.dataViewport.allData.length) {
-                const dataPoint = this.stockChart.dataViewport.allData[dataIndex];
-                if (dataPoint && dataPoint.time) {
-                    date = new Date(dataPoint.time * 1000);
-                }
-            }
-        }
-        
-        return { x, y, price, date };
-    }
-
-    /**
-     * Generate a unique ID for drawings
-     * @returns {string} Unique ID
-     */
-    generateId() {
-        return 'drawing_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-    }
-
-    /**
-     * Get drawing at specific coordinates
-     * @param {number} x - X coordinate
-     * @param {number} y - Y coordinate
-     * @returns {Drawing|null} Drawing at coordinates or null
-     */
-    getDrawingAt(x, y) {
-        // Simple hit detection - check if point is near any drawing
-        const threshold = 5;
-        
-        for (let i = this.drawings.length - 1; i >= 0; i--) {
-            const drawing = this.drawings[i];
-            if (this.isPointNearDrawing(x, y, drawing, threshold)) {
-                return drawing;
-            }
-        }
-        
-        return null;
-    }
-
-    /**
-     * Check if point is near a drawing
-     * @private
-     */
-    isPointNearDrawing(x, y, drawing, threshold) {
-        switch (drawing.type) {
-            case 'line':
-                return this.isPointNearLine(x, y, drawing.points, threshold);
-            case 'rectangle':
-                return this.isPointInRectangle(x, y, drawing.points);
-            case 'fibonacci':
-                return this.isPointNearLine(x, y, drawing.points, threshold);
-            default:
-                return false;
-        }
-    }
 
     /**
      * Check if point is near a line
@@ -557,36 +430,6 @@ export class DrawingPanel {
         const rectHeight = Math.abs(points[1].y - points[0].y);
         
         return x >= rectX && x <= rectX + rectWidth && y >= rectY && y <= rectY + rectHeight;
-    }
-
-    /**
-     * Check if point is in an ellipse
-     * @private
-     */
-    isPointInEllipse(x, y, points) {
-        if (points.length < 2) return false;
-        
-        const centerX = (points[0].x + points[1].x) / 2;
-        const centerY = (points[0].y + points[1].y) / 2;
-        const radiusX = Math.abs(points[1].x - points[0].x) / 2;
-        const radiusY = Math.abs(points[1].y - points[0].y) / 2;
-        
-        const normalizedX = (x - centerX) / radiusX;
-        const normalizedY = (y - centerY) / radiusY;
-        
-        return (normalizedX * normalizedX + normalizedY * normalizedY) <= 1;
-    }
-
-    /**
-     * Check if point is near text
-     * @private
-     */
-    isPointNearText(x, y, points) {
-        if (points.length === 0) return false;
-        
-        const point = points[0];
-        const distance = Math.sqrt((x - point.x) ** 2 + (y - point.y) ** 2);
-        return distance <= 10;
     }
 
     /**

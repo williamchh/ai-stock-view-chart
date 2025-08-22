@@ -186,10 +186,11 @@ class RectangleDrawing extends DrawingItem {
  * Fibonacci drawing item
  */
 class FibonacciDrawing extends DrawingItem {
-    constructor() {
+    constructor(theme) {
         super('fibonacci');
         // Fibonacci levels (0%, 23.6%, 38.2%, 61.8%, 100%, 161.8%, 200%, 261.8%, 361.8%, 423.6%)
         this.levels = [0, 0.236, 0.382, 0.618, 1, 1.618, 2, 2.618, 3.618, 4.236];
+        this.style.strokeStyle = theme === 'dark' ? '#FFFFFF' : '#000000';
     }
 
     draw(ctx, plotLayout, viewport, minPrice, maxPrice) {
@@ -222,7 +223,7 @@ class FibonacciDrawing extends DrawingItem {
         // Draw each Fibonacci level
         ctx.lineWidth = this.style.lineWidth;
         ctx.strokeStyle = this.style.strokeStyle;
-        ctx.fillStyle = this.style.fillStyle;
+        ctx.fillStyle = this.style.strokeStyle; // Use the same color for text
         ctx.setLineDash([5, 5]);
         ctx.textAlign = 'left';
         ctx.font = '12px Arial';

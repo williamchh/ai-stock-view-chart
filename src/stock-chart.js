@@ -162,12 +162,13 @@ class StockChart {
         // Add more default options as needed
     };
     
-    // Ensure plots is always defined in options with at least a main plot
+    // Ensure plots and theme are always defined in options
     static ensureValidOptions(options = {}) {
         return {
             ...this.defaultOptions,
             ...options,
-            plots: options.plots || [...this.defaultOptions.plots]
+            plots: options.plots || [...this.defaultOptions.plots],
+            theme: options.theme || this.defaultOptions.theme
         };
     }
 

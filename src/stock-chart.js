@@ -57,7 +57,7 @@ class StockChart {
         this.ensureContainerSize(container);
 
         this.container = container;
-        this.options = { ...StockChart.defaultOptions, ...options };
+        this.options = StockChart.ensureValidOptions(options);
         
         // Create wrapper div for toolbar and canvas
         this.wrapper = document.createElement('div');
@@ -161,6 +161,15 @@ class StockChart {
         initialVisibleCandles: 100,
         // Add more default options as needed
     };
+    
+    // Ensure plots is always defined in options with at least a main plot
+    static ensureValidOptions(options = {}) {
+        return {
+            ...this.defaultOptions,
+            ...options,
+            plots: options.plots || [...this.defaultOptions.plots]
+        };
+    }
 
     static themes = { light: lightTheme, dark: darkTheme };
 
@@ -182,10 +191,7 @@ class StockChart {
             { name: 'cursor', icon: '🖱️', tooltip: 'Select Tool' },
             { name: 'line', icon: '📏', tooltip: 'Line Tool' },
             { name: 'rectangle', icon: '⬜', tooltip: 'Rectangle Tool' },
-            { name: 'ellipse', icon: '⭕', tooltip: 'Ellipse Tool' },
-            { name: 'text', icon: '📝', tooltip: 'Text Tool' },
             { name: 'fibonacci', icon: '📊', tooltip: 'Fibonacci Tool' },
-            { name: 'freehand', icon: '✏️', tooltip: 'Freehand Tool' },
             { name: 'clear', icon: '🗑️', tooltip: 'Clear All Drawings' }
         ];
 

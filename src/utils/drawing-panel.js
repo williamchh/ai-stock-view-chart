@@ -1,31 +1,24 @@
 
 
+import { getValueBasedOnY } from "./data.js";
+import { DrawingItem, LineDrawing, RectangleDrawing, FibonacciDrawing } from './drawing-item.js';
+
 /**
  * @typedef {Object} StockChart
  * @property {HTMLCanvasElement} canvas - The chart canvas element.
  * @property {any} plotLayoutManager - Manager for plot layouts.
- * @property {any} dataViewport - Viewport handling data slicing and indexing.
- * @property {number} minPrice - Minimum price in the visible range.
- * @property {number} maxPrice - Maximum price in the visible range.
-*/
-/**
- * @typedef {Object} DrawingPoint
- * @property {number} x - X coordinate
- * @property {number} y - Y coordinate
- * @property {number} [price] - Price at this point
- * @property {Date} [date] - Date at this point
+ * @property {Object} dataViewport - Data viewport information
+ * @property {number} dataViewport.startIndex - Start index of visible data
+ * @property {number} dataViewport.visibleCount - Number of visible data points
+ * @property {Array<Object>} dataViewport.allData - Array of data points
+ * @property {Function} dataViewport.getVisibleData - Function to get visible data
+ * @property {Object} options - Chart options
+ * @property {Array<Object>} options.plots - Array of plot configurations
+ * @property {Function} calculatePriceRange - Function to calculate price range
  */
 
-import { getValueBasedOnY } from "./data.js";
-
 /**
- * @typedef {Object} Drawing
- * @property {string} id - Unique identifier
- * @property {string} type - Type of drawing (line, rectangle, ellipse, text, etc.)
- * @property {DrawingPoint[]} points - Array of points defining the drawing
- * @property {Object} style - Style properties for the drawing
- * @property {string} [text] - Text content for text drawings
- * @property {boolean} [completed] - Whether the drawing is complete
+ * @typedef {LineDrawing | RectangleDrawing} Drawing
  */
 
 /**
@@ -46,38 +39,19 @@ export class DrawingPanel {
         // Drawing styles
         this.defaultStyles = {
             line: {
-                color: '#ff6b35',
-                width: 2,
-                lineDash: []
+                strokeStyle: '#ff6b35',
+                lineWidth: 2,
+                fillStyle: 'rgba(255, 107, 53, 0.1)'
             },
             rectangle: {
-                color: '#ff6b35',
-                width: 2,
-                fillColor: 'rgba(255, 107, 53, 0.1)',
-                lineDash: []
-            },
-            ellipse: {
-                color: '#ff6b35',
-                width: 2,
-                fillColor: 'rgba(255, 107, 53, 0.1)',
-                lineDash: []
-            },
-            text: {
-                color: '#ffffff',
-                backgroundColor: 'rgba(0, 0, 0, 0.7)',
-                font: '12px Arial',
-                padding: 4
+                strokeStyle: '#ff6b35',
+                lineWidth: 2,
+                fillStyle: 'rgba(255, 107, 53, 0.1)'
             },
             fibonacci: {
-                color: '#4CAF50',
-                width: 1,
-                fillColors: [
-                    'rgba(76, 175, 80, 0.1)',
-                    'rgba(76, 175, 80, 0.15)',
-                    'rgba(76, 175, 80, 0.2)',
-                    'rgba(76, 175, 80, 0.25)',
-                    'rgba(76, 175, 80, 0.3)'
-                ]
+                strokeStyle: '#4CAF50',
+                lineWidth: 1,
+                fillStyle: 'rgba(76, 175, 80, 0.1)'
             }
         };
     }
@@ -102,27 +76,66 @@ export class DrawingPanel {
         if (!this.activeTool || this.activeTool !== type) return;
 
         this.isDrawing = true;
-        const point = this.screenToChartCoordinates(x, y);
-        
-        this.currentDrawing = {
-            id: this.generateId(),
-            type: type,
-            points: [point],
-            style: { ...this.defaultStyles[type] },
-            completed: false
-        };
 
-        // Handle text tool specifically
-        if (type === 'text') {
-            // Prompt for text input
-            const text = window.prompt('Enter text:', '');
-            if (text !== null) {
-                this.currentDrawing.text = text;
-                this.completeDrawing(); // Complete drawing immediately after text input
-            } else {
-                this.cancelDrawing(); // Cancel if user cancels prompt
-            }
+        // Convert screen coordinates to data coordinates
+        const mainPlotLayout = this.stockChart.plotLayoutManager.getPlotLayout('main');
+        if (!mainPlotLayout) return;
+
+        const barWidth = mainPlotLayout.width / this.stockChart.dataViewport.visibleCount;
+        const relativeX = x - mainPlotLayout.x;
+        const dataIndex = Math.floor(relativeX / barWidth);
+        const actualDataIndex = this.stockChart.dataViewport.startIndex + dataIndex;
+
+        // Get the data point at this index
+        if (!this.stockChart.dataViewport?.allData) return;
+        const visibleData = this.stockChart.dataViewport.allData;
+        if (!Array.isArray(visibleData) || actualDataIndex < 0 || actualDataIndex >= visibleData.length) return;
+
+        const dataPoint = visibleData[actualDataIndex];
+        if (!dataPoint || typeof dataPoint.time !== 'number') return;
+
+        const time = dataPoint.time;
+        if (!this.stockChart.options?.plots) return;
+        const mainPlot = this.stockChart.options.plots.find(p => p.id === 'main');
+        if (!mainPlot) return;
+
+        const priceRange = this.stockChart.calculatePriceRange(
+            mainPlot,
+            this.stockChart.dataViewport.getVisibleData(),
+            this.stockChart.dataViewport
+        );
+        if (!priceRange) return;
+
+        const { minPrice, maxPrice } = priceRange;
+
+        // Calculate price from y coordinate
+        const relativeY = y - mainPlotLayout.y;
+        const price = maxPrice - (relativeY / mainPlotLayout.height) * (maxPrice - minPrice);
+
+        // Create the appropriate drawing item
+        switch (type) {
+            case 'line':
+                this.currentDrawing = new LineDrawing();
+                break;
+            case 'rectangle':
+                this.currentDrawing = new RectangleDrawing();
+                break;
+            case 'fibonacci':
+                this.currentDrawing = new FibonacciDrawing();
+                break;
+            default:
+                return;
         }
+
+        // Set the style from defaults
+        if (this.defaultStyles[type]) {
+            Object.assign(this.currentDrawing.style, this.defaultStyles[type]);
+        }
+
+        // Add the first point
+        this.currentDrawing.addPoint(time, price);
+
+
     }
 
     /**
@@ -140,24 +153,49 @@ export class DrawingPanel {
         if (x >= mainPlot.x && x <= mainPlot.x + mainPlot.width &&
             y >= mainPlot.y && y <= mainPlot.y + mainPlot.height) {
             
-            const point = this.screenToChartCoordinates(x, y);
-            
-            // Text doesn't need continueDrawing as it's completed immediately
-            if (this.currentDrawing.type === 'text') return;
-            
-            if (this.currentDrawing.type === 'line' || 
-                this.currentDrawing.type === 'rectangle' || 
-                this.currentDrawing.type === 'ellipse' || 
-                this.currentDrawing.type === 'fibonacci') {
-                // For two-point drawings, update the second point
-                if (this.currentDrawing.points.length === 1) {
-                    this.currentDrawing.points.push(point);
-                } else if (this.currentDrawing.points.length === 2) {
-                    this.currentDrawing.points[1] = point;
+            // Convert screen coordinates to data coordinates
+            const barWidth = mainPlot.width / this.stockChart.dataViewport.visibleCount;
+            const relativeX = x - mainPlot.x;
+            const dataIndex = Math.floor(relativeX / barWidth);
+            const actualDataIndex = this.stockChart.dataViewport.startIndex + dataIndex;
+
+            // Get the data point at this index
+            if (!this.stockChart.dataViewport?.allData || 
+                actualDataIndex < 0 || 
+                actualDataIndex >= this.stockChart.dataViewport.allData.length) return;
+
+            const dataPoint = this.stockChart.dataViewport.allData[actualDataIndex];
+            if (!dataPoint || typeof dataPoint.time !== 'number') return;
+
+            const time = dataPoint.time;
+            const mainPlotConfig = this.stockChart.options.plots.find(p => p.id === 'main');
+            if (!mainPlotConfig) return;
+
+            const priceRange = this.stockChart.calculatePriceRange(
+                mainPlotConfig,
+                this.stockChart.dataViewport.getVisibleData(),
+                this.stockChart.dataViewport
+            );
+            if (!priceRange) return;
+
+            // Calculate price from y coordinate
+            const relativeY = y - mainPlot.y;
+            const { minPrice, maxPrice } = priceRange;
+            const price = maxPrice - (relativeY / mainPlot.height) * (maxPrice - minPrice);
+
+            // Update or add point
+            if (this.currentDrawing.points.length === 1) {
+                // Don't add if it's the same as the first point
+                const firstPoint = this.currentDrawing.points[0];
+                if (time !== firstPoint.time || price !== firstPoint.price) {
+                    this.currentDrawing.addPoint(time, price);
                 }
-            } else if (this.currentDrawing.type === 'freehand') {
-                // For freehand drawing, add points continuously
-                this.currentDrawing.points.push(point);
+            } else if (this.currentDrawing.points.length === 2) {
+                // Update second point if it's different from the first
+                const firstPoint = this.currentDrawing.points[0];
+                if (time !== firstPoint.time || price !== firstPoint.price) {
+                    this.currentDrawing.points[1] = { time, price };
+                }
             }
         }
     }
@@ -166,9 +204,8 @@ export class DrawingPanel {
      * Complete the current drawing
      */
     completeDrawing() {
-        if (!this.isDrawing || !this.currentDrawing) return;
+        if (!this.isDrawing || !this.currentDrawing || this.currentDrawing.points.length < 2) return;
 
-        this.currentDrawing.completed = true;
         this.drawings.push(this.currentDrawing);
         this.isDrawing = false;
         this.currentDrawing = null;
@@ -248,17 +285,21 @@ export class DrawingPanel {
             case 'rectangle':
                 this.renderRectangle(ctx, points, style);
                 break;
-            case 'ellipse':
-                this.renderEllipse(ctx, points, style);
-                break;
-            case 'text':
-                this.renderText(ctx, points, drawing.text, style);
-                break;
             case 'fibonacci':
-                this.renderFibonacci(ctx, points, style);
-                break;
-            case 'freehand':
-                this.renderFreehand(ctx, points, style);
+                drawing.draw(ctx, 
+                    this.stockChart.plotLayoutManager.getPlotLayout('main'),
+                    this.stockChart.dataViewport,
+                    this.stockChart.calculatePriceRange(
+                        this.stockChart.options.plots.find(p => p.id === 'main'),
+                        this.stockChart.dataViewport.getVisibleData(),
+                        this.stockChart.dataViewport
+                    ).minPrice,
+                    this.stockChart.calculatePriceRange(
+                        this.stockChart.options.plots.find(p => p.id === 'main'),
+                        this.stockChart.dataViewport.getVisibleData(),
+                        this.stockChart.dataViewport
+                    ).maxPrice
+                );
                 break;
         }
         
@@ -271,16 +312,55 @@ export class DrawingPanel {
      */
     renderLine(ctx, points, style) {
         if (points.length < 2) return;
+
+        const mainPlot = this.stockChart.plotLayoutManager.getPlotLayout('main');
+        if (!mainPlot) return;
+
+        const mainPlotConfig = this.stockChart.options.plots.find(p => p.id === 'main');
+        if (!mainPlotConfig) return;
+
+        const priceRange = this.stockChart.calculatePriceRange(
+            mainPlotConfig,
+            this.stockChart.dataViewport.getVisibleData(),
+            this.stockChart.dataViewport
+        );
+        if (!priceRange) return;
+
+        const drawingItem = new DrawingItem();
         
-        ctx.strokeStyle = style.color;
-        ctx.lineWidth = style.width;
-        if (style.lineDash && style.lineDash.length > 0) {
-            ctx.setLineDash(style.lineDash);
-        }
+        // Convert time/price to pixel coordinates for both points
+        const start = drawingItem.getPixelCoordinates(
+            points[0].time,
+            points[0].price,
+            mainPlot,
+            {
+                ...this.stockChart.dataViewport,
+                getVisibleData: () => this.stockChart.dataViewport.getVisibleData()
+            },
+            priceRange.minPrice,
+            priceRange.maxPrice
+        );
+        
+        const end = drawingItem.getPixelCoordinates(
+            points[1].time,
+            points[1].price,
+            mainPlot,
+            {
+                ...this.stockChart.dataViewport,
+                getVisibleData: () => this.stockChart.dataViewport.getVisibleData()
+            },
+            priceRange.minPrice,
+            priceRange.maxPrice
+        );
+
+        if (!start || !end) return;
+        
+        ctx.strokeStyle = style.strokeStyle;
+        ctx.lineWidth = style.lineWidth;
         
         ctx.beginPath();
-        ctx.moveTo(points[0].x, points[0].y);
-        ctx.lineTo(points[1].x, points[1].y);
+        ctx.moveTo(start.x, start.y);
+        ctx.lineTo(end.x, end.y);
         ctx.stroke();
     }
 
@@ -290,172 +370,76 @@ export class DrawingPanel {
      */
     renderRectangle(ctx, points, style) {
         if (points.length < 2) return;
+
+        const mainPlot = this.stockChart.plotLayoutManager.getPlotLayout('main');
+        if (!mainPlot) return;
+
+        const mainPlotConfig = this.stockChart.options.plots.find(p => p.id === 'main');
+        if (!mainPlotConfig) return;
+
+        const priceRange = this.stockChart.calculatePriceRange(
+            mainPlotConfig,
+            this.stockChart.dataViewport.getVisibleData(),
+            this.stockChart.dataViewport
+        );
+        if (!priceRange) return;
+
+        // Convert time/price to pixel coordinates for both points
+        const start = new DrawingItem().getPixelCoordinates(
+            points[0].time,
+            points[0].price,
+            mainPlot,
+            this.stockChart.dataViewport,
+            priceRange.minPrice,
+            priceRange.maxPrice
+        );
         
-        const x = Math.min(points[0].x, points[1].x);
-        const y = Math.min(points[0].y, points[1].y);
-        const width = Math.abs(points[1].x - points[0].x);
-        const height = Math.abs(points[1].y - points[0].y);
+        const end = new DrawingItem().getPixelCoordinates(
+            points[1].time,
+            points[1].price,
+            mainPlot,
+            this.stockChart.dataViewport,
+            priceRange.minPrice,
+            priceRange.maxPrice
+        );
+
+        if (!start || !end) return;
         
-        if (style.fillColor) {
-            ctx.fillStyle = style.fillColor;
+        const x = Math.min(start.x, end.x);
+        const y = Math.min(start.y, end.y);
+        const width = Math.abs(end.x - start.x);
+        const height = Math.abs(end.y - start.y);
+        
+        if (style.fillStyle) {
+            ctx.fillStyle = style.fillStyle;
             ctx.fillRect(x, y, width, height);
         }
         
-        ctx.strokeStyle = style.color;
-        ctx.lineWidth = style.width;
-        if (style.lineDash && style.lineDash.length > 0) {
-            ctx.setLineDash(style.lineDash);
-        }
+        ctx.strokeStyle = style.strokeStyle;
+        ctx.lineWidth = style.lineWidth;
         ctx.strokeRect(x, y, width, height);
-    }
-
-    /**
-     * Render an ellipse drawing
-     * @private
-     */
-    renderEllipse(ctx, points, style) {
-        if (points.length < 2) return;
-        
-        const centerX = (points[0].x + points[1].x) / 2;
-        const centerY = (points[0].y + points[1].y) / 2;
-        const radiusX = Math.abs(points[1].x - points[0].x) / 2;
-        const radiusY = Math.abs(points[1].y - points[0].y) / 2;
-        
-        ctx.beginPath();
-        ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, 2 * Math.PI);
-        
-        if (style.fillColor) {
-            ctx.fillStyle = style.fillColor;
-            ctx.fill();
-        }
-        
-        ctx.strokeStyle = style.color;
-        ctx.lineWidth = style.width;
-        if (style.lineDash && style.lineDash.length > 0) {
-            ctx.setLineDash(style.lineDash);
-        }
-        ctx.stroke();
-    }
-
-    /**
-     * Render text drawing
-     * @private
-     */
-    renderText(ctx, points, text, style) {
-        if (!text || points.length === 0) return;
-        
-        const point = points[0];
-        
-        ctx.font = style.font;
-        const metrics = ctx.measureText(text);
-        const textWidth = metrics.width;
-        const textHeight = parseInt(style.font); // Get font size from style
-        
-        // Calculate text position with proper alignment
-        const bgX = point.x;
-        const bgY = point.y;
-        const bgWidth = textWidth + (style.padding * 2);
-        const bgHeight = textHeight + (style.padding * 2);
-        
-        // Background
-        if (style.backgroundColor) {
-            ctx.fillStyle = style.backgroundColor;
-            ctx.fillRect(bgX, bgY, bgWidth, bgHeight);
-        }
-        
-        // Text - position text in the middle of background
-        ctx.fillStyle = style.color;
-        ctx.textBaseline = 'middle';
-        ctx.fillText(text, bgX + style.padding, bgY + (bgHeight / 2));
-    }
-
-    /**
-     * Render Fibonacci retracements
-     * @private
-     */
-    renderFibonacci(ctx, points, style) {
-        if (points.length < 2) return;
-        
-        const start = points[0];
-        const end = points[1];
-        const levels = [0, 0.236, 0.382, 0.618, 1, 1.618, 2, 2.618, 3.618, 4.236];
-        
-        // Calculate the full height based on 23.6% level
-        // If end point represents 23.6%, calculate what 100% would be
-        const height100 = Math.abs(end.y - start.y);
-        const fullHeight = height100;
-        const direction = end.y > start.y ? 1 : -1;
-        
-        // Set common styles for all lines
-        ctx.strokeStyle = style.color;
-        ctx.lineWidth = style.width;
-        ctx.setLineDash([5, 5]);
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'bottom';
-        
-        // Draw each level
-        levels.forEach(level => {
-            // Calculate Y position based on the full height
-            const y = start.y + (direction * fullHeight * level);
-            
-            // Draw line
-            ctx.beginPath();
-            ctx.moveTo(start.x, y);
-            ctx.lineTo(end.x, y);
-            ctx.stroke();
-            
-            // Draw label
-            ctx.fillStyle = style.color;
-            const label = `${(level * 100).toFixed(1)}%`;
-            ctx.fillText(label, Math.min(start.x, end.x) + 5, y - 2);
-        });
-        
-        // Reset line dash
-        ctx.setLineDash([]);
-    }
-
-    /**
-     * Render freehand drawing
-     * @private
-     */
-    renderFreehand(ctx, points, style) {
-        if (points.length < 2) return;
-        
-        ctx.strokeStyle = style.color;
-        ctx.lineWidth = style.width;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        
-        ctx.beginPath();
-        ctx.moveTo(points[0].x, points[0].y);
-        
-        for (let i = 1; i < points.length; i++) {
-            ctx.lineTo(points[i].x, points[i].y);
-        }
-        
-        ctx.stroke();
     }
 
     /**
      * Convert screen coordinates to chart coordinates
      * @param {number} screenX - Screen X coordinate
      * @param {number} screenY - Screen Y coordinate
-     * @returns {DrawingPoint} Chart coordinates
+     * @returns {{x: number, y: number, price: number, date: Date}} Chart coordinates
      */
     screenToChartCoordinates(screenX, screenY) {
         const plotLayout = this.stockChart.plotLayoutManager.getPlotLayout('main');
         if (!plotLayout) {
-            return { x: screenX, y: screenY };
+            return { x: screenX, y: screenY, price: 0, date: new Date() };
         }
 
         // First check if we have valid data viewport
-        if (!this.stockChart.dataViewport?.data) {
-            return { x: screenX, y: screenY };
+        if (!this.stockChart.dataViewport?.allData) {
+            return { x: screenX, y: screenY, price: 0, date: new Date() };
         }
 
         const visibleData = this.stockChart.dataViewport.getVisibleData() || [];
         if (visibleData.length === 0) {
-            return { x: screenX, y: screenY };
+            return { x: screenX, y: screenY, price: 0, date: new Date() };
         }
 
         // Calculate price range
@@ -463,7 +447,7 @@ export class DrawingPanel {
         const highs = visibleData.map(d => d.high).filter(v => v !== undefined && v !== null);
         
         if (lows.length === 0 || highs.length === 0) {
-            return { x: screenX, y: screenY };
+            return { x: screenX, y: screenY, price: 0, date: new Date() };
         }
 
         const minPrice = Math.min(...lows);
@@ -492,8 +476,8 @@ export class DrawingPanel {
             const dataIndex = Math.floor(this.stockChart.dataViewport.startIndex + 
                 (x - plotLayout.x) / barWidth);
             
-            if (dataIndex >= 0 && dataIndex < this.stockChart.dataViewport.data.length) {
-                const dataPoint = this.stockChart.dataViewport.data[dataIndex];
+            if (dataIndex >= 0 && dataIndex < this.stockChart.dataViewport.allData.length) {
+                const dataPoint = this.stockChart.dataViewport.allData[dataIndex];
                 if (dataPoint && dataPoint.time) {
                     date = new Date(dataPoint.time * 1000);
                 }
@@ -541,10 +525,8 @@ export class DrawingPanel {
                 return this.isPointNearLine(x, y, drawing.points, threshold);
             case 'rectangle':
                 return this.isPointInRectangle(x, y, drawing.points);
-            case 'ellipse':
-                return this.isPointInEllipse(x, y, drawing.points);
-            case 'text':
-                return this.isPointNearText(x, y, drawing.points);
+            case 'fibonacci':
+                return this.isPointNearLine(x, y, drawing.points, threshold);
             default:
                 return false;
         }

@@ -111,6 +111,18 @@ export class DrawingPanel {
             style: { ...this.defaultStyles[type] },
             completed: false
         };
+
+        // Handle text tool specifically
+        if (type === 'text') {
+            // Prompt for text input
+            const text = window.prompt('Enter text:', '');
+            if (text !== null) {
+                this.currentDrawing.text = text;
+                this.completeDrawing(); // Complete drawing immediately after text input
+            } else {
+                this.cancelDrawing(); // Cancel if user cancels prompt
+            }
+        }
     }
 
     /**
@@ -120,20 +132,33 @@ export class DrawingPanel {
      */
     continueDrawing(x, y) {
         if (!this.isDrawing || !this.currentDrawing) return;
-
-        const point = this.screenToChartCoordinates(x, y);
         
-        if (this.currentDrawing.type === 'line' || this.currentDrawing.type === 'rectangle' || 
-            this.currentDrawing.type === 'ellipse' || this.currentDrawing.type === 'fibonacci') {
-            // For two-point drawings, update the second point
-            if (this.currentDrawing.points.length === 1) {
-                this.currentDrawing.points[1] = point;
-            } else if (this.currentDrawing.points.length === 2) {
-                this.currentDrawing.points[1] = point;
+        // Check if the point is within the main plot area
+        const mainPlot = this.stockChart.plotLayoutManager.getPlotLayout('main');
+        if (!mainPlot) return;
+
+        if (x >= mainPlot.x && x <= mainPlot.x + mainPlot.width &&
+            y >= mainPlot.y && y <= mainPlot.y + mainPlot.height) {
+            
+            const point = this.screenToChartCoordinates(x, y);
+            
+            // Text doesn't need continueDrawing as it's completed immediately
+            if (this.currentDrawing.type === 'text') return;
+            
+            if (this.currentDrawing.type === 'line' || 
+                this.currentDrawing.type === 'rectangle' || 
+                this.currentDrawing.type === 'ellipse' || 
+                this.currentDrawing.type === 'fibonacci') {
+                // For two-point drawings, update the second point
+                if (this.currentDrawing.points.length === 1) {
+                    this.currentDrawing.points.push(point);
+                } else if (this.currentDrawing.points.length === 2) {
+                    this.currentDrawing.points[1] = point;
+                }
+            } else if (this.currentDrawing.type === 'freehand') {
+                // For freehand drawing, add points continuously
+                this.currentDrawing.points.push(point);
             }
-        } else if (this.currentDrawing.type === 'freehand') {
-            // For freehand drawing, add points continuously
-            this.currentDrawing.points.push(point);
         }
     }
 
@@ -183,6 +208,16 @@ export class DrawingPanel {
      * @param {CanvasRenderingContext2D} ctx - Canvas context
      */
     render(ctx) {
+        if (!this.stockChart.plotLayoutManager) return;
+
+        const mainPlot = this.stockChart.plotLayoutManager.getPlotLayout('main');
+        if (!mainPlot) return;
+
+        ctx.save();
+        // Set line join and cap for smoother drawings
+        ctx.lineJoin = 'round';
+        ctx.lineCap = 'round';
+
         // Render completed drawings
         this.drawings.forEach(drawing => {
             this.renderDrawing(ctx, drawing);
@@ -192,6 +227,8 @@ export class DrawingPanel {
         if (this.currentDrawing && this.isDrawing) {
             this.renderDrawing(ctx, this.currentDrawing);
         }
+
+        ctx.restore();
     }
 
     /**
@@ -312,12 +349,13 @@ export class DrawingPanel {
         ctx.font = style.font;
         const metrics = ctx.measureText(text);
         const textWidth = metrics.width;
-        const textHeight = 14; // Approximate height
+        const textHeight = parseInt(style.font); // Get font size from style
         
-        const bgX = point.x - style.padding;
-        const bgY = point.y - textHeight - style.padding;
-        const bgWidth = textWidth + 2 * style.padding;
-        const bgHeight = textHeight + 2 * style.padding;
+        // Calculate text position with proper alignment
+        const bgX = point.x;
+        const bgY = point.y;
+        const bgWidth = textWidth + (style.padding * 2);
+        const bgHeight = textHeight + (style.padding * 2);
         
         // Background
         if (style.backgroundColor) {
@@ -325,9 +363,10 @@ export class DrawingPanel {
             ctx.fillRect(bgX, bgY, bgWidth, bgHeight);
         }
         
-        // Text
+        // Text - position text in the middle of background
         ctx.fillStyle = style.color;
-        ctx.fillText(text, point.x, point.y);
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, bgX + style.padding, bgY + (bgHeight / 2));
     }
 
     /**
@@ -339,39 +378,40 @@ export class DrawingPanel {
         
         const start = points[0];
         const end = points[1];
-        const levels = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1];
+        const levels = [0, 0.236, 0.382, 0.618, 1, 1.618, 2, 2.618, 3.618, 4.236];
         
-        const height = Math.abs(end.y - start.y);
+        // Calculate the full height based on 23.6% level
+        // If end point represents 23.6%, calculate what 100% would be
+        const height100 = Math.abs(end.y - start.y);
+        const fullHeight = height100;
         const direction = end.y > start.y ? 1 : -1;
         
-        levels.forEach((level, index) => {
-            const y = start.y + (direction * height * level);
+        // Set common styles for all lines
+        ctx.strokeStyle = style.color;
+        ctx.lineWidth = style.width;
+        ctx.setLineDash([5, 5]);
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'bottom';
+        
+        // Draw each level
+        levels.forEach(level => {
+            // Calculate Y position based on the full height
+            const y = start.y + (direction * fullHeight * level);
             
-            ctx.strokeStyle = style.color;
-            ctx.lineWidth = style.width;
-            ctx.setLineDash([5, 5]);
-            
+            // Draw line
             ctx.beginPath();
             ctx.moveTo(start.x, y);
             ctx.lineTo(end.x, y);
             ctx.stroke();
             
-            // Fill levels
-            if (index > 0 && style.fillColors && style.fillColors[index - 1]) {
-                const prevY = start.y + (direction * height * levels[index - 1]);
-                ctx.fillStyle = style.fillColors[index - 1];
-                ctx.fillRect(
-                    Math.min(start.x, end.x),
-                    Math.min(y, prevY),
-                    Math.abs(end.x - start.x),
-                    Math.abs(y - prevY)
-                );
-            }
-            
-            // Label
+            // Draw label
             ctx.fillStyle = style.color;
-            ctx.fillText(`${(level * 100).toFixed(1)}%`, Math.min(start.x, end.x) + 5, y - 5);
+            const label = `${(level * 100).toFixed(1)}%`;
+            ctx.fillText(label, Math.min(start.x, end.x) + 5, y - 2);
         });
+        
+        // Reset line dash
+        ctx.setLineDash([]);
     }
 
     /**
@@ -403,28 +443,64 @@ export class DrawingPanel {
      * @returns {DrawingPoint} Chart coordinates
      */
     screenToChartCoordinates(screenX, screenY) {
-        const rect = this.stockChart.canvas.getBoundingClientRect();
-        const x = screenX - rect.left;
-        const y = screenY - rect.top;
-        
-        // Convert to price and date if possible
         const plotLayout = this.stockChart.plotLayoutManager.getPlotLayout('main');
-        if (plotLayout && this.stockChart.dataViewport) {
-            const price = getValueBasedOnY(
-                y,
-                plotLayout.y,
-                plotLayout.height,
-                this.stockChart.minPrice,
-                this.stockChart.maxPrice
-            );
-            const dateIndex = Math.floor(this.stockChart.dataViewport.startIndex + 
-                (x - plotLayout.x) / plotLayout.width * this.stockChart.dataViewport.visibleCount);
-            const date = this.stockChart.dataViewport.data[dateIndex]?.date;
+        if (!plotLayout) {
+            return { x: screenX, y: screenY };
+        }
+
+        // First check if we have valid data viewport
+        if (!this.stockChart.dataViewport?.data) {
+            return { x: screenX, y: screenY };
+        }
+
+        const visibleData = this.stockChart.dataViewport.getVisibleData() || [];
+        if (visibleData.length === 0) {
+            return { x: screenX, y: screenY };
+        }
+
+        // Calculate price range
+        const lows = visibleData.map(d => d.low).filter(v => v !== undefined && v !== null);
+        const highs = visibleData.map(d => d.high).filter(v => v !== undefined && v !== null);
+        
+        if (lows.length === 0 || highs.length === 0) {
+            return { x: screenX, y: screenY };
+        }
+
+        const minPrice = Math.min(...lows);
+        const maxPrice = Math.max(...highs);
+        const priceRange = maxPrice - minPrice;
+        const paddedMinPrice = minPrice - (priceRange * 0.1);
+        const paddedMaxPrice = maxPrice + (priceRange * 0.1);
+
+        // Convert screen coordinates to chart coordinates
+        const x = screenX;
+        const y = screenY;
+        
+        // Calculate price at Y position
+        const price = getValueBasedOnY(
+            y,
+            plotLayout.y,
+            plotLayout.height,
+            paddedMinPrice,
+            paddedMaxPrice
+        );
+
+        // Calculate date at X position
+        let date = null;
+        if (this.stockChart.dataViewport && x >= plotLayout.x && x <= plotLayout.x + plotLayout.width) {
+            const barWidth = plotLayout.width / this.stockChart.dataViewport.visibleCount;
+            const dataIndex = Math.floor(this.stockChart.dataViewport.startIndex + 
+                (x - plotLayout.x) / barWidth);
             
-            return { x, y, price, date };
+            if (dataIndex >= 0 && dataIndex < this.stockChart.dataViewport.data.length) {
+                const dataPoint = this.stockChart.dataViewport.data[dataIndex];
+                if (dataPoint && dataPoint.time) {
+                    date = new Date(dataPoint.time * 1000);
+                }
+            }
         }
         
-        return { x, y };
+        return { x, y, price, date };
     }
 
     /**

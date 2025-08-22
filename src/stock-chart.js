@@ -11,6 +11,7 @@ import darkTheme from './themes/dark.js';
 import { drawCandlestick, drawLine } from './utils/drawing.js';
 import { PlotLayoutManager } from './utils/layout.js';
 import { DataViewport, getXPixel, getYPixel, getValueBasedOnY } from './utils/data.js';
+import { DrawingPanel } from './utils/drawing-panel.js';
 
 /**
  * @typedef {import('./stock-chart.d.ts').StockChartOptions} StockChartOptions
@@ -57,9 +58,23 @@ class StockChart {
 
         this.container = container;
         this.options = { ...StockChart.defaultOptions, ...options };
+        
+        // Create wrapper div for toolbar and canvas
+        this.wrapper = document.createElement('div');
+        this.wrapper.style.position = 'relative';
+        this.wrapper.style.display = 'flex';
+        this.wrapper.style.width = '100%';
+        this.wrapper.style.height = '100%';
+        this.container.appendChild(this.wrapper);
+
+        // Create toolbar
+        this.createToolbar();
+
+        // Create canvas
         this.canvas = document.createElement('canvas');
         this.ctx = this.canvas.getContext('2d');
-        this.container.appendChild(this.canvas);
+        this.canvas.style.flex = '1';
+        this.wrapper.appendChild(this.canvas);
         
         // Initialize pinch-to-zoom state
         this.initialPinchDistance = 0;
@@ -97,6 +112,10 @@ class StockChart {
         this.priceScale = 1.0; // vertical zoom/scale factor
         this.priceOffset = 0; // vertical offset for panning
         this.plotScales = new Map(); // Store scales for each plot
+        // Initialize drawing panel
+        this.drawingPanel = new DrawingPanel(this);
+        this.activeDrawingTool = null;
+
         this.canvas.addEventListener('mousedown', this.handleMouseDown.bind(this));
         this.canvas.addEventListener('mousemove', this.handleMouseMove.bind(this));
         // Custom event listener for external cursor sync
@@ -144,6 +163,81 @@ class StockChart {
     };
 
     static themes = { light: lightTheme, dark: darkTheme };
+
+    /**
+     * Create the drawing toolbar
+     * @private
+     */
+    createToolbar() {
+        const toolbar = document.createElement('div');
+        toolbar.style.width = '40px';
+        toolbar.style.backgroundColor = this.currentTheme?.background || '#ffffff';
+        toolbar.style.borderRight = '1px solid ' + (this.currentTheme?.gridColor || '#e0e0e0');
+        toolbar.style.display = 'flex';
+        toolbar.style.flexDirection = 'column';
+        toolbar.style.padding = '5px';
+        toolbar.style.gap = '5px';
+
+        const tools = [
+            { name: 'cursor', icon: '🖱️', tooltip: 'Select Tool' },
+            { name: 'line', icon: '📏', tooltip: 'Line Tool' },
+            { name: 'rectangle', icon: '⬜', tooltip: 'Rectangle Tool' },
+            { name: 'ellipse', icon: '⭕', tooltip: 'Ellipse Tool' },
+            { name: 'text', icon: '📝', tooltip: 'Text Tool' },
+            { name: 'fibonacci', icon: '📊', tooltip: 'Fibonacci Tool' },
+            { name: 'freehand', icon: '✏️', tooltip: 'Freehand Tool' },
+            { name: 'clear', icon: '🗑️', tooltip: 'Clear All Drawings' }
+        ];
+
+        tools.forEach(tool => {
+            const button = document.createElement('button');
+            button.innerHTML = tool.icon;
+            button.title = tool.tooltip;
+            button.style.width = '30px';
+            button.style.height = '30px';
+            button.style.border = 'none';
+            button.style.borderRadius = '4px';
+            button.style.backgroundColor = 'transparent';
+            button.style.cursor = 'pointer';
+            button.style.fontSize = '16px';
+            button.style.display = 'flex';
+            button.style.alignItems = 'center';
+            button.style.justifyContent = 'center';
+            button.style.padding = '0';
+
+            // Hover effect
+            button.addEventListener('mouseover', () => {
+                button.style.backgroundColor = this.currentTheme?.gridColor || '#e0e0e0';
+            });
+            button.addEventListener('mouseout', () => {
+                button.style.backgroundColor = tool.name === this.activeDrawingTool ? 
+                    (this.currentTheme?.gridColor || '#e0e0e0') : 'transparent';
+            });
+
+            // Click handler
+            button.addEventListener('click', () => {
+                // Remove active state from all buttons
+                toolbar.querySelectorAll('button').forEach(btn => {
+                    btn.style.backgroundColor = 'transparent';
+                });
+
+                if (tool.name === 'clear') {
+                    this.clearDrawings();
+                } else if (tool.name === 'cursor') {
+                    this.setDrawingTool(null);
+                    button.style.backgroundColor = this.currentTheme?.gridColor || '#e0e0e0';
+                } else {
+                    this.setDrawingTool(tool.name);
+                    button.style.backgroundColor = this.currentTheme?.gridColor || '#e0e0e0';
+                }
+            });
+
+            toolbar.appendChild(button);
+        });
+
+        this.wrapper.insertBefore(toolbar, this.canvas);
+        this.toolbar = toolbar;
+    }
 
     /**
      * Calculates the price range for a given plot configuration and visible data.
@@ -275,12 +369,16 @@ class StockChart {
             clientHeight = window.innerHeight;
         }
 
-        this.canvas.width = clientWidth;
+        // Adjust width to account for toolbar
+        const toolbarWidth = 40;
+        const chartWidth = clientWidth - toolbarWidth;
+
+        this.canvas.width = chartWidth;
         this.canvas.height = clientHeight;
 
         // Calculate Y-axis width and update layout
         const yAxisWidth = this.calculateYAxisWidth();
-        this.plotLayoutManager.updateCanvasDimensions(clientWidth, clientHeight, yAxisWidth);
+        this.plotLayoutManager.updateCanvasDimensions(chartWidth, clientHeight, yAxisWidth);
     }
 
     /**
@@ -296,6 +394,13 @@ class StockChart {
         this.currentTheme = themeToApply;
         // Apply theme colors to canvas context or CSS variables
         this.canvas.style.backgroundColor = themeToApply.background;
+        
+        // Update toolbar theme
+        if (this.toolbar) {
+            this.toolbar.style.backgroundColor = themeToApply.background;
+            this.toolbar.style.borderRight = `1px solid ${themeToApply.gridColor}`;
+        }
+        
         this.render(); // Redraw with new theme
     }
 
@@ -488,11 +593,29 @@ class StockChart {
         // Draw chart name, code, and meta string
         this.drawChartName();
 
+        // Save current transformation state
+        this.ctx.save();
+        
+        // Apply any necessary transformations for drawing panel
+        const mainPlotLayout = this.plotLayoutManager.getPlotLayout('main');
+        if (mainPlotLayout) {
+            // Clip to main plot area to prevent drawings from going outside
+            this.ctx.beginPath();
+            this.ctx.rect(mainPlotLayout.x, mainPlotLayout.y, mainPlotLayout.width, mainPlotLayout.height);
+            this.ctx.clip();
+        }
+
+        // Render drawings
+        this.drawingPanel.render(this.ctx);
+
+        // Restore transformation state
+        this.ctx.restore();
+
         // Debug overlay
         // this.ctx.fillText(`Canvas: ${this.canvas.width}x${this.canvas.height}`, 20, 60);
 
-        // Draw crosshair
-        if (this.crosshairX !== -1 && this.crosshairY !== -1) {
+        // Draw crosshair if not in drawing mode
+        if (this.crosshairX !== -1 && this.crosshairY !== -1 && !this.activeDrawingTool) {
             this.ctx.strokeStyle = this.currentTheme.crosshairColor;
             this.ctx.lineWidth = 1;
             this.ctx.setLineDash([5, 5]); // Dashed line
@@ -541,6 +664,20 @@ class StockChart {
         const rect = this.canvas.getBoundingClientRect();
         const mouseX = event.clientX - rect.left;
         const mouseY = event.clientY - rect.top;
+        
+        // Check if we're in drawing mode
+        if (this.activeDrawingTool) {
+            // Only allow drawing in the main plot area
+            const mainPlot = this.plotLayoutManager.getPlotLayout('main');
+            if (mainPlot && 
+                mouseX >= mainPlot.x && 
+                mouseX <= mainPlot.x + mainPlot.width &&
+                mouseY >= mainPlot.y && 
+                mouseY <= mainPlot.y + mainPlot.height) {
+                this.drawingPanel.startDrawing(this.activeDrawingTool, mouseX, mouseY);
+            }
+            return;
+        }
         
         // First check if clicking in Y-axis area
         for (const plot of this.options.plots) {
@@ -592,6 +729,13 @@ class StockChart {
         const rect = this.canvas.getBoundingClientRect();
         const mouseX = event.clientX - rect.left;
         const mouseY = event.clientY - rect.top;
+
+        // Handle drawing if in drawing mode
+        if (this.drawingPanel.isDrawing) {
+            this.drawingPanel.continueDrawing(mouseX, mouseY);
+            this.render();
+            return;
+        }
 
         // Get the main plot layout for proper positioning
         const mainPlotLayout = this.plotLayoutManager.getPlotLayout('main');
@@ -716,6 +860,28 @@ class StockChart {
      * Handles mouse up events.
      */
     handleMouseUp(event) {
+        // Complete drawing if in drawing mode
+        if (this.drawingPanel.isDrawing) {
+            this.drawingPanel.completeDrawing();
+            // Switch back to cursor tool after completing a drawing
+            this.setDrawingTool(null);
+            // Find cursor button and set its background color
+            const cursorButton = /** @type {HTMLButtonElement} */ (
+                this.toolbar.querySelector('button[title="Select Tool"]')
+            );
+            if (cursorButton) {
+                cursorButton.style.backgroundColor = this.currentTheme?.gridColor || '#e0e0e0';
+                // Reset other buttons
+                this.toolbar.querySelectorAll('button').forEach(/** @param {HTMLButtonElement} btn */ (btn) => {
+                    if (btn !== cursorButton) {
+                        btn.style.backgroundColor = 'transparent';
+                    }
+                });
+            }
+            this.render();
+            return;
+        }
+
         this.isDragging = false;
         this.isResizingPlot = false;
         this.isDraggingYAxis = false;
@@ -1592,6 +1758,41 @@ class StockChart {
         if (container.clientWidth < 1) {
             container.style.width = `${window.innerWidth * 0.9}px`;
         }
+    }
+
+    /**
+     * Set the active drawing tool
+     * @param {string|null} tool - The drawing tool to activate ('line', 'rectangle', 'ellipse', 'text', 'fibonacci', null)
+     */
+    setDrawingTool(tool) {
+        this.activeDrawingTool = tool;
+        this.drawingPanel.setActiveTool(tool);
+        this.canvas.style.cursor = tool ? 'crosshair' : 'default';
+    }
+
+    /**
+     * Clear all drawings from the chart
+     */
+    clearDrawings() {
+        this.drawingPanel.clearDrawings();
+        this.render();
+    }
+
+    /**
+     * Import drawings from a JSON string
+     * @param {string} jsonString - JSON string containing drawing data
+     */
+    importDrawings(jsonString) {
+        this.drawingPanel.importDrawings(jsonString);
+        this.render();
+    }
+
+    /**
+     * Export drawings as a JSON string
+     * @returns {string} JSON string containing drawing data
+     */
+    exportDrawings() {
+        return this.drawingPanel.exportDrawings();
     }
 }
 export default StockChart;

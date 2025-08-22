@@ -75,30 +75,101 @@ export function calculateRSI(data, period = 14) {
 }
 
 /**
- * @description Generate random candlestick data
+ * @description Generate random candlestick data with signals
  * @param {number} count 
- * @returns {Array} Array of candlestick data
+ * @returns {Array} Array of candlestick data with signals
  */
 export function generateCandlestickData(count) {
     const data = [];
     let lastClose = 200;
     let date = new Date('2015-01-01');
+    
+    // Signal context to maintain state across iterations
+    const signalContext = {
+        supportLevel: null,
+        resistanceLevel: null,
+        supportTouches: 0,
+        resistanceTouches: 0,
+        trendDirection: 0, // -1 down, 0 sideways, 1 up
+        trendStrength: 0
+    };
+    
+    // Price history for moving averages and momentum
+    const priceHistory = [];
+
     for (let i = 0; i < count; i++) {
-    const open = lastClose + (Math.random() - 0.5) * 5;
-    const close = open + (Math.random() - 0.5) * 10;
-    const high = Math.max(open, close) + Math.random() * 5;
-    const low = Math.min(open, close) - Math.random() * 5;
-    const volume = Math.random() * 10000 + 1000;
-    data.push({
-        time: date.getTime() / 1000,
-        open: open,
-        high: high,
-        low: low,
-        close: close,
-        volume: volume
-    });
-    lastClose = close;
-    date.setDate(date.getDate() + 1);
+    
+        const open = lastClose + (Math.random() - 0.5) * 5;
+        const close = open + (Math.random() - 0.5) * 10;
+        const high = Math.max(open, close) + Math.random() * 5;
+        const low = Math.min(open, close) - Math.random() * 5;
+        const volume = Math.random() * 10000 + 1000;
+        
+        // Update price history
+        priceHistory.push(close);
+        if (priceHistory.length > 50) priceHistory.shift(); // Keep last 50 periods
+        
+        // Generate signals using the extracted function
+        const candleData = {
+            open, high, low, close, volume,
+            priceHistory, data, lastClose
+        };
+        
+        const signals = generateTradingSignals(candleData, signalContext, i);
+        
+        data.push({
+            time: date.getTime() / 1000,
+            open: parseFloat(open.toFixed(2)),
+            high: parseFloat(high.toFixed(2)),
+            low: parseFloat(low.toFixed(2)),
+            close: parseFloat(close.toFixed(2)),
+            volume: Math.round(volume),
+            signals: signals.length > 0 ? signals[0] : undefined
+        });
+        
+        lastClose = close;
+        date.setDate(date.getDate() + 1);
+
+
     }
+    
     return data;
+}
+
+let value = null;
+function generateTradingSignals(candleData, signalContext, index) {
+    const signals = [];
+    if (index % 100 >= 15 && index % 100 <= 23) {
+        if (index % 100 == 15) value = candleData.close;
+        signals.push({
+            type: 'support',
+            value: value || candleData.close,
+            description: `Signal at ${value}`
+        })
+    }
+    else if (index % 100 >= 32 && index % 100 <= 39) {
+        if (index % 100 == 32) value = candleData.close;
+        signals.push({
+            type: 'resistance',
+            value: value,
+            description: `Signal at ${value}`
+        });
+    }
+    else if (index % 100 >= 45 && index % 100 <= 50) {
+        if (index % 100 == 45) value = candleData.close;
+        signals.push({
+            type: 'uptrend',
+            value: value,
+            description: `Signal at ${value}`
+        });
+    }
+    else {
+        signals.push({
+            type: 'unknown',
+            value: null,
+            description: `Unknown signal at ${candleData.close}`
+        });
+    }
+
+    return signals;
 }

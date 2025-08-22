@@ -11,6 +11,7 @@ import darkTheme from './themes/dark.js';
 import { drawCandlestick, drawLine } from './utils/drawing.js';
 import { PlotLayoutManager } from './utils/layout.js';
 import { DataViewport, getXPixel, getYPixel, getValueBasedOnY } from './utils/data.js';
+import { getSignalTypeColor } from './utils/helpers.js';
 import { DrawingPanel } from './utils/drawing-panel.js';
 
 /**
@@ -542,53 +543,18 @@ class StockChart {
                         });
                         break;
                     case 'line':
-                        let lastValidIndex = -1;
-                        plotVisibleData.forEach((dataPoint, i) => {
-                            const value = dataPoint.value ?? dataPoint.close;
-                            // Skip if current point has no value or is zero
-                            if (value === null || value === undefined || value === 0) {
-                                lastValidIndex = -1;
-                                return;
-                            }
-
-                            // If we have a previous valid point, draw line
-                            if (lastValidIndex !== -1) {
-                                const prevDataPoint = plotVisibleData[lastValidIndex];
-                                const x1 = plotLayout.x + getXPixel(this.dataViewport.startIndex + lastValidIndex, this.dataViewport.startIndex, this.dataViewport.visibleCount, plotLayout.width, barWidth) + barWidth / 2;
-                                const y1 = getYPixel(prevDataPoint.value ?? prevDataPoint.close, minPrice, maxPrice, plotLayout.height, plotLayout.y);
-                                const x2 = plotLayout.x + getXPixel(this.dataViewport.startIndex + i, this.dataViewport.startIndex, this.dataViewport.visibleCount, plotLayout.width, barWidth) + barWidth / 2;
-                                const y2 = getYPixel(value, minPrice, maxPrice, plotLayout.height, plotLayout.y);
-                                const lineColor = plotConfig.style?.lineColor || this.currentTheme.lineColor;
-                                const lineWidth = plotConfig.style?.lineWidth || 2;
-                                drawLine(this.ctx, x1, y1, x2, y2, lineColor, lineWidth);
-                            }
-                            lastValidIndex = i;
-                        });
+                        this.drawLine(plotVisibleData, plotLayout, barWidth, minPrice, maxPrice, plotConfig);
                         break;
                     case 'volume':
-                        plotVisibleData.forEach((dataPoint, i) => {
-                            const volWidth = barWidth * 0.7;
-                            const x = plotLayout.x + getXPixel(this.dataViewport.startIndex + i, this.dataViewport.startIndex, this.dataViewport.visibleCount, plotLayout.width, barWidth) + (barWidth - volWidth) / 2;
-                            const volHeight = ((dataPoint.volume || 0) / maxPrice) * plotLayout.height;
-                            const y = plotLayout.y + plotLayout.height - volHeight;
-                            this.ctx.fillStyle = this.currentTheme.volumeColor || 'rgba(0, 150, 136, 0.6)';
-                            this.ctx.fillRect(x, y, volWidth, volHeight);
-                        });
+                        this.drawVolume(plotVisibleData, barWidth, plotLayout, maxPrice);
                         break;
                     case 'histogram':
-                        plotVisibleData.forEach((dataPoint, i) => {
-                            const histoWidth = barWidth * 0.7;
-                            const x = plotLayout.x + getXPixel(this.dataViewport.startIndex + i, this.dataViewport.startIndex, this.dataViewport.visibleCount, plotLayout.width, barWidth) + (barWidth - histoWidth) / 2;
-                            const y = getYPixel(0, minPrice, maxPrice, plotLayout.height, plotLayout.y);
-                            const barHeight = getYPixel(dataPoint.value, minPrice, maxPrice, plotLayout.height, plotLayout.y) - y;
-
-                            this.ctx.fillStyle = dataPoint.value >= 0 ?
-                                (plotConfig.style?.positiveColor || this.currentTheme.positiveColor) :
-                                (plotConfig.style?.negativeColor || this.currentTheme.negativeColor);
-
-                            this.ctx.fillRect(x, y, histoWidth, barHeight);
-                        });
+                        this.drawHistogram(plotVisibleData, barWidth, plotLayout, minPrice, maxPrice, plotConfig);
                         break;
+                    case 'signal':
+                        this.drawSignals(plotVisibleData, plotLayout, barWidth, minPrice, maxPrice);
+                        break;
+                        
                 }
             }
             this.ctx.restore();
@@ -659,9 +625,111 @@ class StockChart {
     }
 
     /**
-     * Handles mouse down events for dragging and viewport interaction.
-     * @param {MouseEvent} event
+     * Draws a line plot on the canvas.
+     * @param {Array<Object>} plotVisibleData - The visible data points for the plot.
+     * @param {import('./stock-chart.d.ts').PlotLayout} plotLayout - The layout information for the plot.
+     * @param {number} barWidth - The width of each bar in the plot.
+     * @param {number} minPrice - The minimum price in the visible data range.
+     * @param {number} maxPrice - The maximum price in the visible data range.
+     * @param {import('./stock-chart.d.ts').PlotConfig} plotConfig - The configuration options for the plot.
      */
+    drawLine(plotVisibleData, plotLayout, barWidth, minPrice, maxPrice, plotConfig) {
+        let lastValidIndex = -1;
+        plotVisibleData.forEach((dataPoint, i) => {
+            const value = dataPoint.value ?? dataPoint.close;
+            // Skip if current point has no value or is zero
+            if (value === null || value === undefined || value === 0) {
+                lastValidIndex = -1;
+                return;
+            }
+
+            // If we have a previous valid point, draw line
+            if (lastValidIndex !== -1) {
+                const prevDataPoint = plotVisibleData[lastValidIndex];
+                const x1 = plotLayout.x + getXPixel(this.dataViewport.startIndex + lastValidIndex, this.dataViewport.startIndex, this.dataViewport.visibleCount, plotLayout.width, barWidth) + barWidth / 2;
+                const y1 = getYPixel(prevDataPoint.value ?? prevDataPoint.close, minPrice, maxPrice, plotLayout.height, plotLayout.y);
+                const x2 = plotLayout.x + getXPixel(this.dataViewport.startIndex + i, this.dataViewport.startIndex, this.dataViewport.visibleCount, plotLayout.width, barWidth) + barWidth / 2;
+                const y2 = getYPixel(value, minPrice, maxPrice, plotLayout.height, plotLayout.y);
+                const lineColor = plotConfig.style?.lineColor || this.currentTheme.lineColor;
+                const lineWidth = plotConfig.style?.lineWidth || 2;
+                drawLine(this.ctx, x1, y1, x2, y2, lineColor, lineWidth);
+            }
+            lastValidIndex = i;
+        });
+    }
+
+    /**
+     * Draws the volume bars on the canvas.
+     * @param {Array<Object>} plotVisibleData - The visible data points for the plot.
+     * @param {number} barWidth - The width of each bar in the plot.
+     * @param {import('./stock-chart.d.ts').PlotLayout} plotLayout - The layout information for the plot.
+     * @param {number} maxPrice - The maximum price in the visible data range.
+     */
+    drawVolume(plotVisibleData, barWidth, plotLayout, maxPrice) {
+        plotVisibleData.forEach((dataPoint, i) => {
+            const volWidth = barWidth * 0.7;
+            const x = plotLayout.x + getXPixel(this.dataViewport.startIndex + i, this.dataViewport.startIndex, this.dataViewport.visibleCount, plotLayout.width, barWidth) + (barWidth - volWidth) / 2;
+            const volHeight = ((dataPoint.volume || 0) / maxPrice) * plotLayout.height;
+            const y = plotLayout.y + plotLayout.height - volHeight;
+            this.ctx.fillStyle = this.currentTheme.volumeColor || 'rgba(0, 150, 136, 0.6)';
+            this.ctx.fillRect(x, y, volWidth, volHeight);
+        });
+    }
+
+    /**
+     * Draws the volume bars on the canvas.
+     * @param {Array<Object>} plotVisibleData - The visible data points for the plot.
+     * @param {number} barWidth - The width of each bar in the plot.
+     * @param {import('./stock-chart.d.ts').PlotLayout} plotLayout - The layout information for the plot.
+     * @param {number} minPrice - The minimum price in the visible data range.
+     * @param {number} maxPrice - The maximum price in the visible data range.
+     * @param {import('./stock-chart.d.ts').PlotConfig} plotConfig - The configuration options for the plot.
+     */
+    drawHistogram(plotVisibleData, barWidth, plotLayout, minPrice, maxPrice, plotConfig) {
+        plotVisibleData.forEach((dataPoint, i) => {
+            const histoWidth = barWidth * 0.7;
+            const x = plotLayout.x + getXPixel(this.dataViewport.startIndex + i, this.dataViewport.startIndex, this.dataViewport.visibleCount, plotLayout.width, barWidth) + (barWidth - histoWidth) / 2;
+            const y = getYPixel(0, minPrice, maxPrice, plotLayout.height, plotLayout.y);
+            const barHeight = getYPixel(dataPoint.value, minPrice, maxPrice, plotLayout.height, plotLayout.y) - y;
+
+            this.ctx.fillStyle = dataPoint.value >= 0 ?
+                (plotConfig.style?.positiveColor || this.currentTheme.positiveColor) :
+                (plotConfig.style?.negativeColor || this.currentTheme.negativeColor);
+
+            this.ctx.fillRect(x, y, histoWidth, barHeight);
+        });
+    }
+
+    /**
+     * Draws the trading signals on the chart.
+     * @param {Array<Object>} plotVisibleData 
+     * @param {import('./stock-chart.d.ts').PlotLayout} plotLayout 
+     * @param {number} barWidth 
+     * @param {number} minPrice 
+     * @param {number} maxPrice 
+     */
+    drawSignals(plotVisibleData, plotLayout, barWidth, minPrice, maxPrice) {
+        this.ctx.imageSmoothingEnabled = false;
+
+        const pathsByColor = {};
+        plotVisibleData.filter(d => d.value != null).forEach((dataPoint, i) => {
+            const color = getSignalTypeColor(dataPoint.value.type);
+            if (!pathsByColor[color]) {
+                pathsByColor[color] = new Path2D();
+            }
+
+            const x = Math.floor(plotLayout.x + getXPixel(this.dataViewport.startIndex + i, this.dataViewport.startIndex, this.dataViewport.visibleCount, plotLayout.width, barWidth));
+            const y = Math.floor(getYPixel(dataPoint.value.value, minPrice, maxPrice, plotLayout.height, plotLayout.y));
+
+            pathsByColor[color].rect(x, y, Math.ceil(barWidth), 10);
+        });
+
+        // 一次性填充每种颜色的所有长方形
+        Object.keys(pathsByColor).forEach(color => {
+            this.ctx.fillStyle = color;
+            this.ctx.fill(pathsByColor[color]);
+        });
+    }
 
     /**
      * Handles mouse down events for dragging.
@@ -1513,6 +1581,13 @@ class StockChart {
         }
     }
 
+    /**
+     * Draws the Y-axis labels on the canvas.
+     * @param {import('./stock-chart.d.ts').PlotConfig} plotConfig - The configuration options for the plot.
+     * @param {import('./stock-chart.d.ts').PlotLayout} plotLayout - The layout information for the plot.
+     * @param {number} minPrice - The minimum price in the visible data range.
+     * @param {number} maxPrice - The maximum price in the visible data range.
+     */
     drawYAxisLabels(plotConfig, plotLayout, minPrice, maxPrice) {
         this.ctx.fillStyle = this.currentTheme.textColor;
         
@@ -1747,6 +1822,8 @@ class StockChart {
         });
     }
 
+
+    
     /**
      * Renders overlay panels for indicators (placeholder, extendable).
      */

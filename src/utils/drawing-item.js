@@ -49,7 +49,7 @@ class DrawingItem {
         // Calculate relative position in viewport
         const barWidth = plotLayout.width / viewport.visibleCount;
         const visibleStartTime = allData[viewport.startIndex].time;
-        const visibleEndTime = allData[viewport.startIndex + viewport.visibleCount - 1].time;
+        const visibleEndTime = allData[viewport.startIndex + viewport.visibleCount - 1]?.time;
         const timeRange = visibleEndTime - visibleStartTime;
         const relativeTime = (time - visibleStartTime) / timeRange;
         

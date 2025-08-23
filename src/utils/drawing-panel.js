@@ -14,6 +14,7 @@ import { PlotLayoutManager } from './layout.js';
  * @property {HTMLDivElement} toolbar - The toolbar element
  * @property {Object} currentTheme - The current theme object
  * @property {Function} setDrawingTool - Function to set the active drawing tool
+ * @property {Function} render - Function to render/redraw the chart
  */
 
 /**
@@ -41,15 +42,23 @@ export class DrawingPanel {
         // We'll calculate barWidth dynamically when needed instead of storing it
         
         
-        // Bind mouse event handlers
+        // Bind mouse and touch event handlers
         this.handleMouseDownBound = this.handleMouseDown.bind(this);
         this.handleMouseMoveBound = this.continueDrawing.bind(this);
         this.handleMouseUpBound = this.completeDrawing.bind(this);
+        this.handleTouchStartBound = this.handleTouchStart.bind(this);
+        this.handleTouchMoveBound = this.handleTouchMove.bind(this);
+        this.handleTouchEndBound = this.handleTouchEnd.bind(this);
         
         // Add mouse event listeners to the canvas
         this.stockChart.canvas.addEventListener('mousedown', this.handleMouseDownBound);
         this.stockChart.canvas.addEventListener('mousemove', this.handleMouseMoveBound);
         this.stockChart.canvas.addEventListener('mouseup', this.handleMouseUpBound);
+        
+        // Add touch event listeners to the canvas
+        this.stockChart.canvas.addEventListener('touchstart', this.handleTouchStartBound);
+        this.stockChart.canvas.addEventListener('touchmove', this.handleTouchMoveBound);
+        this.stockChart.canvas.addEventListener('touchend', this.handleTouchEndBound);
         
         // Drawing styles
         this.defaultStyles = {
@@ -122,6 +131,7 @@ export class DrawingPanel {
         if (this.activeTool && this.activeTool !== type) return;
 
         this.isDrawing = true;
+        this._isChartFrozen = true; // Freeze chart when drawing starts
 
         // Convert screen coordinates to data coordinates
         const mainPlotLayout = this.stockChart.plotLayoutManager.getPlotLayout('main');
@@ -196,7 +206,7 @@ export class DrawingPanel {
 
     /**
      * Continue drawing with additional points
-     * @param {MouseEvent} event - The mouse event
+     * @param {MouseEvent | { clientX: number, clientY: number }} event - The event object containing client coordinates
      */
     continueDrawing(event) {
         // Get the canvas coordinates
@@ -212,7 +222,6 @@ export class DrawingPanel {
             y >= mainPlot.y && y <= mainPlot.y + mainPlot.height) {
             
             // Convert screen coordinates to data coordinates
-            // const barWidth = mainPlot.width / this.stockChart.dataViewport.visibleCount;
             const relativeX = x - mainPlot.x;
             const barWidth = mainPlot.width / this.stockChart.dataViewport.visibleCount;
             const dataIndex = Math.floor(relativeX / barWidth);
@@ -242,36 +251,59 @@ export class DrawingPanel {
             const { minPrice, maxPrice } = priceRange;
             const price = maxPrice - (relativeY / mainPlot.height) * (maxPrice - minPrice);
 
+            let needsRender = false;
+
             if (this.isEditing && this.selectedDrawing && this.selectedPoint !== null) {
                 // Update the selected point's position
-                this.selectedDrawing.points[this.selectedPoint] = { time, price };
-            } else if (this.isDrawing && this.currentDrawing) {
+                const oldPoint = { ...this.selectedDrawing.points[this.selectedPoint] };
+                const newPoint = { time, price };
 
-
-
-                // Update or add point for new drawing
+                // Only update if position changed
+                if (oldPoint.time !== newPoint.time || oldPoint.price !== newPoint.price) {
+                    this.selectedDrawing.points[this.selectedPoint] = newPoint;
+                    needsRender = true;
+                }
+            } 
+            else if (this.isDrawing && this.currentDrawing) {
+                // Create second point immediately if we don't have one
                 if (this.currentDrawing.points.length === 1) {
-                    // Don't add if it's the same as the first point
-                    const firstPoint = this.currentDrawing.points[0];
-                    if (time !== firstPoint.time || price !== firstPoint.price) {
-                        this.currentDrawing.addPoint(time, price);
+                    const point = { time, price };
+                    if (['horizontal-line', 'vertical-line'].includes(this.activeTool)) {
+                        const firstPoint = this.currentDrawing.points[0];
+                        if (this.activeTool === 'horizontal-line') {
+                            point.price = firstPoint.price;
+                        } else if (this.activeTool === 'vertical-line') {
+                            point.time = firstPoint.time;
+                        }
                     }
-                } else if (this.currentDrawing.points.length === 2) {
+                    this.currentDrawing.addPoint(point.time, point.price);
+                    needsRender = true;
+                }
+                // Keep updating the last point's position while drawing
+                else if (this.currentDrawing.points.length === 2) {
+                    const oldPoint = { ...this.currentDrawing.points[1] };
                     const firstPoint = this.currentDrawing.points[0];
+                    let newPoint = { time, price };
+
                     if (['horizontal-line', 'vertical-line'].includes(this.activeTool)) {
                         if (this.activeTool === 'horizontal-line') {
-                            this.currentDrawing.points[1] = { time, price: firstPoint.price };
+                            newPoint.price = firstPoint.price;
                         } else if (this.activeTool === 'vertical-line') {
-                            this.currentDrawing.points[1] = { time: firstPoint.time, price };
+                            newPoint.time = firstPoint.time;
                         }
                     }
-                    else {
-                        // Update second point if it's different from the first
-                        if (time !== firstPoint.time || price !== firstPoint.price) {
-                            this.currentDrawing.points[1] = { time, price };
-                        }
+
+                    // Only update if position changed
+                    if (oldPoint.time !== newPoint.time || oldPoint.price !== newPoint.price) {
+                        this.currentDrawing.points[1] = newPoint;
+                        needsRender = true;
                     }
                 }
+            }
+
+            // Only render if something changed
+            if (needsRender) {
+                this.stockChart.render();
             }
         }
     }
@@ -292,7 +324,7 @@ export class DrawingPanel {
             this.selectedDrawing = null;
             this.currentDrawing = null;
             this.isEditing = false;
-            this._isChartFrozen = false;
+            this._isChartFrozen = false; // Unfreeze chart when drawing completes
             
             // Automatically switch back to select tool
             this.setActiveTool(null);
@@ -334,6 +366,72 @@ export class DrawingPanel {
                 this._isChartFrozen = false;
             }
         }
+    }
+
+    /**
+     * Handle touch start event
+     * @param {TouchEvent} event - The touch event
+     */
+    handleTouchStart(event) {
+        event.preventDefault(); // Prevent scrolling and chart zooming/moving
+        event.stopPropagation(); // Stop event from bubbling up to chart's touch handlers
+        if (event.touches.length !== 1) return; // Only handle single touch
+
+        const touch = event.touches[0];
+        const rect = this.stockChart.canvas.getBoundingClientRect();
+        const x = touch.clientX - rect.left;
+        const y = touch.clientY - rect.top;
+
+        if (this.activeTool) {
+            this.startDrawing(this.activeTool, x, y);
+        } else {
+            // Try to select a point for editing
+            if (this.trySelectPoint(x, y)) {
+                this.isEditing = true;
+                this._isChartFrozen = true;
+                return;
+            }
+
+            // Check if we touched near the current selected drawing
+            const touchedOnDrawing = this.selectedDrawing && this.isNearDrawing(x, y, this.selectedDrawing);
+            
+            // If we touched away from any drawing, unfreeze the chart and clear selection
+            if (!touchedOnDrawing) {
+                this.isEditing = false;
+                this.selectedDrawing = null;
+                this.selectedPoint = null;
+                this._isChartFrozen = false;
+            }
+        }
+    }
+
+    /**
+     * Handle touch move event
+     * @param {TouchEvent} event - The touch event
+     */
+    handleTouchMove(event) {
+        event.preventDefault(); // Prevent scrolling and chart zooming/moving
+        event.stopPropagation(); // Stop event from bubbling up to chart's touch handlers
+        if (event.touches.length !== 1) return; // Only handle single touch
+
+        const touch = event.touches[0];
+        
+        // Update the drawing immediately to maintain progress visibility
+        if (this.isDrawing && this.currentDrawing) {
+            this.continueDrawing({ clientX: touch.clientX, clientY: touch.clientY });
+        } else if (this.isEditing && this.selectedDrawing) {
+            this.continueDrawing({ clientX: touch.clientX, clientY: touch.clientY });
+        }
+    }
+
+    /**
+     * Handle touch end event
+     * @param {TouchEvent} event - The touch event
+     */
+    handleTouchEnd(event) {
+        event.preventDefault();
+        event.stopPropagation(); // Stop event from bubbling up to chart's touch handlers
+        this.completeDrawing();
     }
 
 
@@ -591,7 +689,6 @@ export class DrawingPanel {
      * @returns {boolean} True if the point is near the drawing
      */
     isNearDrawing(x, y, drawing) {
-        debugger
         const mainPlot = this.stockChart.plotLayoutManager.getPlotLayout('main');
         if (!mainPlot) return false;
 

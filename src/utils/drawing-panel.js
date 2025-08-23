@@ -38,6 +38,12 @@ export class DrawingPanel {
         this.isEditing = false;
         this._isChartFrozen = false;
         
+        const mainPlotLayout = this.stockChart.plotLayoutManager.getPlotLayout('main');
+        if (mainPlotLayout) {
+            this.barWidth = mainPlotLayout.width / this.stockChart.dataViewport.visibleCount;
+        }
+
+        
         // Bind mouse event handlers
         this.handleMouseDownBound = this.handleMouseDown.bind(this);
         this.handleMouseMoveBound = this.continueDrawing.bind(this);
@@ -124,9 +130,8 @@ export class DrawingPanel {
         const mainPlotLayout = this.stockChart.plotLayoutManager.getPlotLayout('main');
         if (!mainPlotLayout) return;
 
-        const barWidth = mainPlotLayout.width / this.stockChart.dataViewport.visibleCount;
         const relativeX = x - mainPlotLayout.x;
-        const dataIndex = Math.floor(relativeX / barWidth);
+        const dataIndex = Math.floor(relativeX / this.barWidth);
         const actualDataIndex = this.stockChart.dataViewport.startIndex + dataIndex;
 
         // Get the data point at this index
@@ -167,7 +172,7 @@ export class DrawingPanel {
                 this.currentDrawing = new FibonacciDrawing(this.stockChart.options.theme);
                 break;
             case 'fibonacci-zoon':
-                this.currentDrawing = new FibonacciZoonDrawing(this.stockChart.options.theme, barWidth);
+                this.currentDrawing = new FibonacciZoonDrawing(this.stockChart.options.theme, this.barWidth);
                 break;
             case 'horizontal-line':
                 this.currentDrawing = new LineDrawing('horizontal-line');
@@ -208,9 +213,9 @@ export class DrawingPanel {
             y >= mainPlot.y && y <= mainPlot.y + mainPlot.height) {
             
             // Convert screen coordinates to data coordinates
-            const barWidth = mainPlot.width / this.stockChart.dataViewport.visibleCount;
+            // const barWidth = mainPlot.width / this.stockChart.dataViewport.visibleCount;
             const relativeX = x - mainPlot.x;
-            const dataIndex = Math.floor(relativeX / barWidth);
+            const dataIndex = Math.floor(relativeX / this.barWidth);
             const actualDataIndex = this.stockChart.dataViewport.startIndex + dataIndex;
 
             // Get the data point at this index
@@ -392,7 +397,6 @@ export class DrawingPanel {
             this.stockChart.dataViewport
         );
         if (!priceRange) return;
-
         // Draw control points for each point in the drawing
         drawing.points.forEach((point, index) => {
             const screenPoint = new DrawingItem().getPixelCoordinates(
@@ -404,7 +408,11 @@ export class DrawingPanel {
                 priceRange.maxPrice
             );
 
+            
             if (screenPoint) {
+                if (drawing.type === 'fibonacci-zoon') {
+                    screenPoint.x += this.barWidth / 2; // Adjust for Fibonacci zone center
+                }
                 ctx.beginPath();
                 ctx.arc(screenPoint.x, screenPoint.y, 4, 0, Math.PI * 2);
                 ctx.fillStyle = index === this.selectedPoint ? '#ff0000' : '#ffffff';
@@ -581,6 +589,7 @@ export class DrawingPanel {
      * @returns {boolean} True if the point is near the drawing
      */
     isNearDrawing(x, y, drawing) {
+        debugger
         const mainPlot = this.stockChart.plotLayoutManager.getPlotLayout('main');
         if (!mainPlot) return false;
 
@@ -720,10 +729,17 @@ export class DrawingPanel {
             );
 
             if (screenPoint) {
-                const distance = Math.sqrt(
-                    Math.pow(x - screenPoint.x, 2) + 
-                    Math.pow(y - screenPoint.y, 2)
-                );
+                let distance;
+                if (drawing.type === 'fibonacci-zoon') {
+                    // For Fibonacci zoon, only consider x-coordinate distance
+                    distance = Math.abs(x - screenPoint.x);
+                } else {
+                    // For other drawings, consider both x and y coordinates
+                    distance = Math.sqrt(
+                        Math.pow(x - screenPoint.x, 2) + 
+                        Math.pow(y - screenPoint.y, 2)
+                    );
+                }
                 if (distance <= threshold) {
                     return {
                         pointIndex: i,

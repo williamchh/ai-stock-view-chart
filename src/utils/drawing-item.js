@@ -48,13 +48,16 @@ class DrawingItem {
 
         // Calculate relative position in viewport
         const barWidth = plotLayout.width / viewport.visibleCount;
-        const visibleStartTime = allData[viewport.startIndex].time;
-        const visibleEndTime = allData[viewport.startIndex + viewport.visibleCount - 1]?.time;
-        const timeRange = visibleEndTime - visibleStartTime;
-        const relativeTime = (time - visibleStartTime) / timeRange;
         
-        // Calculate x coordinate based on relative time position
-        const x = plotLayout.x + (relativeTime * plotLayout.width);
+        // Find the actual index in visible data for more accurate positioning
+        const visibleTimeIndex = visibleData.findIndex(d => d.time >= time);
+        const nearestVisibleIndex = visibleTimeIndex === -1 ? visibleData.length - 1 : 
+            (visibleTimeIndex === 0 ? 0 :
+                (Math.abs(visibleData[visibleTimeIndex].time - time) < Math.abs(visibleData[visibleTimeIndex - 1].time - time) ?
+                    visibleTimeIndex : visibleTimeIndex - 1));
+                    
+        // Calculate x coordinate based on the index in visible data
+        const x = plotLayout.x + (nearestVisibleIndex * barWidth);
 
         // Calculate y coordinate
         const y = plotLayout.y + ((maxPrice - price) / (maxPrice - minPrice)) * plotLayout.height;

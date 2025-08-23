@@ -1,20 +1,15 @@
 
 
-import { getValueBasedOnY } from "./data.js";
+import { DataViewport } from './data.js';
 import { DrawingItem, LineDrawing, RectangleDrawing, FibonacciDrawing } from './drawing-item.js';
-
+import { PlotLayoutManager } from './layout.js';
+;
 /**
  * @typedef {Object} StockChart
  * @property {HTMLCanvasElement} canvas - The chart canvas element.
- * @property {any} plotLayoutManager - Manager for plot layouts.
- * @property {Object} dataViewport - Data viewport information
- * @property {number} dataViewport.startIndex - Start index of visible data
- * @property {number} dataViewport.visibleCount - Number of visible data points
- * @property {Array<Object>} dataViewport.allData - Array of data points
- * @property {Function} dataViewport.getVisibleData - Function to get visible data
- * @property {Object} options - Chart options
- * @property {Array<Object>} options.plots - Array of plot configurations
- * @property {Object} options.theme - Chart theme
+ * @property {PlotLayoutManager} plotLayoutManager - Manager for plot layouts.
+ * @property {DataViewport} dataViewport - Data viewport information
+ * @property {import('../stock-chart.js').StockChartOptions} options - Chart options
  * @property {Function} calculatePriceRange - Function to calculate price range
  */
 

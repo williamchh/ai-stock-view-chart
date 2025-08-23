@@ -132,7 +132,7 @@
         // Calculate indicators
         const sma20Data = calculateSMA(candlestickData, 20);
         const sma50Data = calculateSMA(candlestickData, 50);
-        const macdData = calculateMACD(candlestickData);
+        const macdData = calculateMACD(candlestickData, 21, 34, 8);
         const rsiData = calculateRSI(candlestickData);
 
         // Transform MACD data into separate line plots

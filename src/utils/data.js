@@ -13,12 +13,13 @@ export class DataViewport {
      */
     constructor(allData, initialVisibleCount, rightPadding = 0) {
         this.allData = allData;
+        // Set visible count including right padding but not exceeding total data plus padding
         this.visibleCount = Math.min(initialVisibleCount, allData.length + rightPadding);
         this.rightPadding = rightPadding;
-        // Include rightPadding in maxStartIndex calculation
+        // Calculate max start index considering right padding
         this.maxStartIndex = Math.max(0, allData.length - this.visibleCount + rightPadding);
-        // Set initial position to show right padding, but ensure we have enough data
-        this.startIndex = Math.min(Math.max(0, this.maxStartIndex), Math.max(0, allData.length - this.visibleCount));
+        // Set initial position to show the latest data plus right padding
+        this.startIndex = Math.max(0, allData.length - (this.visibleCount - rightPadding));
     }
 
     /**

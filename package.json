@@ -11,7 +11,9 @@
   ],
   "scripts": {
     "start": "serve .",
-    "build": "rollup -c"
+    "build": "npm run build:npm && npm run build:umd",
+    "build:npm": "rollup -c --environment BUILD:npm",
+    "build:umd": "rollup -c --environment BUILD:umd"
   },
   "keywords": [
     "stock",

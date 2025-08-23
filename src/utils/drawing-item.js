@@ -1,9 +1,18 @@
 /**
+ * @typedef {object} DrawingItemPoints
+ * @property {number} time - The time value (x-coordinate)
+ * @property {number} price - The price value (y-coordinate)
+ */
+
+/**
  * Base class for all drawing items
  */
 class DrawingItem {
     constructor(type) {
         this.type = type;
+        /**
+         * @type {DrawingItemPoints[]} points
+         */
         this.points = []; // Array of {time, price} points
         this.style = {
             strokeStyle: '#000000',

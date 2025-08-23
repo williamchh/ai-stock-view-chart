@@ -131,6 +131,9 @@ class StockChart {
         this.canvas.addEventListener('wheel', this.handleMouseWheel.bind(this));
         this.canvas.addEventListener('dblclick', this.resetVerticalScale.bind(this));
         
+        // Add keyboard event listener for delete functionality
+        window.addEventListener('keydown', this.handleKeyDown.bind(this));
+        
         // Touch event listeners for mobile devices
         this.canvas.addEventListener('touchstart', this.handleTouchStart.bind(this));
         this.canvas.addEventListener('touchmove', this.handleTouchMove.bind(this));
@@ -436,6 +439,28 @@ class StockChart {
         this.priceScale = 1.0;
         this.priceOffset = 0;
         this.render();
+    }
+
+    /**
+     * Handle keyboard events
+     * @param {KeyboardEvent} event - The keyboard event
+     */
+    handleKeyDown(event) {
+        // Check if we have a selected drawing in edit mode
+        if (this.drawingPanel.isEditing && this.drawingPanel.selectedDrawing) {
+            if (event.key === 'Delete' || event.key === 'Backspace') {
+                // Remove the selected drawing
+                const index = this.drawingPanel.drawings.indexOf(this.drawingPanel.selectedDrawing);
+                if (index !== -1) {
+                    this.drawingPanel.drawings.splice(index, 1);
+                    this.drawingPanel.selectedDrawing = null;
+                    this.drawingPanel.selectedPoint = null;
+                    this.drawingPanel.isEditing = false;
+                    this.drawingPanel._isChartFrozen = false;
+                    this.render();
+                }
+            }
+        }
     }
 
     /**
@@ -754,6 +779,11 @@ class StockChart {
             return;
         }
         
+        // Check if the chart is frozen (editing drawings)
+        if (this.drawingPanel.isChartFrozen) {
+            return;
+        }
+
         // First check if clicking in Y-axis area
         for (const plot of this.options.plots) {
             if (plot.overlay) continue;
@@ -807,7 +837,11 @@ class StockChart {
 
         // Handle drawing if in drawing mode
         if (this.drawingPanel.isDrawing) {
-            this.drawingPanel.continueDrawing(mouseX, mouseY);
+            const mouseEvent = new MouseEvent('mousemove', {
+                clientX: event.clientX,
+                clientY: event.clientY
+            });
+            this.drawingPanel.continueDrawing(mouseEvent);
             this.render();
             return;
         }
@@ -1010,6 +1044,11 @@ class StockChart {
     handleMouseWheel(event) {
         event.preventDefault(); // Prevent page scrolling
 
+        // Prevent zooming if the chart is frozen
+        if (this.drawingPanel.isChartFrozen) {
+            return;
+        }
+
         const rect = this.canvas.getBoundingClientRect();
         const mouseX = event.clientX - rect.left;
         const mouseY = event.clientY - rect.top;
@@ -1060,6 +1099,11 @@ class StockChart {
         if (this.touchHoldTimer) {
             clearTimeout(this.touchHoldTimer);
             this.touchHoldTimer = null;
+        }
+
+        // Check if the chart is frozen
+        if (this.drawingPanel.isChartFrozen) {
+            return;
         }
 
         // Reset all touch states first
@@ -1216,6 +1260,12 @@ class StockChart {
      */
     handleTouchMove(event) {
         event.preventDefault();
+
+        // Check if the chart is frozen
+        if (this.drawingPanel.isChartFrozen) {
+            return;
+        }
+
         const rect = this.canvas.getBoundingClientRect();
 
         if (event.touches.length === 2 && this.isPinching) {
@@ -1852,6 +1902,23 @@ class StockChart {
         this.activeDrawingTool = tool;
         this.drawingPanel.setActiveTool(tool);
         this.canvas.style.cursor = tool ? 'crosshair' : 'default';
+        
+        // Update toolbar button states
+        if (this.toolbar) {
+            const buttons = this.toolbar.querySelectorAll('button');
+            buttons.forEach(button => {
+                const isSelectTool = button.title === 'Select Tool';
+                
+                // Only highlight the select tool when tool is null, or highlight the specific active tool
+                if (tool === null) {
+                    button.style.backgroundColor = isSelectTool ? 
+                        (this.currentTheme?.gridColor || '#e0e0e0') : 'transparent';
+                } else {
+                    button.style.backgroundColor = button.title?.toLowerCase().includes(tool.toLowerCase()) ?
+                        (this.currentTheme?.gridColor || '#e0e0e0') : 'transparent';
+                }
+            });
+        }
     }
 
     /**

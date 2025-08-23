@@ -38,11 +38,8 @@ export class DrawingPanel {
         this.isEditing = false;
         this._isChartFrozen = false;
         
-        const mainPlotLayout = this.stockChart.plotLayoutManager.getPlotLayout('main');
-        if (mainPlotLayout) {
-            this.barWidth = mainPlotLayout.width / this.stockChart.dataViewport.visibleCount;
-        }
-
+        // We'll calculate barWidth dynamically when needed instead of storing it
+        
         
         // Bind mouse event handlers
         this.handleMouseDownBound = this.handleMouseDown.bind(this);
@@ -131,7 +128,8 @@ export class DrawingPanel {
         if (!mainPlotLayout) return;
 
         const relativeX = x - mainPlotLayout.x;
-        const dataIndex = Math.floor(relativeX / this.barWidth);
+        const barWidth = mainPlotLayout.width / this.stockChart.dataViewport.visibleCount;
+        const dataIndex = Math.floor(relativeX / barWidth);
         const actualDataIndex = this.stockChart.dataViewport.startIndex + dataIndex;
 
         // Get the data point at this index
@@ -172,7 +170,8 @@ export class DrawingPanel {
                 this.currentDrawing = new FibonacciDrawing(this.stockChart.options.theme);
                 break;
             case 'fibonacci-zoon':
-                this.currentDrawing = new FibonacciZoonDrawing(this.stockChart.options.theme, this.barWidth);
+                const barWidth = mainPlotLayout.width / this.stockChart.dataViewport.visibleCount;
+                this.currentDrawing = new FibonacciZoonDrawing(this.stockChart.options.theme, barWidth);
                 break;
             case 'horizontal-line':
                 this.currentDrawing = new LineDrawing('horizontal-line');
@@ -215,7 +214,8 @@ export class DrawingPanel {
             // Convert screen coordinates to data coordinates
             // const barWidth = mainPlot.width / this.stockChart.dataViewport.visibleCount;
             const relativeX = x - mainPlot.x;
-            const dataIndex = Math.floor(relativeX / this.barWidth);
+            const barWidth = mainPlot.width / this.stockChart.dataViewport.visibleCount;
+            const dataIndex = Math.floor(relativeX / barWidth);
             const actualDataIndex = this.stockChart.dataViewport.startIndex + dataIndex;
 
             // Get the data point at this index
@@ -288,11 +288,11 @@ export class DrawingPanel {
             this.drawings.push(this.currentDrawing);
             this.isDrawing = false;
 
-            // Select the newly created drawing
-            this.selectedDrawing = this.currentDrawing;
+            // Reset drawing state but don't automatically select the drawing
+            this.selectedDrawing = null;
             this.currentDrawing = null;
-            this.isEditing = true;
-            this._isChartFrozen = true;
+            this.isEditing = false;
+            this._isChartFrozen = false;
             
             // Automatically switch back to select tool
             this.setActiveTool(null);
@@ -322,11 +322,12 @@ export class DrawingPanel {
                 this._isChartFrozen = true;
                 return;
             }
+
+            // Check if we clicked near the current selected drawing
+            const clickedOnDrawing = this.selectedDrawing && this.isNearDrawing(x, y, this.selectedDrawing);
             
-            // If we're not already editing, or if we click far from the current selection,
-            // clear the selection
-            if (!this.isEditing || (this.selectedDrawing && 
-                !this.isNearDrawing(x, y, this.selectedDrawing))) {
+            // If we clicked away from any drawing, unfreeze the chart and clear selection
+            if (!clickedOnDrawing) {
                 this.isEditing = false;
                 this.selectedDrawing = null;
                 this.selectedPoint = null;
@@ -411,7 +412,8 @@ export class DrawingPanel {
             
             if (screenPoint) {
                 if (drawing.type === 'fibonacci-zoon') {
-                    screenPoint.x += this.barWidth / 2; // Adjust for Fibonacci zone center
+                    const barWidth = mainPlot.width / this.stockChart.dataViewport.visibleCount;
+                    screenPoint.x += barWidth / 2; // Adjust for Fibonacci zone center
                 }
                 ctx.beginPath();
                 ctx.arc(screenPoint.x, screenPoint.y, 4, 0, Math.PI * 2);

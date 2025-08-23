@@ -111,9 +111,18 @@ class DrawingItem {
 /**
  * Line drawing item
  */
+/**
+ * Line drawing item
+ */
 class LineDrawing extends DrawingItem {
-    constructor() {
-        super('line');
+    /**
+     * @param {string} type - The type of line ('line', 'horizontal-line', or 'vertical-line')
+     */
+    constructor(type = 'line') {
+        super(type);
+        this.constraint = type === 'horizontal-line' ? 'horizontal' :
+                         type === 'vertical-line' ? 'vertical' :
+                         'line';
     }
 
     draw(ctx, plotLayout, viewport, minPrice, maxPrice) {
@@ -128,9 +137,18 @@ class LineDrawing extends DrawingItem {
             maxPrice
         );
 
+        let endX = this.points[1].time;
+        let endY = this.points[1].price;
+
+        if (this.constraint === 'horizontal') {
+            endY = this.points[0].price;
+        } else if (this.constraint === 'vertical') {
+            endX = this.points[0].time;
+        }
+
         const end = this.getPixelCoordinates(
-            this.points[1].time,
-            this.points[1].price,
+            endX,
+            endY,
             plotLayout,
             viewport,
             minPrice,

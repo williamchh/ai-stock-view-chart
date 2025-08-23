@@ -195,6 +195,8 @@ class StockChart {
         const tools = [
             { name: 'cursor', icon: '🖱️', tooltip: 'Select Tool' },
             { name: 'line', icon: '📏', tooltip: 'Line Tool' },
+            { name: 'vertical-line', icon: '⬇️', tooltip: 'Vertical Line Tool' },
+            { name: 'horizontal-line', icon: '➡️', tooltip: 'Horizontal Line Tool' },
             { name: 'rectangle', icon: '⬜', tooltip: 'Rectangle Tool' },
             { name: 'fibonacci', icon: '📊', tooltip: 'Fibonacci Tool' },
             { name: 'clear', icon: '🗑️', tooltip: 'Clear All Drawings' }

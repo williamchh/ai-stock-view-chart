@@ -55,6 +55,16 @@ export class DrawingPanel {
                 lineWidth: 2,
                 fillStyle: 'rgba(255, 107, 53, 0.1)'
             },
+            'horizontal-line': {
+                strokeStyle: '#ff6b35',
+                lineWidth: 2,
+                fillStyle: 'rgba(255, 107, 53, 0.1)'
+            },
+            'vertical-line': {
+                strokeStyle: '#ff6b35',
+                lineWidth: 2,
+                fillStyle: 'rgba(255, 107, 53, 0.1)'
+            },
             rectangle: {
                 strokeStyle: '#ff6b35',
                 lineWidth: 2,
@@ -151,6 +161,12 @@ export class DrawingPanel {
             case 'fibonacci':
                 this.currentDrawing = new FibonacciDrawing(this.stockChart.options.theme);
                 break;
+            case 'horizontal-line':
+                this.currentDrawing = new LineDrawing('horizontal-line');
+                break;
+            case 'vertical-line':
+                this.currentDrawing = new LineDrawing('vertical-line');
+                break;
             default:
                 return;
         }
@@ -217,6 +233,9 @@ export class DrawingPanel {
                 // Update the selected point's position
                 this.selectedDrawing.points[this.selectedPoint] = { time, price };
             } else if (this.isDrawing && this.currentDrawing) {
+
+
+
                 // Update or add point for new drawing
                 if (this.currentDrawing.points.length === 1) {
                     // Don't add if it's the same as the first point
@@ -225,10 +244,19 @@ export class DrawingPanel {
                         this.currentDrawing.addPoint(time, price);
                     }
                 } else if (this.currentDrawing.points.length === 2) {
-                    // Update second point if it's different from the first
                     const firstPoint = this.currentDrawing.points[0];
-                    if (time !== firstPoint.time || price !== firstPoint.price) {
-                        this.currentDrawing.points[1] = { time, price };
+                    if (['horizontal-line', 'vertical-line'].includes(this.activeTool)) {
+                        if (this.activeTool === 'horizontal-line') {
+                            this.currentDrawing.points[1] = { time, price: firstPoint.price };
+                        } else if (this.activeTool === 'vertical-line') {
+                            this.currentDrawing.points[1] = { time: firstPoint.time, price };
+                        }
+                    }
+                    else {
+                        // Update second point if it's different from the first
+                        if (time !== firstPoint.time || price !== firstPoint.price) {
+                            this.currentDrawing.points[1] = { time, price };
+                        }
                     }
                 }
             }
@@ -392,6 +420,8 @@ export class DrawingPanel {
         
         switch (type) {
             case 'line':
+            case 'horizontal-line':
+            case 'vertical-line':
                 this.renderLine(ctx, points, style);
                 break;
             case 'rectangle':

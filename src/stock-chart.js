@@ -194,11 +194,11 @@ class StockChart {
 
         const tools = [
             { name: 'cursor', icon: `<svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M13.64,21.97C13.14,22.21 12.54,22 12.31,21.5L10.13,16.76L7.62,18.78C7.45,18.92 7.24,19 7,19A1,1 0 0,1 6,18V3A1,1 0 0,1 7,2C7.24,2 7.47,2.09 7.64,2.23L7.65,2.22L19.14,11.86C19.57,12.22 19.62,12.85 19.27,13.27C19.12,13.45 18.91,13.57 18.7,13.61L15.54,14.23L17.74,18.96C18,19.46 17.76,20.05 17.26,20.28L13.64,21.97Z"/></svg>`, tooltip: 'Select Tool' },
-            { name: 'line', icon: `<svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M21 3.41L17 7.41L16 6.41L20 2.41L21 3.41M15.71 5L14.29 3.58L13.59 4.29L15 5.71L15.71 5M18.5 12C16.6 12 15 10.4 15 8.5C15 8.1 15.1 7.7 15.2 7.4L13.2 5.4C12.7 6.4 12.5 7.4 12.5 8.5C12.5 11.9 15.1 14.5 18.5 14.5C19.6 14.5 20.6 14.3 21.6 13.8L19.6 11.8C19.3 11.9 18.9 12 18.5 12M3 20V4H11L16 9V12.1C16.3 12 16.7 12 17 12C17.3 12 17.7 12 18 12.1V8L12 2H3C1.9 2 1 2.9 1 4V20C1 21.1 1.9 22 3 22H15C14.4 21.1 14 20.1 14 19C14 18.7 14 18.3 14.1 18H3M11 19.1C11.1 20.2 11.5 21.2 12 22H20C21.7 22 23 20.7 23 19C23 17.9 22.4 17 21.6 16.4L18.8 19.2L17.4 17.8L20.2 15H18V13H22V15L21.8 17.8L24.6 15C25 15.7 25.4 17.2 24.6 18.9L23.5 20.8C22.7 21.6 21.4 22 20 22C17.7 22 15.8 20.8 15.2 19.1H11Z"/></svg>`, tooltip: 'Line Tool' },
-            { name: 'vertical-line', icon: `<svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M12 2V22M12 2L8 6M12 2L16 6M12 22L8 18M12 22L16 18"/></svg>`, tooltip: 'Vertical Line Tool' },
-            { name: 'horizontal-line', icon: `<svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M2 12H22M2 12L6 8M2 12L6 16M22 12L18 8M22 12L18 16"/></svg>`, tooltip: 'Horizontal Line Tool' },
+            { name: 'line', icon: `<svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M7 21L17 3h2L9 21H7"/></svg>`, tooltip: 'Line Tool' },
+            { name: 'vertical-line', icon: `<svg viewBox="0 0 24 24" width="18" height="18"> <path fill="currentColor" d="M12 3h2v18h-2V3"/></svg>`, tooltip: 'Vertical Line Tool' },
+            { name: 'horizontal-line', icon: `<svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M3 12h18v2H3v-2"/></svg>`, tooltip: 'Horizontal Line Tool' },
             { name: 'rectangle', icon: `<svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M2 4H22V20H2V4M4 6V18H20V6H4Z"/></svg>`, tooltip: 'Rectangle Tool' },
-            { name: 'fibonacci', icon: `<svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M2,2H4V20H22V22H2V2M9,10H11V4H13V10H15V4H17V10C17,12.21 15.21,14 13,14V20H11V14C8.79,14 7,12.21 7,10V4H9V10Z"/></svg>`, tooltip: 'Fibonacci Tool' },
+            { name: 'fibonacci', icon: `<svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M3 5h18v2H3V5m0 4h18v2H3V9m0 4h18v2H3v-2m0 4h18v2H3v-2"/></svg>`, tooltip: 'Fibonacci Tool' },
             { name: 'fibonacci-zoon', icon: `<svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M3 3v18h18v-2H5V3H3m5 0v14h2V3H8m5 0v14h2V3h-2m5 0v14h2V3h-2"/></svg>`, tooltip: 'Fibonacci Zoon Tool' },
             { name: 'clear', icon: `<svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z"/></svg>`, tooltip: 'Clear All Drawings' }
         ];
@@ -413,6 +413,18 @@ class StockChart {
         if (this.toolbar) {
             this.toolbar.style.backgroundColor = themeToApply.background;
             this.toolbar.style.borderRight = `1px solid ${themeToApply.gridColor}`;
+            
+            // Update all toolbar button colors
+            const buttons = this.toolbar.querySelectorAll('button');
+            buttons.forEach(button => {
+                button.style.color = themeToApply.textColor;
+                if (button.title?.toLowerCase().includes(this.activeDrawingTool?.toLowerCase() || '') ||
+                    (this.activeDrawingTool === null && button.title === 'Select Tool')) {
+                        button.style.backgroundColor = themeToApply.background;
+                    } else {
+                        button.style.backgroundColor = 'transparent';
+                    }
+                });
         }
         
         this.render(); // Redraw with new theme

@@ -300,7 +300,7 @@ class FibonacciZoonDrawing extends DrawingItem {
      */
     constructor(theme, barWidth) {
         super('fibonacci-zoon');
-        this.style.strokeStyle = theme === 'dark' ? '#FFFFFF' : '#000000';
+        this.theme = theme;
         this.halfBarWidth = barWidth / 2;
     }
 
@@ -358,10 +358,14 @@ class FibonacciZoonDrawing extends DrawingItem {
         const fibNumbers = this.fibSequence(8); // Get first 8 Fibonacci numbers
         const timeZones = fibNumbers.map(step => startTime + direction * step * baseUnit);
 
+        const color = this.theme === 'dark' ? '#FFFFFF' : '#000000';
+        this.style.strokeStyle = color;
+        this.style.fillStyle = color;
+        
         // Draw settings
         ctx.lineWidth = this.style.lineWidth;
-        ctx.strokeStyle = this.style.strokeStyle;
-        ctx.fillStyle = this.style.strokeStyle;
+        ctx.strokeStyle = color;
+        ctx.fillStyle = color;
         ctx.setLineDash([5, 5]);
         ctx.textAlign = 'center';
         ctx.font = '12px Arial';

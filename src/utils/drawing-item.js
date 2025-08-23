@@ -290,5 +290,144 @@ class FibonacciDrawing extends DrawingItem {
     }
 }
 
+/**
+ * FibonacciZoon drawing item - Uses the Fibonacci sequence: 1, 2, 5, 8, 13, 21, 34
+ */
+class FibonacciZoonDrawing extends DrawingItem {
+    /**
+     * @param {'light' | 'dark' | import("../stock-chart.js").Theme} theme
+     * @param {number} barWidth
+     */
+    constructor(theme, barWidth) {
+        super('fibonacci-zoon');
+        this.style.strokeStyle = theme === 'dark' ? '#FFFFFF' : '#000000';
+        this.halfBarWidth = barWidth / 2;
+    }
+
+    // Generate Fibonacci sequence: [1, 2, 3, 5, 8, 13, 21, 34]
+    fibSequence(count = 8) {
+        if (count <= 0) return [];
+        if (count === 1) return [1];
+        const seq = [1, 2, 3];
+        while (seq.length < count) {
+            const len = seq.length;
+            seq.push(seq[len - 1] + seq[len - 2]);
+        }
+        return seq;
+    }
+
+    draw(ctx, plotLayout, viewport, minPrice, maxPrice) {
+        if (this.points.length < 2) return;
+
+        const start = this.getPixelCoordinates(
+            this.points[0].time,
+            this.points[0].price,
+            plotLayout,
+            viewport,
+            minPrice,
+            maxPrice
+        );
+
+        const end = this.getPixelCoordinates(
+            this.points[1].time,
+            this.points[1].price,
+            plotLayout,
+            viewport,
+            minPrice,
+            maxPrice
+        );
+
+        if (!start || !end) return;
+
+        // Calculate the base unit from the selection
+        const timeDiff = Math.abs(this.points[1].time - this.points[0].time);
+        const direction = this.points[1].time > this.points[0].time ? 1 : -1;
+        const startTime = this.points[0].time;
+
+        // Get visible data to verify the time difference
+        const visibleData = viewport.getVisibleData();
+        if (visibleData.length < 2) return;
+        
+        const barDuration = visibleData[1].time - visibleData[0].time; // Time difference between bars
+        
+        // If selected points are less than 2 bars apart, use single bar duration
+        // Otherwise use the selected time difference as the base unit
+        const baseUnit = timeDiff < barDuration * 2 ? barDuration : timeDiff;
+
+        // Get Fibonacci sequence and calculate time zones
+        const fibNumbers = this.fibSequence(8); // Get first 8 Fibonacci numbers
+        const timeZones = fibNumbers.map(step => startTime + direction * step * baseUnit);
+
+        // Draw settings
+        ctx.lineWidth = this.style.lineWidth;
+        ctx.strokeStyle = this.style.strokeStyle;
+        ctx.fillStyle = this.style.strokeStyle;
+        ctx.setLineDash([5, 5]);
+        ctx.textAlign = 'center';
+        ctx.font = '12px Arial';
+
+        // Draw selected range indicator
+        if (timeDiff >= barDuration) {
+            ctx.beginPath();
+            ctx.moveTo(start.x + this.halfBarWidth, plotLayout.y);
+            ctx.lineTo(start.x + this.halfBarWidth, plotLayout.y + plotLayout.height);
+            ctx.moveTo(end.x + this.halfBarWidth, plotLayout.y);
+            ctx.lineTo(end.x + this.halfBarWidth, plotLayout.y + plotLayout.height);
+            ctx.strokeStyle = this.style.strokeStyle;
+            ctx.stroke();
+        }
+        else {
+            ctx.beginPath();
+            ctx.moveTo(start.x + this.halfBarWidth, plotLayout.y);
+            ctx.lineTo(start.x + this.halfBarWidth, plotLayout.y + plotLayout.height);
+            ctx.moveTo(end.x + this.halfBarWidth, plotLayout.y);
+            ctx.lineTo(end.x + this.halfBarWidth, plotLayout.y + plotLayout.height);
+            ctx.strokeStyle = this.style.strokeStyle;
+            ctx.stroke();
+            return;
+        }
+
+        // Draw each time zone line
+        timeZones.forEach((time, index) => {
+            // Check if this time is beyond the latest candlestick
+            const latestCandleTime = viewport.allData[viewport.allData.length - 1]?.time;
+            if (latestCandleTime && time > latestCandleTime) return;
+
+            const coord = this.getPixelCoordinates(
+                time,
+                this.points[0].price,
+                plotLayout,
+                viewport,
+                minPrice,
+                maxPrice
+            );
+
+            if (!coord) return;
+
+            // Draw vertical line
+            ctx.beginPath();
+            ctx.moveTo(coord.x + this.halfBarWidth, plotLayout.y);
+            ctx.lineTo(coord.x + this.halfBarWidth, plotLayout.y + plotLayout.height);
+            ctx.stroke();
+
+            // Draw Fibonacci number label at the top
+            const label = fibNumbers[index].toString();
+            ctx.fillText(label, coord.x + this.halfBarWidth, plotLayout.height - 15);
+
+            const labelWidth = ctx.measureText(label).width + 5; // Add some padding for better visibility
+
+            // Draw the period label (in days) below
+            const periods = Math.round(fibNumbers[index] * (timeDiff / barDuration));
+            if (periods > 0) {
+                const periodLabel = `(${periods})`;
+                ctx.fillText(periodLabel, coord.x + this.halfBarWidth + labelWidth, plotLayout.height - 15);
+            }
+        });
+
+        // Reset line dash
+        ctx.setLineDash([]);
+    }
+}
+
 // Export the classes
-export { DrawingItem, LineDrawing, RectangleDrawing, FibonacciDrawing };
+export { DrawingItem, LineDrawing, RectangleDrawing, FibonacciDrawing, FibonacciZoonDrawing };

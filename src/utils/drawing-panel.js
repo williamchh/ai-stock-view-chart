@@ -1,7 +1,7 @@
 
 
 import { DataViewport } from './data.js';
-import { DrawingItem, LineDrawing, RectangleDrawing, FibonacciDrawing } from './drawing-item.js';
+import { DrawingItem, LineDrawing, RectangleDrawing, FibonacciDrawing, FibonacciZoonDrawing } from './drawing-item.js';
 import { PlotLayoutManager } from './layout.js';
 ;
 /**
@@ -71,6 +71,11 @@ export class DrawingPanel {
                 fillStyle: 'rgba(255, 107, 53, 0.1)'
             },
             fibonacci: {
+                strokeStyle: stockChart.options.theme === 'dark' ? '#ffffffc5' : '#000000a9',
+                lineWidth: 1,
+                fillStyle: 'rgba(76, 175, 80, 0.1)'
+            },
+            'fibonacci-zoon': {
                 strokeStyle: stockChart.options.theme === 'dark' ? '#ffffffc5' : '#000000a9',
                 lineWidth: 1,
                 fillStyle: 'rgba(76, 175, 80, 0.1)'
@@ -160,6 +165,9 @@ export class DrawingPanel {
                 break;
             case 'fibonacci':
                 this.currentDrawing = new FibonacciDrawing(this.stockChart.options.theme);
+                break;
+            case 'fibonacci-zoon':
+                this.currentDrawing = new FibonacciZoonDrawing(this.stockChart.options.theme, barWidth);
                 break;
             case 'horizontal-line':
                 this.currentDrawing = new LineDrawing('horizontal-line');
@@ -428,6 +436,7 @@ export class DrawingPanel {
                 this.renderRectangle(ctx, points, style);
                 break;
             case 'fibonacci':
+            case 'fibonacci-zoon':
                 drawing.draw(ctx, 
                     this.stockChart.plotLayoutManager.getPlotLayout('main'),
                     this.stockChart.dataViewport,

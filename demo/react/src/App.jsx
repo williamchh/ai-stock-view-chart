@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { generateCandlestickData } from '../../../src/indicators/demo.js';
+import { generateCandlestickData } from '../../../dist/indicators/demo.min.js';
 
 function App() {
   const chartContainerRef = useRef(null);
@@ -11,7 +11,7 @@ function App() {
         const data = generateCandlestickData(500);
 
         // Import the chart dynamically
-        const { default: StockChart } = await import('../../../src/stock-chart.js');
+        const { default: StockChart } = await import('../../../dist/stock-chart.min.js');
         
         // Initialize chart using the ref's DOM element
         if (chartContainerRef.current) {

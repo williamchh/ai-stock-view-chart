@@ -26,20 +26,28 @@ export interface ChartName {
   metaString?: string;
 }
 
+export interface Signal {
+    type: 'support' | 'resistance' | 'uptrend' | 'downtrend' | string;
+    value: number;
+    description?: string;
+    strength?: number;
+}
+
 export interface StockData {
-    date: string;
+    time: number;
     open: number;
     high: number;
     low: number;
     close: number;
     volume?: number;
+    signals?: Signal[];  // 新增 signals 字段
 }
 
 export interface PlotConfig {
     id: string;
     heightRatio: number;
     yPosition?: number;
-    type: 'candlestick' | 'line' | 'volume' | 'histogram';
+    type: 'candlestick' | 'line' | 'volume' | 'histogram' | 'signal';
     overlay?: boolean;
     targetId?: string; // ID of the plot to overlay on top of
     data: Array<StockData | number | any>;
@@ -52,6 +60,13 @@ export interface PlotConfig {
         positiveColor?: string;
         negativeColor?: string;
     };
+}
+
+export interface PlotLayout {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 }
 
 /**

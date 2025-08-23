@@ -90,9 +90,12 @@
 
   <script type="module">
     import StockChart from '../src/stock-chart.js';
+    // import { extractSignals } from '../src/utils/helpers.js';
     import { calculateSMA, calculateMACD, calculateRSI, generateCandlestickData } from '../src/indicators/demo.js';
 
     const candlestickData = generateCandlestickData(2000);
+
+    const signalArr = candlestickData.map(c => ({time: c.time, value: c.signals, keyLabel: c.type}));
 
     // Calculate indicators
     const sma20Data = calculateSMA(candlestickData, 20);
@@ -203,6 +206,14 @@
             lineColor: 'rgba(70, 130, 180, 0.8)',  // Steel Blue
             lineWidth: 5
           }
+        },
+        {
+          id: 'signal',
+          type: 'signal',
+          overlay: true,
+          targetId: 'main',
+          keyLabel: 'Signals',
+          data: signalArr
         },
         { 
           id: 'volume', 

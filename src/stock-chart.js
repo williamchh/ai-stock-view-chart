@@ -11,6 +11,8 @@ import darkTheme from './themes/dark.js';
 import { drawCandlestick, drawLine } from './utils/drawing.js';
 import { PlotLayoutManager } from './utils/layout.js';
 import { DataViewport, getXPixel, getYPixel, getValueBasedOnY } from './utils/data.js';
+import { getSignalTypeColor } from './utils/helpers.js';
+import { DrawingPanel } from './utils/drawing-panel.js';
 
 /**
  * @typedef {import('./stock-chart.d.ts').StockChartOptions} StockChartOptions
@@ -56,10 +58,24 @@ class StockChart {
         this.ensureContainerSize(container);
 
         this.container = container;
-        this.options = { ...StockChart.defaultOptions, ...options };
+        this.options = StockChart.ensureValidOptions(options);
+        
+        // Create wrapper div for toolbar and canvas
+        this.wrapper = document.createElement('div');
+        this.wrapper.style.position = 'relative';
+        this.wrapper.style.display = 'flex';
+        this.wrapper.style.width = '100%';
+        this.wrapper.style.height = '100%';
+        this.container.appendChild(this.wrapper);
+
+        // Create toolbar
+        this.createToolbar();
+
+        // Create canvas
         this.canvas = document.createElement('canvas');
         this.ctx = this.canvas.getContext('2d');
-        this.container.appendChild(this.canvas);
+        this.canvas.style.flex = '1';
+        this.wrapper.appendChild(this.canvas);
         
         // Initialize pinch-to-zoom state
         this.initialPinchDistance = 0;
@@ -97,6 +113,10 @@ class StockChart {
         this.priceScale = 1.0; // vertical zoom/scale factor
         this.priceOffset = 0; // vertical offset for panning
         this.plotScales = new Map(); // Store scales for each plot
+        // Initialize drawing panel
+        this.drawingPanel = new DrawingPanel(this);
+        this.activeDrawingTool = null;
+
         this.canvas.addEventListener('mousedown', this.handleMouseDown.bind(this));
         this.canvas.addEventListener('mousemove', this.handleMouseMove.bind(this));
         // Custom event listener for external cursor sync
@@ -110,6 +130,9 @@ class StockChart {
         this.canvas.addEventListener('mouseout', this.handleMouseOut.bind(this));
         this.canvas.addEventListener('wheel', this.handleMouseWheel.bind(this));
         this.canvas.addEventListener('dblclick', this.resetVerticalScale.bind(this));
+        
+        // Add keyboard event listener for delete functionality
+        window.addEventListener('keydown', this.handleKeyDown.bind(this));
         
         // Touch event listeners for mobile devices
         this.canvas.addEventListener('touchstart', this.handleTouchStart.bind(this));
@@ -142,8 +165,93 @@ class StockChart {
         initialVisibleCandles: 100,
         // Add more default options as needed
     };
+    
+    // Ensure plots and theme are always defined in options
+    static ensureValidOptions(options = {}) {
+        return {
+            ...this.defaultOptions,
+            ...options,
+            plots: options.plots || [...this.defaultOptions.plots],
+            theme: options.theme || this.defaultOptions.theme
+        };
+    }
 
     static themes = { light: lightTheme, dark: darkTheme };
+
+    /**
+     * Create the drawing toolbar
+     * @private
+     */
+    createToolbar() {
+        const toolbar = document.createElement('div');
+        toolbar.style.width = '40px';
+        toolbar.style.backgroundColor = this.currentTheme?.background || '#ffffff';
+        toolbar.style.borderRight = '1px solid ' + (this.currentTheme?.gridColor || '#e0e0e0');
+        toolbar.style.display = 'flex';
+        toolbar.style.flexDirection = 'column';
+        toolbar.style.padding = '5px';
+        toolbar.style.gap = '5px';
+
+        const tools = [
+            { name: 'cursor', icon: `<svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M13.64,21.97C13.14,22.21 12.54,22 12.31,21.5L10.13,16.76L7.62,18.78C7.45,18.92 7.24,19 7,19A1,1 0 0,1 6,18V3A1,1 0 0,1 7,2C7.24,2 7.47,2.09 7.64,2.23L7.65,2.22L19.14,11.86C19.57,12.22 19.62,12.85 19.27,13.27C19.12,13.45 18.91,13.57 18.7,13.61L15.54,14.23L17.74,18.96C18,19.46 17.76,20.05 17.26,20.28L13.64,21.97Z"/></svg>`, tooltip: 'Select Tool' },
+            { name: 'line', icon: `<svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M7 21L17 3h2L9 21H7"/></svg>`, tooltip: 'Line Tool' },
+            { name: 'vertical-line', icon: `<svg viewBox="0 0 24 24" width="18" height="18"> <path fill="currentColor" d="M12 3h2v18h-2V3"/></svg>`, tooltip: 'Vertical Line Tool' },
+            { name: 'horizontal-line', icon: `<svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M3 12h18v2H3v-2"/></svg>`, tooltip: 'Horizontal Line Tool' },
+            { name: 'rectangle', icon: `<svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M2 4H22V20H2V4M4 6V18H20V6H4Z"/></svg>`, tooltip: 'Rectangle Tool' },
+            { name: 'fibonacci', icon: `<svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M3 5h18v2H3V5m0 4h18v2H3V9m0 4h18v2H3v-2m0 4h18v2H3v-2"/></svg>`, tooltip: 'Fibonacci Tool' },
+            { name: 'fibonacci-zoon', icon: `<svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M3 3v18h18v-2H5V3H3m5 0v14h2V3H8m5 0v14h2V3h-2m5 0v14h2V3h-2"/></svg>`, tooltip: 'Fibonacci Zoon Tool' },
+            { name: 'clear', icon: `<svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z"/></svg>`, tooltip: 'Clear All Drawings' }
+        ];
+
+        tools.forEach(tool => {
+            const button = document.createElement('button');
+            button.innerHTML = tool.icon;
+            button.title = tool.tooltip;
+            button.style.width = '30px';
+            button.style.height = '30px';
+            button.style.border = 'none';
+            button.style.borderRadius = '4px';
+            button.style.backgroundColor = 'transparent';
+            button.style.cursor = 'pointer';
+            button.style.display = 'flex';
+            button.style.alignItems = 'center';
+            button.style.justifyContent = 'center';
+            button.style.padding = '6px';
+            button.style.color = this.currentTheme?.textColor || '#000000';
+
+            // Hover effect
+            button.addEventListener('mouseover', () => {
+                button.style.backgroundColor = this.currentTheme?.gridColor || '#e0e0e0';
+            });
+            button.addEventListener('mouseout', () => {
+                button.style.backgroundColor = tool.name === this.activeDrawingTool ? 
+                    (this.currentTheme?.gridColor || '#e0e0e0') : 'transparent';
+            });
+
+            // Click handler
+            button.addEventListener('click', () => {
+                // Remove active state from all buttons
+                toolbar.querySelectorAll('button').forEach(btn => {
+                    btn.style.backgroundColor = 'transparent';
+                });
+
+                if (tool.name === 'clear') {
+                    this.clearDrawings();
+                } else if (tool.name === 'cursor') {
+                    this.setDrawingTool(null);
+                    button.style.backgroundColor = this.currentTheme?.gridColor || '#e0e0e0';
+                } else {
+                    this.setDrawingTool(tool.name);
+                    button.style.backgroundColor = this.currentTheme?.gridColor || '#e0e0e0';
+                }
+            });
+
+            toolbar.appendChild(button);
+        });
+
+        this.wrapper.insertBefore(toolbar, this.canvas);
+        this.toolbar = toolbar;
+    }
 
     /**
      * Calculates the price range for a given plot configuration and visible data.
@@ -275,12 +383,16 @@ class StockChart {
             clientHeight = window.innerHeight;
         }
 
-        this.canvas.width = clientWidth;
+        // Adjust width to account for toolbar
+        const toolbarWidth = 40;
+        const chartWidth = clientWidth - toolbarWidth;
+
+        this.canvas.width = chartWidth;
         this.canvas.height = clientHeight;
 
         // Calculate Y-axis width and update layout
         const yAxisWidth = this.calculateYAxisWidth();
-        this.plotLayoutManager.updateCanvasDimensions(clientWidth, clientHeight, yAxisWidth);
+        this.plotLayoutManager.updateCanvasDimensions(chartWidth, clientHeight, yAxisWidth);
     }
 
     /**
@@ -296,6 +408,25 @@ class StockChart {
         this.currentTheme = themeToApply;
         // Apply theme colors to canvas context or CSS variables
         this.canvas.style.backgroundColor = themeToApply.background;
+        
+        // Update toolbar theme
+        if (this.toolbar) {
+            this.toolbar.style.backgroundColor = themeToApply.background;
+            this.toolbar.style.borderRight = `1px solid ${themeToApply.gridColor}`;
+            
+            // Update all toolbar button colors
+            const buttons = this.toolbar.querySelectorAll('button');
+            buttons.forEach(button => {
+                button.style.color = themeToApply.textColor;
+                if (button.title?.toLowerCase().includes(this.activeDrawingTool?.toLowerCase() || '') ||
+                    (this.activeDrawingTool === null && button.title === 'Select Tool')) {
+                        button.style.backgroundColor = themeToApply.background;
+                    } else {
+                        button.style.backgroundColor = 'transparent';
+                    }
+                });
+        }
+        
         this.render(); // Redraw with new theme
     }
 
@@ -323,6 +454,28 @@ class StockChart {
         this.priceScale = 1.0;
         this.priceOffset = 0;
         this.render();
+    }
+
+    /**
+     * Handle keyboard events
+     * @param {KeyboardEvent} event - The keyboard event
+     */
+    handleKeyDown(event) {
+        // Check if we have a selected drawing in edit mode
+        if (this.drawingPanel.isEditing && this.drawingPanel.selectedDrawing) {
+            if (event.key === 'Delete' || event.key === 'Backspace') {
+                // Remove the selected drawing
+                const index = this.drawingPanel.drawings.indexOf(this.drawingPanel.selectedDrawing);
+                if (index !== -1) {
+                    this.drawingPanel.drawings.splice(index, 1);
+                    this.drawingPanel.selectedDrawing = null;
+                    this.drawingPanel.selectedPoint = null;
+                    this.drawingPanel.isEditing = false;
+                    this.drawingPanel._isChartFrozen = false;
+                    this.render();
+                }
+            }
+        }
     }
 
     /**
@@ -430,53 +583,18 @@ class StockChart {
                         });
                         break;
                     case 'line':
-                        let lastValidIndex = -1;
-                        plotVisibleData.forEach((dataPoint, i) => {
-                            const value = dataPoint.value ?? dataPoint.close;
-                            // Skip if current point has no value or is zero
-                            if (value === null || value === undefined || value === 0) {
-                                lastValidIndex = -1;
-                                return;
-                            }
-
-                            // If we have a previous valid point, draw line
-                            if (lastValidIndex !== -1) {
-                                const prevDataPoint = plotVisibleData[lastValidIndex];
-                                const x1 = plotLayout.x + getXPixel(this.dataViewport.startIndex + lastValidIndex, this.dataViewport.startIndex, this.dataViewport.visibleCount, plotLayout.width, barWidth) + barWidth / 2;
-                                const y1 = getYPixel(prevDataPoint.value ?? prevDataPoint.close, minPrice, maxPrice, plotLayout.height, plotLayout.y);
-                                const x2 = plotLayout.x + getXPixel(this.dataViewport.startIndex + i, this.dataViewport.startIndex, this.dataViewport.visibleCount, plotLayout.width, barWidth) + barWidth / 2;
-                                const y2 = getYPixel(value, minPrice, maxPrice, plotLayout.height, plotLayout.y);
-                                const lineColor = plotConfig.style?.lineColor || this.currentTheme.lineColor;
-                                const lineWidth = plotConfig.style?.lineWidth || 2;
-                                drawLine(this.ctx, x1, y1, x2, y2, lineColor, lineWidth);
-                            }
-                            lastValidIndex = i;
-                        });
+                        this.drawLine(plotVisibleData, plotLayout, barWidth, minPrice, maxPrice, plotConfig);
                         break;
                     case 'volume':
-                        plotVisibleData.forEach((dataPoint, i) => {
-                            const volWidth = barWidth * 0.7;
-                            const x = plotLayout.x + getXPixel(this.dataViewport.startIndex + i, this.dataViewport.startIndex, this.dataViewport.visibleCount, plotLayout.width, barWidth) + (barWidth - volWidth) / 2;
-                            const volHeight = ((dataPoint.volume || 0) / maxPrice) * plotLayout.height;
-                            const y = plotLayout.y + plotLayout.height - volHeight;
-                            this.ctx.fillStyle = this.currentTheme.volumeColor || 'rgba(0, 150, 136, 0.6)';
-                            this.ctx.fillRect(x, y, volWidth, volHeight);
-                        });
+                        this.drawVolume(plotVisibleData, barWidth, plotLayout, maxPrice);
                         break;
                     case 'histogram':
-                        plotVisibleData.forEach((dataPoint, i) => {
-                            const histoWidth = barWidth * 0.7;
-                            const x = plotLayout.x + getXPixel(this.dataViewport.startIndex + i, this.dataViewport.startIndex, this.dataViewport.visibleCount, plotLayout.width, barWidth) + (barWidth - histoWidth) / 2;
-                            const y = getYPixel(0, minPrice, maxPrice, plotLayout.height, plotLayout.y);
-                            const barHeight = getYPixel(dataPoint.value, minPrice, maxPrice, plotLayout.height, plotLayout.y) - y;
-
-                            this.ctx.fillStyle = dataPoint.value >= 0 ?
-                                (plotConfig.style?.positiveColor || this.currentTheme.positiveColor) :
-                                (plotConfig.style?.negativeColor || this.currentTheme.negativeColor);
-
-                            this.ctx.fillRect(x, y, histoWidth, barHeight);
-                        });
+                        this.drawHistogram(plotVisibleData, barWidth, plotLayout, minPrice, maxPrice, plotConfig);
                         break;
+                    case 'signal':
+                        this.drawSignals(plotVisibleData, plotLayout, barWidth, minPrice, maxPrice);
+                        break;
+                        
                 }
             }
             this.ctx.restore();
@@ -488,11 +606,29 @@ class StockChart {
         // Draw chart name, code, and meta string
         this.drawChartName();
 
+        // Save current transformation state
+        this.ctx.save();
+        
+        // Apply any necessary transformations for drawing panel
+        const mainPlotLayout = this.plotLayoutManager.getPlotLayout('main');
+        if (mainPlotLayout) {
+            // Clip to main plot area to prevent drawings from going outside
+            this.ctx.beginPath();
+            this.ctx.rect(mainPlotLayout.x, mainPlotLayout.y, mainPlotLayout.width, mainPlotLayout.height);
+            this.ctx.clip();
+        }
+
+        // Render drawings
+        this.drawingPanel.render(this.ctx);
+
+        // Restore transformation state
+        this.ctx.restore();
+
         // Debug overlay
         // this.ctx.fillText(`Canvas: ${this.canvas.width}x${this.canvas.height}`, 20, 60);
 
-        // Draw crosshair
-        if (this.crosshairX !== -1 && this.crosshairY !== -1) {
+        // Draw crosshair if not in drawing mode
+        if (this.crosshairX !== -1 && this.crosshairY !== -1 && !this.activeDrawingTool) {
             this.ctx.strokeStyle = this.currentTheme.crosshairColor;
             this.ctx.lineWidth = 1;
             this.ctx.setLineDash([5, 5]); // Dashed line
@@ -529,9 +665,111 @@ class StockChart {
     }
 
     /**
-     * Handles mouse down events for dragging and viewport interaction.
-     * @param {MouseEvent} event
+     * Draws a line plot on the canvas.
+     * @param {Array<Object>} plotVisibleData - The visible data points for the plot.
+     * @param {import('./stock-chart.d.ts').PlotLayout} plotLayout - The layout information for the plot.
+     * @param {number} barWidth - The width of each bar in the plot.
+     * @param {number} minPrice - The minimum price in the visible data range.
+     * @param {number} maxPrice - The maximum price in the visible data range.
+     * @param {import('./stock-chart.d.ts').PlotConfig} plotConfig - The configuration options for the plot.
      */
+    drawLine(plotVisibleData, plotLayout, barWidth, minPrice, maxPrice, plotConfig) {
+        let lastValidIndex = -1;
+        plotVisibleData.forEach((dataPoint, i) => {
+            const value = dataPoint.value ?? dataPoint.close;
+            // Skip if current point has no value or is zero
+            if (value === null || value === undefined || value === 0) {
+                lastValidIndex = -1;
+                return;
+            }
+
+            // If we have a previous valid point, draw line
+            if (lastValidIndex !== -1) {
+                const prevDataPoint = plotVisibleData[lastValidIndex];
+                const x1 = plotLayout.x + getXPixel(this.dataViewport.startIndex + lastValidIndex, this.dataViewport.startIndex, this.dataViewport.visibleCount, plotLayout.width, barWidth) + barWidth / 2;
+                const y1 = getYPixel(prevDataPoint.value ?? prevDataPoint.close, minPrice, maxPrice, plotLayout.height, plotLayout.y);
+                const x2 = plotLayout.x + getXPixel(this.dataViewport.startIndex + i, this.dataViewport.startIndex, this.dataViewport.visibleCount, plotLayout.width, barWidth) + barWidth / 2;
+                const y2 = getYPixel(value, minPrice, maxPrice, plotLayout.height, plotLayout.y);
+                const lineColor = plotConfig.style?.lineColor || this.currentTheme.lineColor;
+                const lineWidth = plotConfig.style?.lineWidth || 2;
+                drawLine(this.ctx, x1, y1, x2, y2, lineColor, lineWidth);
+            }
+            lastValidIndex = i;
+        });
+    }
+
+    /**
+     * Draws the volume bars on the canvas.
+     * @param {Array<Object>} plotVisibleData - The visible data points for the plot.
+     * @param {number} barWidth - The width of each bar in the plot.
+     * @param {import('./stock-chart.d.ts').PlotLayout} plotLayout - The layout information for the plot.
+     * @param {number} maxPrice - The maximum price in the visible data range.
+     */
+    drawVolume(plotVisibleData, barWidth, plotLayout, maxPrice) {
+        plotVisibleData.forEach((dataPoint, i) => {
+            const volWidth = barWidth * 0.7;
+            const x = plotLayout.x + getXPixel(this.dataViewport.startIndex + i, this.dataViewport.startIndex, this.dataViewport.visibleCount, plotLayout.width, barWidth) + (barWidth - volWidth) / 2;
+            const volHeight = ((dataPoint.volume || 0) / maxPrice) * plotLayout.height;
+            const y = plotLayout.y + plotLayout.height - volHeight;
+            this.ctx.fillStyle = this.currentTheme.volumeColor || 'rgba(0, 150, 136, 0.6)';
+            this.ctx.fillRect(x, y, volWidth, volHeight);
+        });
+    }
+
+    /**
+     * Draws the volume bars on the canvas.
+     * @param {Array<Object>} plotVisibleData - The visible data points for the plot.
+     * @param {number} barWidth - The width of each bar in the plot.
+     * @param {import('./stock-chart.d.ts').PlotLayout} plotLayout - The layout information for the plot.
+     * @param {number} minPrice - The minimum price in the visible data range.
+     * @param {number} maxPrice - The maximum price in the visible data range.
+     * @param {import('./stock-chart.d.ts').PlotConfig} plotConfig - The configuration options for the plot.
+     */
+    drawHistogram(plotVisibleData, barWidth, plotLayout, minPrice, maxPrice, plotConfig) {
+        plotVisibleData.forEach((dataPoint, i) => {
+            const histoWidth = barWidth * 0.7;
+            const x = plotLayout.x + getXPixel(this.dataViewport.startIndex + i, this.dataViewport.startIndex, this.dataViewport.visibleCount, plotLayout.width, barWidth) + (barWidth - histoWidth) / 2;
+            const y = getYPixel(0, minPrice, maxPrice, plotLayout.height, plotLayout.y);
+            const barHeight = getYPixel(dataPoint.value, minPrice, maxPrice, plotLayout.height, plotLayout.y) - y;
+
+            this.ctx.fillStyle = dataPoint.value >= 0 ?
+                (plotConfig.style?.positiveColor || this.currentTheme.positiveColor) :
+                (plotConfig.style?.negativeColor || this.currentTheme.negativeColor);
+
+            this.ctx.fillRect(x, y, histoWidth, barHeight);
+        });
+    }
+
+    /**
+     * Draws the trading signals on the chart.
+     * @param {Array<Object>} plotVisibleData 
+     * @param {import('./stock-chart.d.ts').PlotLayout} plotLayout 
+     * @param {number} barWidth 
+     * @param {number} minPrice 
+     * @param {number} maxPrice 
+     */
+    drawSignals(plotVisibleData, plotLayout, barWidth, minPrice, maxPrice) {
+        this.ctx.imageSmoothingEnabled = false;
+
+        const pathsByColor = {};
+        plotVisibleData.filter(d => d.value != null).forEach((dataPoint, i) => {
+            const color = getSignalTypeColor(dataPoint.value.type);
+            if (!pathsByColor[color]) {
+                pathsByColor[color] = new Path2D();
+            }
+
+            const x = Math.floor(plotLayout.x + getXPixel(this.dataViewport.startIndex + i, this.dataViewport.startIndex, this.dataViewport.visibleCount, plotLayout.width, barWidth));
+            const y = Math.floor(getYPixel(dataPoint.value.value, minPrice, maxPrice, plotLayout.height, plotLayout.y));
+
+            pathsByColor[color].rect(x, y, Math.ceil(barWidth), 10);
+        });
+
+        // 一次性填充每种颜色的所有长方形
+        Object.keys(pathsByColor).forEach(color => {
+            this.ctx.fillStyle = color;
+            this.ctx.fill(pathsByColor[color]);
+        });
+    }
 
     /**
      * Handles mouse down events for dragging.
@@ -542,6 +780,25 @@ class StockChart {
         const mouseX = event.clientX - rect.left;
         const mouseY = event.clientY - rect.top;
         
+        // Check if we're in drawing mode
+        if (this.activeDrawingTool) {
+            // Only allow drawing in the main plot area
+            const mainPlot = this.plotLayoutManager.getPlotLayout('main');
+            if (mainPlot && 
+                mouseX >= mainPlot.x && 
+                mouseX <= mainPlot.x + mainPlot.width &&
+                mouseY >= mainPlot.y && 
+                mouseY <= mainPlot.y + mainPlot.height) {
+                this.drawingPanel.startDrawing(this.activeDrawingTool, mouseX, mouseY);
+            }
+            return;
+        }
+        
+        // Check if the chart is frozen (editing drawings)
+        if (this.drawingPanel.isChartFrozen) {
+            return;
+        }
+
         // First check if clicking in Y-axis area
         for (const plot of this.options.plots) {
             if (plot.overlay) continue;
@@ -592,6 +849,17 @@ class StockChart {
         const rect = this.canvas.getBoundingClientRect();
         const mouseX = event.clientX - rect.left;
         const mouseY = event.clientY - rect.top;
+
+        // Handle drawing if in drawing mode
+        if (this.drawingPanel.isDrawing) {
+            const mouseEvent = new MouseEvent('mousemove', {
+                clientX: event.clientX,
+                clientY: event.clientY
+            });
+            this.drawingPanel.continueDrawing(mouseEvent);
+            this.render();
+            return;
+        }
 
         // Get the main plot layout for proper positioning
         const mainPlotLayout = this.plotLayoutManager.getPlotLayout('main');
@@ -716,6 +984,28 @@ class StockChart {
      * Handles mouse up events.
      */
     handleMouseUp(event) {
+        // Complete drawing if in drawing mode
+        if (this.drawingPanel.isDrawing) {
+            this.drawingPanel.completeDrawing();
+            // Switch back to cursor tool after completing a drawing
+            this.setDrawingTool(null);
+            // Find cursor button and set its background color
+            const cursorButton = /** @type {HTMLButtonElement} */ (
+                this.toolbar.querySelector('button[title="Select Tool"]')
+            );
+            if (cursorButton) {
+                cursorButton.style.backgroundColor = this.currentTheme?.gridColor || '#e0e0e0';
+                // Reset other buttons
+                this.toolbar.querySelectorAll('button').forEach(/** @param {HTMLButtonElement} btn */ (btn) => {
+                    if (btn !== cursorButton) {
+                        btn.style.backgroundColor = 'transparent';
+                    }
+                });
+            }
+            this.render();
+            return;
+        }
+
         this.isDragging = false;
         this.isResizingPlot = false;
         this.isDraggingYAxis = false;
@@ -769,6 +1059,11 @@ class StockChart {
     handleMouseWheel(event) {
         event.preventDefault(); // Prevent page scrolling
 
+        // Prevent zooming if the chart is frozen
+        if (this.drawingPanel.isChartFrozen) {
+            return;
+        }
+
         const rect = this.canvas.getBoundingClientRect();
         const mouseX = event.clientX - rect.left;
         const mouseY = event.clientY - rect.top;
@@ -819,6 +1114,11 @@ class StockChart {
         if (this.touchHoldTimer) {
             clearTimeout(this.touchHoldTimer);
             this.touchHoldTimer = null;
+        }
+
+        // Check if the chart is frozen
+        if (this.drawingPanel.isChartFrozen) {
+            return;
         }
 
         // Reset all touch states first
@@ -975,6 +1275,12 @@ class StockChart {
      */
     handleTouchMove(event) {
         event.preventDefault();
+
+        // Check if the chart is frozen
+        if (this.drawingPanel.isChartFrozen) {
+            return;
+        }
+
         const rect = this.canvas.getBoundingClientRect();
 
         if (event.touches.length === 2 && this.isPinching) {
@@ -1340,6 +1646,13 @@ class StockChart {
         }
     }
 
+    /**
+     * Draws the Y-axis labels on the canvas.
+     * @param {import('./stock-chart.d.ts').PlotConfig} plotConfig - The configuration options for the plot.
+     * @param {import('./stock-chart.d.ts').PlotLayout} plotLayout - The layout information for the plot.
+     * @param {number} minPrice - The minimum price in the visible data range.
+     * @param {number} maxPrice - The maximum price in the visible data range.
+     */
     drawYAxisLabels(plotConfig, plotLayout, minPrice, maxPrice) {
         this.ctx.fillStyle = this.currentTheme.textColor;
         
@@ -1574,6 +1887,8 @@ class StockChart {
         });
     }
 
+
+    
     /**
      * Renders overlay panels for indicators (placeholder, extendable).
      */
@@ -1592,6 +1907,58 @@ class StockChart {
         if (container.clientWidth < 1) {
             container.style.width = `${window.innerWidth * 0.9}px`;
         }
+    }
+
+    /**
+     * Set the active drawing tool
+     * @param {string|null} tool - The drawing tool to activate ('line', 'rectangle', 'ellipse', 'text', 'fibonacci', null)
+     */
+    setDrawingTool(tool) {
+        this.activeDrawingTool = tool;
+        this.drawingPanel.setActiveTool(tool);
+        this.canvas.style.cursor = tool ? 'crosshair' : 'default';
+        
+        // Update toolbar button states
+        if (this.toolbar) {
+            const buttons = this.toolbar.querySelectorAll('button');
+            buttons.forEach(button => {
+                const isSelectTool = button.title === 'Select Tool';
+                
+                // Only highlight the select tool when tool is null, or highlight the specific active tool
+                if (tool === null) {
+                    button.style.backgroundColor = isSelectTool ? 
+                        (this.currentTheme?.gridColor || '#e0e0e0') : 'transparent';
+                } else {
+                    button.style.backgroundColor = button.title?.toLowerCase().includes(tool.toLowerCase()) ?
+                        (this.currentTheme?.gridColor || '#e0e0e0') : 'transparent';
+                }
+            });
+        }
+    }
+
+    /**
+     * Clear all drawings from the chart
+     */
+    clearDrawings() {
+        this.drawingPanel.clearDrawings();
+        this.render();
+    }
+
+    /**
+     * Import drawings from a JSON string
+     * @param {string} jsonString - JSON string containing drawing data
+     */
+    importDrawings(jsonString) {
+        this.drawingPanel.importDrawings(jsonString);
+        this.render();
+    }
+
+    /**
+     * Export drawings as a JSON string
+     * @returns {string} JSON string containing drawing data
+     */
+    exportDrawings() {
+        return this.drawingPanel.exportDrawings();
     }
 }
 export default StockChart;

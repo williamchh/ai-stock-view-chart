@@ -91,25 +91,56 @@
   <script type="module">
     import StockChart from '../src/stock-chart.js';
     // import { extractSignals } from '../src/utils/helpers.js';
-    import { calculateSMA, calculateMACD, calculateRSI, generateCandlestickData } from '../src/indicators/demo.js';
+    import { calculateSMA, calculateMACD, calculateRSI } from '../src/indicators/demo.js';
+    import { mapStockBasesToStockData } from '../inte/asv-mapper.js';
 
-    const candlestickData = generateCandlestickData(2000);
+    // Function to load and process test data
+    async function loadTestData() {
+      try {
+        const response = await fetch('../inte/test.json');
+        const testDataRaw = await response.json();
+        
+        // Convert date strings to Date objects
+        testDataRaw.values.stockbaseClients = testDataRaw.values.stockbaseClients.map(stock => ({
+          ...stock,
+          date: new Date(stock.date || Date.now()) // Use current date as fallback
+        }));
 
-    const signalArr = candlestickData.map(c => ({time: c.time, value: c.signals, keyLabel: c.type}));
+        return testDataRaw;
+      } catch (error) {
+        console.error('Error loading test data:', error);
+        return null;
+      }
+    }
 
-    // Calculate indicators
-    const sma20Data = calculateSMA(candlestickData, 20);
-    const sma50Data = calculateSMA(candlestickData, 50);
-    const macdData = calculateMACD(candlestickData);
-    const rsiData = calculateRSI(candlestickData);
-
-    // Transform MACD data into separate line plots
-    const macdLine = macdData.map(d => ({ time: d.time, value: d.macd, keyLabel: 'Macd' }));
-    const signalLine = macdData.map(d => ({ time: d.time, value: d.signal, keyLabel: 'Signal' }));
-    const histogramLine = macdData.map(d => ({ time: d.time, value: d.histogram, keyLabel: 'Histogram' }));
-
-    const volumeData = candlestickData.map(d => ({ time: d.time, volume: d.volume }));
+    // Initialize chart with test data
+    let candlestickData = [];
     let chartInstance;
+
+    loadTestData().then(testData => {
+      if (testData) {
+        // Map the data using our mapper
+        candlestickData = mapStockBasesToStockData(testData.values.stockbaseClients);
+
+        // Extract signals for signal plot
+        const signalArr = candlestickData.map(c => ({
+          time: c.time,
+          value: c.signals,
+          keyLabel: c.signals?.[0]?.type
+        }));
+
+        // Calculate indicators
+        const sma20Data = calculateSMA(candlestickData, 20);
+        const sma50Data = calculateSMA(candlestickData, 50);
+        const macdData = calculateMACD(candlestickData);
+        const rsiData = calculateRSI(candlestickData);
+
+        // Transform MACD data into separate line plots
+        const macdLine = macdData.map(d => ({ time: d.time, value: d.macd, keyLabel: 'Macd' }));
+        const signalLine = macdData.map(d => ({ time: d.time, value: d.signal, keyLabel: 'Signal' }));
+        const histogramLine = macdData.map(d => ({ time: d.time, value: d.histogram, keyLabel: 'Histogram' }));
+
+        const volumeData = candlestickData.map(d => ({ time: d.time, volume: d.volume }));
 
     // Custom theme example
     const customTheme = {
@@ -167,107 +198,110 @@
       input.addEventListener('input', updateCustomTheme);
     });
 
-    chartInstance = StockChart.init('chart-container', {
-      theme: 'dark',
-      chartName: {
-        name: 'Test Chart Name',
-        code: 'stcd',
-        metaString: 'NASDAQ, 1D'
-      },
-      initialVisibleCandles: 100,
-      plots: [
-        { 
-          id: 'main', 
-          type: 'candlestick',
-          heightRatio: 0.6, 
-          data: candlestickData ,
-          targetId: 'main',
-        },
-        { 
-          id: 'sma20', 
-          type: 'line', 
-          data: sma20Data,
-          overlay: true,
-          targetId: 'main',
-          keyLabel: 'SMA 20',
-          style: {
-            lineColor: 'rgba(255, 140, 0, 0.8)',  // Orange
-            lineWidth: 1.5
-          }
-        },
-        { 
-          id: 'sma50', 
-          type: 'line', 
-          data: sma50Data,
-          overlay: true,
-          targetId: 'main',
-          keyLabel: 'SMA 50',
-          style: {
-            lineColor: 'rgba(70, 130, 180, 0.8)',  // Steel Blue
-            lineWidth: 5
-          }
-        },
-        {
-          id: 'signal',
-          type: 'signal',
-          overlay: true,
-          targetId: 'main',
-          keyLabel: 'Signals',
-          data: signalArr
-        },
-        { 
-          id: 'volume', 
-          type: 'volume', 
-          heightRatio: 0.1, 
-          data: volumeData 
-        },
-        { 
-          id: 'macd',
-          type: 'line',
-          heightRatio: 0.15,
-          data: macdLine,
-          keyLabel: 'MACD',
-          style: {
-            lineColor: 'rgba(0, 150, 136, 0.8)', // Teal
-            lineWidth: 3
-          }
-        },
-        {
-          id: 'signal',
-          type: 'line',
-          data: signalLine,
-          overlay: true,
-          targetId: 'macd',
-          keyLabel: 'Signal',
-          style: {
-            lineColor: 'rgba(233, 30, 99, 0.8)', // Pink
-            lineWidth: 1.5
-          }
-        },
-        {
-          id: 'histogram',
-          type: 'histogram',
-          data: histogramLine,
-          overlay: true,
-          targetId: 'macd',
-          keyLabel: 'Histogram',
-          style: {
-            positiveColor: 'rgba(0, 150, 136, 0.5)',
-            negativeColor: 'rgba(233, 30, 99, 0.5)'
-          }
-        },
-        {
-          id: 'rsi',
-          type: 'line',
-          heightRatio: 0.15,
-          data: rsiData,
-          keyLabel: 'RSI',
-          style: {
-            lineColor: 'rgba(0, 150, 136, 1)', // Teal
-            lineWidth: 1.5
-          }
-        }
-      ]
+        // Initialize the chart with the loaded data
+        chartInstance = StockChart.init('chart-container', {
+          theme: 'dark',
+          chartName: {
+            name: testData.code,
+            code: testData.code.toLowerCase(),
+            metaString: 'NASDAQ, 1D'
+          },
+          initialVisibleCandles: 100,
+          plots: [
+            { 
+              id: 'main', 
+              type: 'candlestick',
+              heightRatio: 0.6, 
+              data: candlestickData,
+              targetId: 'main',
+            },
+            { 
+              id: 'sma20', 
+              type: 'line', 
+              data: sma20Data,
+              overlay: true,
+              targetId: 'main',
+              keyLabel: 'SMA 20',
+              style: {
+                lineColor: 'rgba(255, 140, 0, 0.8)',  // Orange
+                lineWidth: 1.5
+              }
+            },
+            { 
+              id: 'sma50', 
+              type: 'line', 
+              data: sma50Data,
+              overlay: true,
+              targetId: 'main',
+              keyLabel: 'SMA 50',
+              style: {
+                lineColor: 'rgba(70, 130, 180, 0.8)',  // Steel Blue
+                lineWidth: 5
+              }
+            },
+            {
+              id: 'signal',
+              type: 'signal',
+              overlay: true,
+              targetId: 'main',
+              keyLabel: 'Signals',
+              data: signalArr
+            },
+            { 
+              id: 'volume', 
+              type: 'volume', 
+              heightRatio: 0.1, 
+              data: volumeData 
+            },
+            { 
+              id: 'macd',
+              type: 'line',
+              heightRatio: 0.15,
+              data: macdLine,
+              keyLabel: 'MACD',
+              style: {
+                lineColor: 'rgba(0, 150, 136, 0.8)', // Teal
+                lineWidth: 3
+              }
+            },
+            {
+              id: 'signal',
+              type: 'line',
+              data: signalLine,
+              overlay: true,
+              targetId: 'macd',
+              keyLabel: 'Signal',
+              style: {
+                lineColor: 'rgba(233, 30, 99, 0.8)', // Pink
+                lineWidth: 1.5
+              }
+            },
+            {
+              id: 'histogram',
+              type: 'histogram',
+              data: histogramLine,
+              overlay: true,
+              targetId: 'macd',
+              keyLabel: 'Histogram',
+              style: {
+                positiveColor: 'rgba(0, 150, 136, 0.5)',
+                negativeColor: 'rgba(233, 30, 99, 0.5)'
+              }
+            },
+            {
+              id: 'rsi',
+              type: 'line',
+              heightRatio: 0.15,
+              data: rsiData,
+              keyLabel: 'RSI',
+              style: {
+                lineColor: 'rgba(0, 150, 136, 1)', // Teal
+                lineWidth: 1.5
+              }
+            }
+          ]
+        });
+      }
     });
 
   </script>

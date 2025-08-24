@@ -1,7 +1,7 @@
 /**
  * Maps StockBase interface data to StockData interface
- * @param {import('../src/models/asv-model.d.ts').Stockbase} stockBase - The source StockBase object
- * @returns {import('../src/stock-chart.d.ts').StockData} - The mapped StockData object
+ * @param {import('../asv-model.js').Stockbase} stockBase - The source StockBase object
+ * @returns {import('../../stock-chart.js').StockData} - The mapped StockData object
  */
 export function mapStockBaseToStockData(stockBase) {
     let signal = null;
@@ -60,8 +60,8 @@ export function mapStockBaseToStockData(stockBase) {
 
 /**
  * Maps an array of StockBase objects to an array of StockData objects
- * @param {import('../src/models/asv-model.d.ts').ASVResponse} response - ASVResponse object
- * @returns {Array<import('../src/stock-chart.d.ts').StockData>} - Array of mapped StockData objects
+ * @param {import('../asv-model.js').ASVResponse} response - ASVResponse object
+ * @returns {Array<import('../../stock-chart.js').StockData>} - Array of mapped StockData objects
  */
 export function mapStockBasesToStockData(response) {
     
@@ -77,9 +77,9 @@ export function mapStockBasesToStockData(response) {
 
 /**
  *
- * @param {Array<import('../src/stock-chart.d.ts').StockData>} stockDatas
- * @param {Array<import('../src/models/asv-model.d.ts').Retracement>} retracements
- * @returns {Array<import('../src/stock-chart.d.ts').StockData>}
+ * @param {Array<import('../../stock-chart.js').StockData>} stockDatas
+ * @param {Array<import('../asv-model.js').Retracement>} retracements
+ * @returns {Array<import('../../stock-chart.js').StockData>}
  */
 const getFiboZones = (stockDatas, retracements) => {
 
@@ -109,6 +109,7 @@ const getFiboZones = (stockDatas, retracements) => {
             bases.forEach((b, i) => {
                 b.fiboZoneLine = {
                     id: fs.targetID,
+                    time: b.time,
                     value: min + stepValue * (i + 1)
                 }
             });

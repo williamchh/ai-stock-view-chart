@@ -48,6 +48,7 @@ export interface StockData {
 
 export interface FiboZoneLine {
     id?: number;
+    time: number;
     value: number;
 }
 

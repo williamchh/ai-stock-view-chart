@@ -120,7 +120,7 @@
     loadTestData().then(testData => {
       if (testData) {
         // Map the data using our mapper
-        candlestickData = mapStockBasesToStockData(testData.values.stockbaseClients);
+        candlestickData = mapStockBasesToStockData(testData.values);
 
         const fiboSequencesArray = []
         if (testData.values && testData.values.retraceSequenceDic) {

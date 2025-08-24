@@ -58,6 +58,28 @@ export interface Timeframe {
     timeframeName: string;
 }
 
+export interface Retracement {
+  direction: number
+  endID: number
+  fiboSequence: FiboSequence[]
+  referenceLines: number[]
+  safeMargins: number[]
+  startID: number
+  escapePrice: number
+  target3: number
+  prediction: Prediction
+}
+
+export interface Prediction {
+  next: _Prediction
+  stop: _Prediction
+}
+
+export interface _Prediction {
+  item1: number
+  item2: number
+}
+
 export interface FiboSequence {
     date:      Date;
     priceFrom: number;
@@ -82,4 +104,11 @@ export interface Order {
     orderIdentifier: string;
     orderType:       number;
     referTf:         number;
+}
+
+export interface ASVResponse {
+    stockbaseClients: StockBaseClient[];
+    stockbases:       Stockbase[];
+    retraceSequenceDic:     Retracement[];
+    orders:           Order[];
 }

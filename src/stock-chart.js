@@ -2115,6 +2115,47 @@ class StockChart {
         this.ctx.restore();
     }
 
+    /**
+     * Updates the stock data for a specific plot
+     * @param {string} plotId - The ID of the plot to update
+     * @param {Array<StockData | number | any>} data - The new data to set for the plot
+     */
+    updateStockData(plotId, data) {
+        // Find the plot configuration
+        const plotConfig = this.options.plots.find(p => p.id === plotId);
+        if (!plotConfig) {
+            console.error(`StockChart: Plot with ID '${plotId}' not found.`);
+            return;
+        }
+
+        // Update the data
+        plotConfig.data = data;
+
+        // If this is the main plot, update the dataViewport
+        if (plotId === 'main') {
+            this.dataViewport = new DataViewport(data, this.options.initialVisibleCandles, 5);
+        }
+
+        // Reset plot scales
+        this.plotScales.delete(plotId);
+
+        // Recalculate Y-axis width and update layout
+        const yAxisWidth = this.calculateYAxisWidth();
+        this.plotLayoutManager.updateCanvasDimensions(this.canvas.width, this.canvas.height, yAxisWidth);
+
+        // Render the updated chart
+        this.render();
+    }
+
+    /**
+     * Updates the chart name information
+     * @param {import('./stock-chart.d.ts').ChartName} chartName - The new chart name information
+     */
+    updateChartName(chartName) {
+        this.options.chartName = chartName;
+        this.render();
+    }
+
     ensureContainerSize(container) {
         if (container.clientHeight < 1) {
             container.style.height = `${window.innerHeight * 0.9}px`;

@@ -18,6 +18,7 @@ export interface StockChartOptions {
   chartType?: 'candlestick' | 'line';
   plots?: Array<PlotConfig>;
   initialVisibleCandles?: number;
+  showDrawingToolbar?: boolean;
 }
 
 export interface ChartName {

@@ -164,6 +164,7 @@ class StockChart {
             { id: 'main', heightRatio: 0.7, data: [], type: 'line' }
         ],
         initialVisibleCandles: 100,
+        showDrawingToolbar: true, // Control whether to show the drawing toolbar
         // Add more default options as needed
     };
     
@@ -173,7 +174,8 @@ class StockChart {
             ...this.defaultOptions,
             ...options,
             plots: options.plots || [...this.defaultOptions.plots],
-            theme: options.theme || this.defaultOptions.theme
+            theme: options.theme || this.defaultOptions.theme,
+            showDrawingToolbar: options.showDrawingToolbar !== undefined ? options.showDrawingToolbar : this.defaultOptions.showDrawingToolbar
         };
     }
 
@@ -184,6 +186,11 @@ class StockChart {
      * @private
      */
     createToolbar() {
+        // Don't create toolbar if disabled in options
+        if (!this.options.showDrawingToolbar) {
+            return;
+        }
+
         const toolbar = document.createElement('div');
         toolbar.style.width = '40px';
         toolbar.style.backgroundColor = this.currentTheme?.background || '#ffffff';
@@ -384,8 +391,8 @@ class StockChart {
             clientHeight = window.innerHeight;
         }
 
-        // Adjust width to account for toolbar
-        const toolbarWidth = 40;
+        // Adjust width to account for toolbar if shown
+        const toolbarWidth = this.options.showDrawingToolbar ? 40 : 0;
         const chartWidth = clientWidth - toolbarWidth;
 
         this.canvas.width = chartWidth;

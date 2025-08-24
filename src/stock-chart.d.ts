@@ -44,7 +44,7 @@ export interface StockData {
     referenceLines?: ReferenceLine[];
     safeMargins?: ReferenceLine[];
     volume?: number;
-    signals?: Signal[] | Signal;  // 新增 signals 字段
+    signals?: Signal[] | Signal;
     retracements?: import('./models/asv-model.d.ts').Retracement[];
 }
 

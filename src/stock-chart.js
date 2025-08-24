@@ -116,6 +116,7 @@ class StockChart {
         // Initialize drawing panel
         this.drawingPanel = new DrawingPanel(this);
         this.activeDrawingTool = null;
+        this.eligibleMainPlotKeys = ['open', 'high', 'low', 'close'];
 
         this.canvas.addEventListener('mousedown', this.handleMouseDown.bind(this));
         this.canvas.addEventListener('mousemove', this.handleMouseMove.bind(this));
@@ -508,6 +509,7 @@ class StockChart {
         priceRanges.set('main', this.calculatePriceRange(mainPlot, mainVisibleData, this.dataViewport));
 
         this.options.plots.forEach(plotConfig => {
+
             const isOverlay = plotConfig.overlay || false;
             const targetPlotId = isOverlay ? (plotConfig.targetId || 'main') : plotConfig.id;
             
@@ -2013,10 +2015,15 @@ class StockChart {
                 }
 
                 // Show summary in top-right corner with each plot on a new line
-                const infoPlots = this.options.plots.filter(p => p.targetId === plotConfig.id || p.id === plotConfig.id);
+                const infoPlots = this.options.plots.filter(p => p.targetId === plotConfig.id || p.id === plotConfig.id)
+                    //.filter(p => !p.ignoreRenderInfo);
                 const infoTexts = [];
 
                 infoPlots.forEach(infoPlot => {
+                    const isMainPlot = infoPlot.id === 'main';
+
+                    if (infoPlot.id === 'fiboLines') return;
+
                     const infoPlotData = infoPlot.data && infoPlot.data.length > 0 ? infoPlot.data : visibleData;
                     if (actualDataIndex >= 0 && actualDataIndex < infoPlotData.length) {
                         const infoDataPoint = infoPlotData[actualDataIndex];
@@ -2030,7 +2037,23 @@ class StockChart {
                                     value !== undefined
                                 )
                                 .map(([key, value]) => {
-                                    const formattedValue = typeof value === 'number' ? value.toFixed(2) : value;
+                                    if (isMainPlot) {
+                                        const eligibleKeys = this.eligibleMainPlotKeys;
+                                        if (!eligibleKeys.includes(key)) return null;
+                                    }
+
+                                    let formattedValue = '';
+                                    if (typeof value === 'number') {
+                                        formattedValue = value.toFixed(2);
+                                    } 
+                                    else if (typeof value === 'object') {
+                                        debugger
+                                        if (!value.value) return null;
+                                        formattedValue = value.value?.toFixed(2);
+                                    }
+                                    else {
+                                        formattedValue = value;
+                                    }
                                     const keyLabel = infoPlot.keyLabel?.trim().length > 0 
                                         ? infoPlot.keyLabel 
                                         : key.charAt(0).toUpperCase() + key.slice(1);
@@ -2039,7 +2062,7 @@ class StockChart {
                                 });
 
                             if (entries.length > 0) {
-                                const newText = entries.join(' | ');
+                                const newText = entries.filter(e => e).join(' | ');
                                 if (newText) {
                                     infoTexts.push(newText);
                                 }

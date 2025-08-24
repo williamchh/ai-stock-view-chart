@@ -1,7 +1,7 @@
 
 
 import { DataViewport } from './data.js';
-import { DrawingItem, LineDrawing, RectangleDrawing, FibonacciDrawing, FibonacciZoonDrawing } from './drawing-item.js';
+import { DrawingItem, LineDrawing, RectangleDrawing, FibonacciDrawing, FibonacciZoonDrawing, ArrowLineDrawing } from './drawing-item.js';
 import { PlotLayoutManager } from './layout.js';
 ;
 /**

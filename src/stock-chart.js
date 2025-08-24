@@ -594,7 +594,9 @@ class StockChart {
                     case 'signal':
                         this.drawSignals(plotVisibleData, plotLayout, barWidth, minPrice, maxPrice);
                         break;
-                        
+                    case 'arrowLine':
+                        this.drawArrowLines(plotVisibleData, plotLayout, barWidth, minPrice, maxPrice);
+                        break;
                 }
             }
             this.ctx.restore();
@@ -1756,6 +1758,103 @@ class StockChart {
     /**
      * Displays price and indicator information at the crosshair position.
      */
+    /**
+     * Draws arrow lines connecting points with the same ID
+     * @param {Array<Object>} plotVisibleData - The visible data points for the plot.
+     * @param {import('./stock-chart.d.ts').PlotLayout} plotLayout - The layout information for the plot.
+     * @param {number} barWidth - The width of each bar in the plot.
+     * @param {number} minPrice - The minimum price in the visible data range.
+     * @param {number} maxPrice - The maximum price in the visible data range.
+     */
+    drawArrowLines(plotVisibleData, plotLayout, barWidth, minPrice, maxPrice) {
+        // Group points by ID
+        const groupedPoints = new Map();
+        const flat = plotVisibleData.flat();
+        flat.filter(d => d).forEach(point => {
+            if (!point || !point.id) return;
+            if (!groupedPoints.has(point.id)) {
+                groupedPoints.set(point.id, []);
+            }
+            groupedPoints.get(point.id).push(point);
+        });
+
+        const firstVisible = flat.find(d => d);
+        const lastVisible = [...flat].reverse().find(d => d);
+
+        const visibleTimeRange = {
+            start: firstVisible ? firstVisible.time : 0,
+            end: lastVisible ? lastVisible.time : 0
+        };
+
+        // For each group, draw an arrow line from first to last point
+        groupedPoints.forEach(points => {
+            if (points.length < 2) return;
+
+            // Get first and last points
+            let firstPoint = points[0];
+            let lastPoint = points[points.length - 1];
+
+            // Find visible points if first or last is outside visible range
+            if (firstPoint.time < visibleTimeRange.start) {
+                const visiblePoint = points.find(p => p.time >= visibleTimeRange.start);
+                if (visiblePoint) firstPoint = visiblePoint;
+            }
+            if (lastPoint.time > visibleTimeRange.end) {
+                const visiblePoint = [...points].reverse().find(p => p.time <= visibleTimeRange.end);
+                if (visiblePoint) lastPoint = visiblePoint;
+            }
+
+            // Convert points to pixel coordinates
+            const x1 = plotLayout.x + getXPixel(
+                this.dataViewport.allData.findIndex(d => d.time === firstPoint.time),
+                this.dataViewport.startIndex,
+                this.dataViewport.visibleCount,
+                plotLayout.width,
+                barWidth
+            ) + barWidth / 2;
+
+            const y1 = getYPixel(firstPoint.value, minPrice, maxPrice, plotLayout.height, plotLayout.y);
+
+            const x2 = plotLayout.x + getXPixel(
+                this.dataViewport.allData.findIndex(d => d.time === lastPoint.time),
+                this.dataViewport.startIndex,
+                this.dataViewport.visibleCount,
+                plotLayout.width,
+                barWidth
+            ) + barWidth / 2;
+
+            const y2 = getYPixel(lastPoint.value, minPrice, maxPrice, plotLayout.height, plotLayout.y);
+
+            // Draw arrow line
+            const headlen = 10; // arrow head length
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            const angle = Math.atan2(dy, dx);
+
+            // Draw the line
+            this.ctx.beginPath();
+            this.ctx.strokeStyle = this.currentTheme.textColor;
+            this.ctx.lineWidth = 1;
+            this.ctx.moveTo(x1, y1);
+            this.ctx.lineTo(x2, y2);
+            this.ctx.stroke();
+
+            // Draw the arrow head
+            this.ctx.beginPath();
+            this.ctx.moveTo(x2, y2);
+            this.ctx.lineTo(
+                x2 - headlen * Math.cos(angle - Math.PI / 6),
+                y2 - headlen * Math.sin(angle - Math.PI / 6)
+            );
+            this.ctx.lineTo(x2, y2);
+            this.ctx.lineTo(
+                x2 - headlen * Math.cos(angle + Math.PI / 6),
+                y2 - headlen * Math.sin(angle + Math.PI / 6)
+            );
+            this.ctx.stroke();
+        });
+    }
+
     displayInfoOverlay() {
         const visibleData = this.dataViewport.getVisibleData();
         if (visibleData.length === 0) return;
@@ -1844,21 +1943,30 @@ class StockChart {
                     const infoPlotData = infoPlot.data && infoPlot.data.length > 0 ? infoPlot.data : visibleData;
                     if (actualDataIndex >= 0 && actualDataIndex < infoPlotData.length) {
                         const infoDataPoint = infoPlotData[actualDataIndex];
-                        const newText = Object.entries(infoDataPoint)
-                            .map(([key, value]) => {
-                                if (key === 'time' || key === 'date' || key === 'keyLabel') return null;
-                                const formattedValue = typeof value === 'number' ? value.toFixed(2) : value;
-                                const keyLabel = infoPlot.keyLabel?.trim().length > 0 
-                                    ? infoPlot.keyLabel 
-                                    : key.charAt(0).toUpperCase() + key.slice(1);
+                        if (infoDataPoint && typeof infoDataPoint === 'object') {
+                            const entries = Object.entries(infoDataPoint)
+                                .filter(([key, value]) => 
+                                    key !== 'time' && 
+                                    key !== 'date' && 
+                                    key !== 'keyLabel' && 
+                                    value !== null && 
+                                    value !== undefined
+                                )
+                                .map(([key, value]) => {
+                                    const formattedValue = typeof value === 'number' ? value.toFixed(2) : value;
+                                    const keyLabel = infoPlot.keyLabel?.trim().length > 0 
+                                        ? infoPlot.keyLabel 
+                                        : key.charAt(0).toUpperCase() + key.slice(1);
 
-                                return `${keyLabel}: ${formattedValue}`;
-                            })
-                            .filter(Boolean)
-                            .join(' | ');
+                                    return `${keyLabel}: ${formattedValue}`;
+                                });
 
-                        if (newText) {
-                            infoTexts.push(newText);
+                            if (entries.length > 0) {
+                                const newText = entries.join(' | ');
+                                if (newText) {
+                                    infoTexts.push(newText);
+                                }
+                            }
                         }
                     }
                 });

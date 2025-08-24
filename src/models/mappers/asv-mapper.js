@@ -48,7 +48,7 @@ export function mapStockBaseToStockData(stockBase) {
     }
 
     return {
-        time: stockBase.date.getTime(),
+        time: stockBase.date.getTime() / 1000,
         open: stockBase.open,
         high: stockBase.high,
         low: stockBase.low,
@@ -71,7 +71,7 @@ export function mapStockBasesToStockData(response) {
 
     const retracements = Object.values(response.retraceSequenceDic).flat();
     stockDatas = getFiboZones(stockDatas, retracements);
-    debugger
+
     return stockDatas;
 }
 
@@ -84,36 +84,46 @@ export function mapStockBasesToStockData(response) {
 const getFiboZones = (stockDatas, retracements) => {
 
     const elegibleRetracements = retracements.filter(f => f.fiboSequence && f.fiboSequence.length > 1);
-    // Implementation of getFiboZones function
+    let preEndTimeX = null;
+
     for (const retracement of elegibleRetracements) {
         const { fiboSequence } = retracement;
         let fs = fiboSequence[0];
-        const wkFiboSequences = fiboSequence.slice(1);
-        for (const s of wkFiboSequences) {
-            const bases = stockDatas.filter(d => new Date(d.time).valueOf() >= new Date(fs.date).valueOf() && 
-                new Date(d.time).valueOf() <= new Date(s.date).valueOf());
-            
+
+        let _start = retracement.escapePrice;
+        let total = retracement.target3 - retracement.escapePrice;
+        let times = 1;
+        if (retracement.direction == 2) { // down
+            total = retracement.escapePrice - retracement.target3;
+            times = -1;
+        }
+
+        for (const s of fiboSequence) {
+            const hasNextSequence = fiboSequence.indexOf(s) < fiboSequence.length - 1;
+            if (!hasNextSequence) break;
+            const next = fiboSequence[fiboSequence.indexOf(s) + 1];
+            _start = retracement.escapePrice + total * s.ratio * times;
+            const bases = stockDatas.filter(d => d.time  >= new Date(s.date).valueOf() / 1000 && 
+                d.time <= new Date(next.date).valueOf() / 1000);
+
             if (bases.length === 0) continue;
 
-            const fsTarget = fs.target;
-            const sTarget = s.target;
-            const max = Math.max(fsTarget, sTarget);
-            const min = Math.min(fsTarget, sTarget);
-            const diff = max - min;
-            let stepValue = diff / bases.length;
-
-            if (s.target < fs.target) {
-                stepValue *= -1;
-            }
+            const target = retracement.escapePrice + total * next.ratio * times;
+            const diff = target - _start;
+            const stepValue = diff / (bases.length - 1);
 
             bases.forEach((b, i) => {
-                b.fiboZoneLine = {
-                    id: fs.targetID,
+
+                b.fiboZoneLines ??= [];
+                b.fiboZoneLines.push({
+                    id: s.targetID,
                     time: b.time,
-                    value: min + stepValue * (i + 1)
-                }
+                    value: _start + stepValue * i,
+                });
             });
 
+            preEndTimeX = bases[bases.length - 1].time;
+            
             fs = s;
         }
 

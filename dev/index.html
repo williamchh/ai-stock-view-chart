@@ -135,6 +135,8 @@
           keyLabel: c.signals?.[0]?.type
         }));
 
+        const fiboZoneLines = candlestickData.map(c => c.fiboZoneLines);
+
         // Calculate indicators
         const sma20Data = calculateSMA(candlestickData, 20);
         const sma50Data = calculateSMA(candlestickData, 50);
@@ -252,6 +254,14 @@
               targetId: 'main',
               keyLabel: 'Signals',
               data: signalArr
+            },
+            {
+              id: 'fiboLines',
+              type: 'arrowLine',
+              data: fiboZoneLines,
+              targetId: 'main',
+              overlay: true,
+              keyLabel: 'Fibonacci Lines',
             },
             { 
               id: 'macd',

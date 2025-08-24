@@ -40,7 +40,7 @@ export interface StockData {
     low: number;
     close: number;
     id?: number | string;
-    fiboZoneLine?: FiboZoneLine;
+    fiboZoneLines?: FiboZoneLine[];
     volume?: number;
     signals?: Signal[] | Signal;  // 新增 signals 字段
     retracements?: import('./models/asv-model.d.ts').Retracement[];

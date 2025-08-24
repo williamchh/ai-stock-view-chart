@@ -120,6 +120,16 @@ const getFiboZones = (stockDatas, retracements) => {
                     time: b.time,
                     value: _start + stepValue * i,
                 });
+
+                if (retracement.referenceLines && retracement.referenceLines.length > 0) {
+                    b.referenceLines ??= [];
+                    b.referenceLines.push(...retracement.referenceLines);
+                }
+
+                if (retracement.safeMargins && retracement.safeMargins.length > 0) {
+                    b.safeMargins ??= [];
+                    b.safeMargins.push(...retracement.safeMargins);
+                }
             });
 
             preEndTimeX = bases[bases.length - 1].time;

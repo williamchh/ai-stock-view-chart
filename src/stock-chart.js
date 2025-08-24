@@ -1834,7 +1834,7 @@ class StockChart {
             // Draw the line
             this.ctx.beginPath();
             this.ctx.strokeStyle = this.currentTheme.textColor;
-            this.ctx.lineWidth = 1;
+            this.ctx.lineWidth = 1.5;
             this.ctx.moveTo(x1, y1);
             this.ctx.lineTo(x2, y2);
             this.ctx.stroke();

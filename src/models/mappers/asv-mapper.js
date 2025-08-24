@@ -54,7 +54,22 @@ export function mapStockBaseToStockData(stockBase) {
         low: stockBase.low,
         close: stockBase.close,
         id: stockBase.id,
-        signals: signal ? signal : undefined
+        signals: signal ? signal : undefined,
+        referenceLines: [{
+            id: stockBase.id,
+            time: stockBase.date.getTime() / 1000,
+            type: 'reference',
+            value: null
+        }],
+        safeMargins: [
+            {
+                id: stockBase.id,
+                time: stockBase.date.getTime() / 1000,
+                type: 'safe-margin',
+                value: null
+            }
+        ]
+
     };
 }
 
@@ -84,7 +99,6 @@ export function mapStockBasesToStockData(response) {
 const getFiboZones = (stockDatas, retracements) => {
 
     const elegibleRetracements = retracements.filter(f => f.fiboSequence && f.fiboSequence.length > 1);
-    let preEndTimeX = null;
 
     for (const retracement of elegibleRetracements) {
         const { fiboSequence } = retracement;
@@ -123,16 +137,38 @@ const getFiboZones = (stockDatas, retracements) => {
 
                 if (retracement.referenceLines && retracement.referenceLines.length > 0) {
                     b.referenceLines ??= [];
-                    b.referenceLines.push(...retracement.referenceLines);
+                    retracement.referenceLines.forEach(r => {
+                        
+                        b.referenceLines.push({
+                            id: retracement.startID,
+                            time: b.time,
+                            type: 'reference',
+                            value: r
+                        });
+                    })
                 }
 
                 if (retracement.safeMargins && retracement.safeMargins.length > 0) {
                     b.safeMargins ??= [];
-                    b.safeMargins.push(...retracement.safeMargins);
+                    retracement.safeMargins.forEach(f => {
+                        b.safeMargins.push({
+                            id: retracement.startID,
+                            time: b.time,
+                            type: 'safe-margin',
+                            value: f
+                        });
+                    })
                 }
             });
 
-            preEndTimeX = bases[bases.length - 1].time;
+            // if (retracement.prediction?.next?.item1) {
+            //     debugger;
+            //     const nextRatio = retracement.prediction.next.item1;
+            //     const stopRatio = retracement.prediction.stop.item1;
+
+            //     const nextValue = retracement.escapePrice + total * nextRatio * times;
+            //     const stopValue = retracement.escapePrice + total * stopRatio * times;
+            // }
             
             fs = s;
         }

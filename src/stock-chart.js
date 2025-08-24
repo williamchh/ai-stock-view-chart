@@ -592,7 +592,13 @@ class StockChart {
                         this.drawHistogram(plotVisibleData, barWidth, plotLayout, minPrice, maxPrice, plotConfig);
                         break;
                     case 'signal':
-                        this.drawSignals(plotVisibleData, plotLayout, barWidth, minPrice, maxPrice);
+                        // reference or safe margin
+                        if (Array.isArray(plotVisibleData[0].value)) {
+                            const _plotVisibleData = this.flattenPlotVisibleData(plotVisibleData);
+                            this.drawSignalsLines(_plotVisibleData, plotLayout, barWidth, minPrice, maxPrice);
+                        } else {
+                            this.drawSignals(plotVisibleData, plotLayout, barWidth, minPrice, maxPrice);
+                        }
                         break;
                     case 'arrowLine':
                         this.drawArrowLines(plotVisibleData, plotLayout, barWidth, minPrice, maxPrice);
@@ -664,6 +670,33 @@ class StockChart {
             // Display price and indicator info overlay
             this.displayInfoOverlay();
         }
+    }
+
+    flattenPlotVisibleData(plotVisibleData) {
+        const _plotVisibleData = [];
+        for (const d of plotVisibleData) {
+            d.value.forEach(v => {
+                _plotVisibleData.push({
+                    ...d,
+                    value: v
+                });
+            });
+        }
+        return _plotVisibleData;
+    }
+
+    groupByIdAndValue(data) {
+        return data
+            .filter(d => d.value.value)
+            .reduce((acc, item) => {
+                const key = `${item.value.id}_${item.value.value}`; // composite key
+                if (!acc[key]) {
+                    acc[key] = [];
+                }
+
+                acc[key].push(item);
+                return acc;
+            }, {});
     }
 
     /**
@@ -764,7 +797,7 @@ class StockChart {
                 const x = Math.floor(plotLayout.x + getXPixel(this.dataViewport.startIndex + i, this.dataViewport.startIndex, this.dataViewport.visibleCount, plotLayout.width, barWidth));
                 const y = Math.floor(getYPixel(dataPoint.value.value, minPrice, maxPrice, plotLayout.height, plotLayout.y));
     
-                pathsByColor[color].rect(x, y, Math.ceil(barWidth), 10);
+                pathsByColor[color].rect(x, y, Math.ceil(barWidth), 8);
             }
         });
 
@@ -772,6 +805,48 @@ class StockChart {
         Object.keys(pathsByColor).forEach(color => {
             this.ctx.fillStyle = color;
             this.ctx.fill(pathsByColor[color]);
+        });
+    }
+
+    /**
+     * Draws the trading signals on the chart.
+     * @param {Array<Object>} plotVisibleData 
+     * @param {import('./stock-chart.d.ts').PlotLayout} plotLayout 
+     * @param {number} barWidth 
+     * @param {number} minPrice 
+     * @param {number} maxPrice 
+     */
+    drawSignalsLines(plotVisibleData, plotLayout, barWidth, minPrice, maxPrice) {
+        this.ctx.imageSmoothingEnabled = false;
+
+        const data = this.groupByIdAndValue(plotVisibleData);
+        Object.keys(data).forEach(key => {
+            const group = data[key];
+            const color = this.currentTheme.textColor;
+            const price = group[0].value.value.toFixed(2);
+            const v = group[0].value.value;
+            const startIndex = this.dataViewport.allData.findIndex(d => d.time === group[0].value.time);
+            const endIndex = this.dataViewport.allData.findIndex(d => d.time === group[group.length - 1].value.time);
+            const startX = Math.floor(plotLayout.x + getXPixel(startIndex, 
+                this.dataViewport.startIndex, this.dataViewport.visibleCount, plotLayout.width, barWidth));
+            const endX = Math.floor(plotLayout.x + getXPixel(endIndex,
+                this.dataViewport.startIndex, this.dataViewport.visibleCount, plotLayout.width, barWidth));
+            const y = Math.floor(getYPixel(v, minPrice, maxPrice, plotLayout.height, plotLayout.y));
+
+            // Draw dashed line
+            this.ctx.beginPath();
+            this.ctx.setLineDash([5, 3]); // Create dashed line pattern [dash length, gap length]
+            this.ctx.strokeStyle = color;
+            this.ctx.lineWidth = 1;
+            this.ctx.moveTo(startX, y);
+            this.ctx.lineTo(endX, y);
+            this.ctx.stroke();
+            this.ctx.setLineDash([]); // Reset line dash pattern
+
+            // measure price width and add to left side of line
+            const priceWidth = this.ctx.measureText(price).width;
+            this.ctx.fillStyle = color;
+            this.ctx.fillText(price, startX - priceWidth - 5, y);
         });
     }
 

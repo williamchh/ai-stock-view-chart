@@ -136,7 +136,17 @@
         }));
 
         const fiboZoneLines = candlestickData.map(c => c.fiboZoneLines);
-
+        const referenceLines = candlestickData.map(c => ({
+          time: c.time,
+          value: c.referenceLines,
+          keyLabel: c.referenceLines?.[0]?.type
+        }));
+        const safeMargins = candlestickData.map(c => ({
+          time: c.time,
+          value: c.safeMargins,
+          keyLabel: c.safeMargins?.[0]?.type
+        }));
+        debugger
         // Calculate indicators
         const sma20Data = calculateSMA(candlestickData, 20);
         const sma50Data = calculateSMA(candlestickData, 50);
@@ -254,6 +264,14 @@
               targetId: 'main',
               keyLabel: 'Signals',
               data: signalArr
+            },
+            {
+              id: 'referenceLines',
+              type: 'signal',
+              overlay: true,
+              targetId: 'main',
+              keyLabel: 'Reference Lines',
+              data: referenceLines
             },
             {
               id: 'fiboLines',

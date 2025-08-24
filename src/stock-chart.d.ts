@@ -41,11 +41,18 @@ export interface StockData {
     close: number;
     id?: number | string;
     fiboZoneLines?: FiboZoneLine[];
-    referenceLines?: number[];
-    safeMargins?: number[];
+    referenceLines?: ReferenceLine[];
+    safeMargins?: ReferenceLine[];
     volume?: number;
     signals?: Signal[] | Signal;  // 新增 signals 字段
     retracements?: import('./models/asv-model.d.ts').Retracement[];
+}
+
+export interface ReferenceLine {
+  id?: number;
+  time: number;
+  type: string;
+  value: number;
 }
 
 export interface FiboZoneLine {

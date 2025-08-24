@@ -79,4 +79,15 @@ export default class StockChart {
   applyTheme(theme: 'light' | 'dark' | Theme): void;
   resize(): void;
   render(): void;
+  /**
+   * Updates the stock data for a specific plot
+   * @param plotId - The ID of the plot to update
+   * @param data - The new data to set for the plot
+   */
+  updateStockData(plotId: string, data: Array<StockData | number | any>): void;
+  /**
+   * Updates the chart name information
+   * @param chartName - The new chart name information
+   */
+  updateChartName(chartName: ChartName): void;
 }

@@ -40,7 +40,7 @@ export interface StockData {
     low: number;
     close: number;
     volume?: number;
-    signals?: Signal[];  // 新增 signals 字段
+    signals?: Signal[];
 }
 
 export interface PlotConfig {

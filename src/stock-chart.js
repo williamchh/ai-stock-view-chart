@@ -760,10 +760,12 @@ class StockChart {
                 pathsByColor[color] = new Path2D();
             }
 
-            const x = Math.floor(plotLayout.x + getXPixel(this.dataViewport.startIndex + i, this.dataViewport.startIndex, this.dataViewport.visibleCount, plotLayout.width, barWidth));
-            const y = Math.floor(getYPixel(dataPoint.value.value, minPrice, maxPrice, plotLayout.height, plotLayout.y));
-
-            pathsByColor[color].rect(x, y, Math.ceil(barWidth), 10);
+            if (dataPoint.value.value != null) {
+                const x = Math.floor(plotLayout.x + getXPixel(this.dataViewport.startIndex + i, this.dataViewport.startIndex, this.dataViewport.visibleCount, plotLayout.width, barWidth));
+                const y = Math.floor(getYPixel(dataPoint.value.value, minPrice, maxPrice, plotLayout.height, plotLayout.y));
+    
+                pathsByColor[color].rect(x, y, Math.ceil(barWidth), 10);
+            }
         });
 
         // 一次性填充每种颜色的所有长方形

@@ -122,6 +122,12 @@
         // Map the data using our mapper
         candlestickData = mapStockBasesToStockData(testData.values.stockbaseClients);
 
+        const fiboSequencesArray = []
+        if (testData.values && testData.values.retraceSequenceDic) {
+          // Extract retrace sequences
+          fiboSequencesArray.push(...Object.values(testData.values.retraceSequenceDic).flat().map(r => r.fiboSequence));
+        }
+
         // Extract signals for signal plot
         const signalArr = candlestickData.map(c => ({
           time: c.time,
@@ -246,12 +252,6 @@
               targetId: 'main',
               keyLabel: 'Signals',
               data: signalArr
-            },
-            { 
-              id: 'volume', 
-              type: 'volume', 
-              heightRatio: 0.1, 
-              data: volumeData 
             },
             { 
               id: 'macd',

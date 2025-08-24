@@ -156,6 +156,20 @@ export function getXPixel(index, startIndex, visibleCount, plotWidth, barWidth) 
 }
 
 /**
+ * 
+ * @param {number | string} id 
+ * @param {Array<any>} viewPortAllData 
+ * @param {number} startIndex 
+ * @param {number} barWidth 
+ * @returns 
+ */
+export function getXPixelById(id, viewPortAllData, startIndex, barWidth) {
+    const index = viewPortAllData.findIndex(data => data.id === id);
+    if (index === -1) return null; // ID not found
+    return getXPixel(index, startIndex, viewPortAllData.length, viewPortAllData.length * barWidth, barWidth);
+}
+
+/**
  * Calculates the pixel position for a given price value within a plot's y-axis.
  * @param {number} price - The price value.
  * @param {number} minPrice - The minimum price in the visible range.

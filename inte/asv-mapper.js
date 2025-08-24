@@ -47,60 +47,13 @@ export function mapStockBaseToStockData(stockBase) {
         };
     }
 
-    // // Add signals based on StockBase properties
-    // if (stockBase.isStrong) {
-    //     signals.push({
-    //         type: stockBase.isBuy === 1 ? 'support' : 'resistance',
-    //         value: stockBase.close,
-    //         description: stockBase.isBuy === 1 ? 'Strong Buy Signal' : 'Strong Sell Signal',
-    //         strength: 1
-    //     });
-    // }
-
-    // // Add MACD signals
-    // if (stockBase.isGoldMacd || stockBase.isRealGoldMacd) {
-    //     signals.push({
-    //         type: 'uptrend',
-    //         value: stockBase.close,
-    //         description: stockBase.isRealGoldMacd ? 'Real Gold MACD' : 'Gold MACD',
-    //         strength: stockBase.isRealGoldMacd ? 1 : 0.8
-    //     });
-    // }
-
-    // if (stockBase.isDownMacd || stockBase.isRealDownMacd) {
-    //     signals.push({
-    //         type: 'downtrend',
-    //         value: stockBase.close,
-    //         description: stockBase.isRealDownMacd ? 'Real Down MACD' : 'Down MACD',
-    //         strength: stockBase.isRealDownMacd ? 1 : 0.8
-    //     });
-    // }
-
-    // // Add SMA signals
-    // if (stockBase.isStrongUpSMA) {
-    //     signals.push({
-    //         type: 'uptrend',
-    //         value: stockBase.close,
-    //         description: 'Strong Uptrend SMA',
-    //         strength: 0.9
-    //     });
-    // }
-
-    // if (stockBase.isStrongDownSMA) {
-    //     signals.push({
-    //         type: 'downtrend',
-    //         value: stockBase.close,
-    //         description: 'Strong Downtrend SMA',
-    //         strength: 0.9
-    //     });
-    // }
-
     return {
         time: stockBase.date.getTime(),
         open: stockBase.open,
         high: stockBase.high,
         low: stockBase.low,
         close: stockBase.close,
+        id: stockBase.id,
         signals: signal ? signal : undefined
     };
 }

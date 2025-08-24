@@ -39,6 +39,7 @@ export interface StockData {
     high: number;
     low: number;
     close: number;
+    id?: number | string;
     volume?: number;
     signals?: Signal[] | Signal;  // 新增 signals 字段
 }

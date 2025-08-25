@@ -80,11 +80,10 @@ export default class StockChart {
   resize(): void;
   render(): void;
   /**
-   * Updates the stock data for a specific plot
-   * @param plotId - The ID of the plot to update
-   * @param data - The new data to set for the plot
+   * Updates the stock data for all plots at once
+   * @param plots - Array of plot configurations to update
    */
-  updateStockData(plotId: string, data: Array<StockData | number | any>): void;
+  updateStockData(plots: Array<PlotConfig>): void;
   /**
    * Updates the chart name information
    * @param chartName - The new chart name information

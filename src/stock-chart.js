@@ -1867,21 +1867,21 @@ class StockChart {
                                     if (!eligibleKeys.includes(key)) return null;
                                 }
 
-                                let formattedValue = '';
-                                if (typeof value === 'number') {
-                                    formattedValue = value.toFixed(2);
-                                } 
-                                else if (typeof value === 'object') {
-                                    debugger
-                                    if (!value.value) return null;
-                                    formattedValue = value.value?.toFixed(2);
-                                }
-                                else {
-                                    formattedValue = value;
-                                }
-                                const keyLabel = infoPlot.keyLabel?.trim().length > 0
-                                    ? infoPlot.keyLabel
-                                    : key.charAt(0).toUpperCase() + key.slice(1);
+                                    let formattedValue = '';
+                                    if (typeof value === 'number') {
+                                        formattedValue = value.toFixed(2);
+                                    } 
+                                    else if (typeof value === 'object') {
+
+                                        if (!value.value) return null;
+                                        formattedValue = value.value?.toFixed(2);
+                                    }
+                                    else {
+                                        formattedValue = value;
+                                    }
+                                    const keyLabel = infoPlot.keyLabel?.trim().length > 0 
+                                        ? infoPlot.keyLabel 
+                                        : key.charAt(0).toUpperCase() + key.slice(1);
 
                                 return `${keyLabel}: ${formattedValue}`;
                             })
@@ -1932,32 +1932,60 @@ class StockChart {
     }
 
     /**
-     * Updates the stock data for a specific plot
-     * @param {string} plotId - The ID of the plot to update
-     * @param {Array<StockData | number | any>} data - The new data to set for the plot
+     * Updates the stock data for all plots at once
+     * @param {Array<import('./stock-chart.d.ts').PlotConfig>} plots - Array of plot configurations to update
      */
-    updateStockData(plotId, data) {
-        // Find the plot configuration
-        const plotConfig = this.options.plots.find(p => p.id === plotId);
-        if (!plotConfig) {
-            console.error(`StockChart: Plot with ID '${plotId}' not found.`);
+    updateStockData(plots) {
+        if (!Array.isArray(plots)) {
+            console.error('StockChart: updateStockData expects an array of plots');
             return;
         }
 
-        // Update the data
-        plotConfig.data = data;
+        // Keep track if main plot was updated
+        let mainPlotUpdated = false;
 
-        // If this is the main plot, update the dataViewport
-        if (plotId === 'main') {
-            this.dataViewport = new DataViewport(data, this.options.initialVisibleCandles, 5);
+        plots.forEach(newPlot => {
+            // Find the existing plot configuration
+            const existingPlotIndex = this.options.plots.findIndex(p => p.id === newPlot.id);
+            if (existingPlotIndex === -1) {
+                console.warn(`StockChart: Plot with ID '${newPlot.id}' not found, it will be added as a new plot`);
+                this.options.plots.push(newPlot);
+            } else {
+                // Update the existing plot with new data and settings
+                this.options.plots[existingPlotIndex] = {
+                    ...this.options.plots[existingPlotIndex],
+                    ...newPlot
+                };
+
+                // Reset plot scale
+                this.plotScales.delete(newPlot.id);
+
+                // Check if main plot was updated
+                if (newPlot.id === 'main') {
+                    mainPlotUpdated = true;
+                    this.dataViewport = new DataViewport(newPlot.data, this.options.initialVisibleCandles, 5);
+                    // Clear all drawings when main plot data is updated
+                    if (this.drawingPanel) {
+                        this.drawingPanel.clearDrawings();
+                    }
+                }
+            }
+        });
+
+        // If main plot wasn't included but exists in options, keep using its data for viewport
+        if (!mainPlotUpdated) {
+            const mainPlot = this.options.plots.find(p => p.id === 'main');
+            if (mainPlot) {
+                this.dataViewport = new DataViewport(mainPlot.data, this.options.initialVisibleCandles, 5);
+            }
         }
-
-        // Reset plot scales
-        this.plotScales.delete(plotId);
 
         // Recalculate Y-axis width and update layout
         const yAxisWidth = this.calculateYAxisWidth();
         this.plotLayoutManager.updateCanvasDimensions(this.canvas.width, this.canvas.height, yAxisWidth);
+
+        // Update plot layout with potentially new plot configurations
+        this.plotLayoutManager.updatePlotConfigurations(this.options.plots);
 
         // Render the updated chart
         this.render();

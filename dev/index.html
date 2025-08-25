@@ -108,7 +108,7 @@
         // Convert date strings to Date objects
         testDataRaw.values.stockbaseClients = testDataRaw.values.stockbaseClients.map(stock => ({
           ...stock,
-          date: new Date(stock.date || Date.now()) // Use current date as fallback
+          date: new Date(stock.date) // Use current date as fallback
         }));
 
         return testDataRaw;
@@ -248,13 +248,13 @@
           keyLabel: c.signals?.[0]?.type
         }));
         
-        const fiboZoneLinesNew = candlestickData.map(c => c.fiboZoneLines);
-        const referenceLinesNew = candlestickData.map(c => ({
+        const fiboZoneLinesNew = newCandlestickData.map(c => c.fiboZoneLines);
+        const referenceLinesNew = newCandlestickData.map(c => ({
           time: c.time,
           value: c.referenceLines,
           keyLabel: c.referenceLines?.[0]?.type
         }));
-        const safeMarginsNew = candlestickData.map(c => ({
+        const safeMarginsNew = newCandlestickData.map(c => ({
           time: c.time,
           value: c.safeMargins,
           keyLabel: c.safeMargins?.[0]?.type
@@ -349,19 +349,19 @@
               positiveColor: 'rgba(0, 150, 136, 0.5)',
               negativeColor: 'rgba(233, 30, 99, 0.5)'
             }
-          }
+          },
           // Commented out RSI as it was commented in the original code
-          // {
-          //   id: 'rsi',
-          //   type: 'line',
-          //   heightRatio: 0.15,
-          //   data: newRsiData,
-          //   keyLabel: 'RSI',
-          //   style: {
-          //     lineColor: 'rgba(0, 150, 136, 1)',
-          //     lineWidth: 1.5
-          //   }
-          // }
+          {
+            id: 'rsi',
+            type: 'line',
+            heightRatio: 0.15,
+            data: newRsiData,
+            keyLabel: 'RSI',
+            style: {
+              lineColor: 'rgba(0, 150, 136, 1)',
+              lineWidth: 1.5
+            }
+          }
         ]);
 
         // Update chart name

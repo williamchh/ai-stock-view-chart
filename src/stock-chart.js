@@ -601,6 +601,11 @@ class StockChart {
                         this.drawHistogram(plotVisibleData, barWidth, plotLayout, minPrice, maxPrice, plotConfig);
                         break;
                     case 'signal':
+                        if (!plotVisibleData || plotVisibleData.length === 0) {
+                            // Handle empty or undefined plotVisibleData
+                            return;
+                        }
+
                         this.drawSignals(plotVisibleData, plotLayout, barWidth, minPrice, maxPrice);
                         break;
                         
@@ -1941,44 +1946,15 @@ class StockChart {
             return;
         }
 
-        // Keep track if main plot was updated
-        let mainPlotUpdated = false;
-
-        plots.forEach(newPlot => {
-            // Find the existing plot configuration
-            const existingPlotIndex = this.options.plots.findIndex(p => p.id === newPlot.id);
-            if (existingPlotIndex === -1) {
-                console.warn(`StockChart: Plot with ID '${newPlot.id}' not found, it will be added as a new plot`);
-                this.options.plots.push(newPlot);
-            } else {
-                // Update the existing plot with new data and settings
-                this.options.plots[existingPlotIndex] = {
-                    ...this.options.plots[existingPlotIndex],
-                    ...newPlot
-                };
-
-                // Reset plot scale
-                this.plotScales.delete(newPlot.id);
-
-                // Check if main plot was updated
-                if (newPlot.id === 'main') {
-                    mainPlotUpdated = true;
-                    this.dataViewport = new DataViewport(newPlot.data, this.options.initialVisibleCandles, 5);
-                    // Clear all drawings when main plot data is updated
-                    if (this.drawingPanel) {
-                        this.drawingPanel.clearDrawings();
-                    }
-                }
-            }
-        });
-
-        // If main plot wasn't included but exists in options, keep using its data for viewport
-        if (!mainPlotUpdated) {
-            const mainPlot = this.options.plots.find(p => p.id === 'main');
-            if (mainPlot) {
-                this.dataViewport = new DataViewport(mainPlot.data, this.options.initialVisibleCandles, 5);
-            }
+        const mainPlot = plots.find(p => p.id === 'main');
+        if (mainPlot) {
+            // update view port allData
+            this.dataViewport = new DataViewport(mainPlot.data, this.options.initialVisibleCandles, 5);
+            this.drawingPanel.clearDrawings();
         }
+
+        this.options.plots.length = 0;
+        this.options.plots = plots;
 
         // Recalculate Y-axis width and update layout
         const yAxisWidth = this.calculateYAxisWidth();
@@ -1988,7 +1964,7 @@ class StockChart {
         this.plotLayoutManager.updatePlotConfigurations(this.options.plots);
 
         // Render the updated chart
-        this.render();
+        // this.render();
     }
 
     /**

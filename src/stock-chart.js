@@ -191,14 +191,23 @@ class StockChart {
             return;
         }
 
+        // Check if we're on a mobile device
+        const isMobile = window.innerWidth <= 768;
+
         const toolbar = document.createElement('div');
-        toolbar.style.width = '40px';
+        toolbar.style.width = isMobile ? '100%' : '40px';
+        toolbar.style.height = isMobile ? '40px' : 'auto';
+        toolbar.style.position = isMobile ? 'absolute' : 'relative';
+        toolbar.style.bottom = isMobile ? '0' : 'auto';
         toolbar.style.backgroundColor = this.currentTheme?.background || '#ffffff';
-        toolbar.style.borderRight = '1px solid ' + (this.currentTheme?.gridColor || '#e0e0e0');
+        toolbar.style.borderRight = isMobile ? 'none' : '1px solid ' + (this.currentTheme?.gridColor || '#e0e0e0');
+        toolbar.style.borderTop = isMobile ? '1px solid ' + (this.currentTheme?.gridColor || '#e0e0e0') : 'none';
         toolbar.style.display = 'flex';
-        toolbar.style.flexDirection = 'column';
+        toolbar.style.flexDirection = isMobile ? 'row' : 'column';
         toolbar.style.padding = '5px';
         toolbar.style.gap = '5px';
+        toolbar.style.justifyContent = isMobile ? 'space-around' : 'flex-start';
+        toolbar.style.zIndex = '1000';
 
         const tools = [
             { name: 'cursor', icon: `<svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M13.64,21.97C13.14,22.21 12.54,22 12.31,21.5L10.13,16.76L7.62,18.78C7.45,18.92 7.24,19 7,19A1,1 0 0,1 6,18V3A1,1 0 0,1 7,2C7.24,2 7.47,2.09 7.64,2.23L7.65,2.22L19.14,11.86C19.57,12.22 19.62,12.85 19.27,13.27C19.12,13.45 18.91,13.57 18.7,13.61L15.54,14.23L17.74,18.96C18,19.46 17.76,20.05 17.26,20.28L13.64,21.97Z"/></svg>`, tooltip: 'Select Tool' },
@@ -215,8 +224,11 @@ class StockChart {
             const button = document.createElement('button');
             button.innerHTML = tool.icon;
             button.title = tool.tooltip;
-            button.style.width = '30px';
-            button.style.height = '30px';
+            const isMobile = window.innerWidth <= 768;
+            const buttonSize = isMobile ? '36px' : '30px';
+            
+            button.style.width = buttonSize;
+            button.style.height = buttonSize;
             button.style.border = 'none';
             button.style.borderRadius = '4px';
             button.style.backgroundColor = 'transparent';
@@ -224,8 +236,11 @@ class StockChart {
             button.style.display = 'flex';
             button.style.alignItems = 'center';
             button.style.justifyContent = 'center';
-            button.style.padding = '6px';
+            button.style.padding = isMobile ? '8px' : '6px';
             button.style.color = this.currentTheme?.textColor || '#000000';
+            button.style.touchAction = 'manipulation'; // Improve touch response
+            button.style.setProperty('-webkit-tap-highlight-color', 'transparent'); // Remove tap highlight on mobile
+            button.style.userSelect = 'none'; // Prevent text selection
 
             // Hover effect
             button.addEventListener('mouseover', () => {
@@ -1977,11 +1992,18 @@ class StockChart {
     }
 
     ensureContainerSize(container) {
+        // For mobile devices, use the full viewport height/width
+        const isMobile = window.innerWidth <= 768;
+        
         if (container.clientHeight < 1) {
-            container.style.height = `${window.innerHeight * 0.9}px`;
+            container.style.height = isMobile ? 
+                `${window.innerHeight}px` : 
+                `${window.innerHeight * 0.9}px`;
         }
         if (container.clientWidth < 1) {
-            container.style.width = `${window.innerWidth * 0.9}px`;
+            container.style.width = isMobile ? 
+                `${window.innerWidth}px` : 
+                `${window.innerWidth * 0.9}px`;
         }
     }
 

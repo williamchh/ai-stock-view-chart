@@ -56,9 +56,15 @@ export class DrawingPanel {
         this.stockChart.canvas.addEventListener('mouseup', this.handleMouseUpBound);
         
         // Add touch event listeners to the canvas
-        this.stockChart.canvas.addEventListener('touchstart', this.handleTouchStartBound);
-        this.stockChart.canvas.addEventListener('touchmove', this.handleTouchMoveBound);
+        this.stockChart.canvas.addEventListener('touchstart', this.handleTouchStartBound, { passive: false });
+        this.stockChart.canvas.addEventListener('touchmove', this.handleTouchMoveBound, { passive: false });
         this.stockChart.canvas.addEventListener('touchend', this.handleTouchEndBound);
+        
+        // Add touch events to control points for better mobile interaction
+        this.touchStartTime = 0;
+        this.touchTimeout = null;
+        this.touchDistance = 0;
+        this.touchMoved = false;
         
         // Drawing styles
         this.defaultStyles = {
@@ -95,15 +101,36 @@ export class DrawingPanel {
         };
     }
 
-    /**
-     * Get whether the chart should be frozen (not draggable/zoomable)
-     * @returns {boolean} True if the chart should be frozen
-     */
-    get isChartFrozen() {
-        return this._isChartFrozen;
-    }
+/**
+ * Get whether the chart should be frozen (not draggable/zoomable)
+ * @returns {boolean} True if the chart should be frozen
+ */
+get isChartFrozen() {
+    return this._isChartFrozen;
+}
 
-    /**
+/**
+ * Check if we're on a mobile device
+ * @returns {boolean} True if on mobile device
+ * @private
+ */
+_isMobile() {
+    return window.innerWidth <= 768;
+}
+
+/**
+ * Get touch point coordinates relative to canvas
+ * @param {Touch} touch - The touch event's Touch object
+ * @returns {{x: number, y: number}} The coordinates
+ * @private
+ */
+_getTouchCoordinates(touch) {
+    const rect = this.stockChart.canvas.getBoundingClientRect();
+    return {
+        x: touch.clientX - rect.left,
+        y: touch.clientY - rect.top
+    };
+}    /**
      * Set the active drawing tool
      * @param {string} tool - The tool to activate (null to disable drawing)
      */
@@ -372,34 +399,66 @@ export class DrawingPanel {
      * @param {TouchEvent} event - The touch event
      */
     handleTouchStart(event) {
-        event.preventDefault(); // Prevent scrolling and chart zooming/moving
-        event.stopPropagation(); // Stop event from bubbling up to chart's touch handlers
-        if (event.touches.length !== 1) return; // Only handle single touch
+        event.preventDefault();
+        event.stopPropagation();
 
-        const touch = event.touches[0];
-        const rect = this.stockChart.canvas.getBoundingClientRect();
-        const x = touch.clientX - rect.left;
-        const y = touch.clientY - rect.top;
+        // Reset touch tracking variables
+        this.touchStartTime = Date.now();
+        this.touchMoved = false;
+        this.touchDistance = 0;
 
-        if (this.activeTool) {
-            this.startDrawing(this.activeTool, x, y);
-        } else {
-            // Try to select a point for editing
-            if (this.trySelectPoint(x, y)) {
-                this.isEditing = true;
-                this._isChartFrozen = true;
-                return;
+        if (event.touches.length === 1) {
+            const touch = event.touches[0];
+            const { x, y } = this._getTouchCoordinates(touch);
+            
+            if (this.activeTool) {
+                this.startDrawing(this.activeTool, x, y);
+            } else {
+                // Clear any existing touch timeout
+                if (this.touchTimeout) {
+                    clearTimeout(this.touchTimeout);
+                    this.touchTimeout = null;
+                }
+
+                // Try to select a point for editing with a larger hit area on mobile
+                const hitArea = this._isMobile() ? 20 : 10; // Larger hit area for mobile
+                if (this.trySelectPoint(x, y, hitArea)) {
+                    this.isEditing = true;
+                    this._isChartFrozen = true;
+                    
+                    // Add haptic feedback if available
+                    if (window.navigator && window.navigator.vibrate) {
+                        window.navigator.vibrate(50); // Short vibration
+                    }
+                    return;
+                }
+
+                // Check if we touched near the current selected drawing
+                const touchedOnDrawing = this.selectedDrawing && this.isNearDrawing(x, y, this.selectedDrawing);
+                
+                // If we touched away from any drawing, set up a timeout to clear selection
+                // This allows for a small delay to distinguish between tap and drag
+                if (!touchedOnDrawing) {
+                    this.touchTimeout = setTimeout(() => {
+                        if (!this.touchMoved) {
+                            this.isEditing = false;
+                            this.selectedDrawing = null;
+                            this.selectedPoint = null;
+                            this._isChartFrozen = false;
+                            this.stockChart.render();
+                        }
+                    }, 300); // 300ms delay
+                }
             }
 
-            // Check if we touched near the current selected drawing
-            const touchedOnDrawing = this.selectedDrawing && this.isNearDrawing(x, y, this.selectedDrawing);
-            
-            // If we touched away from any drawing, unfreeze the chart and clear selection
-            if (!touchedOnDrawing) {
-                this.isEditing = false;
-                this.selectedDrawing = null;
-                this.selectedPoint = null;
-                this._isChartFrozen = false;
+            // Store initial touch position for detecting movement
+            this.lastTouchX = x;
+            this.lastTouchY = y;
+        } else if (event.touches.length === 2) {
+            // Handle multi-touch gestures (e.g., pinch to zoom) if needed
+            // For now, we'll just prevent any ongoing editing
+            if (this.isEditing) {
+                this.completeDrawing();
             }
         }
     }
@@ -409,17 +468,48 @@ export class DrawingPanel {
      * @param {TouchEvent} event - The touch event
      */
     handleTouchMove(event) {
-        event.preventDefault(); // Prevent scrolling and chart zooming/moving
-        event.stopPropagation(); // Stop event from bubbling up to chart's touch handlers
-        if (event.touches.length !== 1) return; // Only handle single touch
+        event.preventDefault();
+        event.stopPropagation();
 
-        const touch = event.touches[0];
-        
-        // Update the drawing immediately to maintain progress visibility
-        if (this.isDrawing && this.currentDrawing) {
-            this.continueDrawing({ clientX: touch.clientX, clientY: touch.clientY });
-        } else if (this.isEditing && this.selectedDrawing) {
-            this.continueDrawing({ clientX: touch.clientX, clientY: touch.clientY });
+        if (event.touches.length === 1) {
+            const touch = event.touches[0];
+            const { x, y } = this._getTouchCoordinates(touch);
+            
+            // Calculate the distance moved
+            const deltaX = x - this.lastTouchX;
+            const deltaY = y - this.lastTouchY;
+            this.touchDistance += Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+            
+            // If we've moved more than a threshold, mark as moved
+            if (this.touchDistance > 10) {
+                this.touchMoved = true;
+                // Clear any pending touch timeout
+                if (this.touchTimeout) {
+                    clearTimeout(this.touchTimeout);
+                    this.touchTimeout = null;
+                }
+            }
+            
+            // Update the drawing with smooth motion
+            if (this.isDrawing && this.currentDrawing) {
+                requestAnimationFrame(() => {
+                    this.continueDrawing({ clientX: touch.clientX, clientY: touch.clientY });
+                });
+            } else if (this.isEditing && this.selectedDrawing) {
+                requestAnimationFrame(() => {
+                    this.continueDrawing({ clientX: touch.clientX, clientY: touch.clientY });
+                });
+            }
+            
+            // Store the current touch position
+            this.lastTouchX = x;
+            this.lastTouchY = y;
+        } else if (event.touches.length === 2) {
+            // Handle pinch-to-zoom if needed
+            // For now, we just prevent any drawing operations
+            if (this.isDrawing || this.isEditing) {
+                this.touchMoved = true;
+            }
         }
     }
 
@@ -429,8 +519,38 @@ export class DrawingPanel {
      */
     handleTouchEnd(event) {
         event.preventDefault();
-        event.stopPropagation(); // Stop event from bubbling up to chart's touch handlers
-        this.completeDrawing();
+        event.stopPropagation();
+
+        const touchDuration = Date.now() - this.touchStartTime;
+        
+        // Clear any pending timeouts
+        if (this.touchTimeout) {
+            clearTimeout(this.touchTimeout);
+            this.touchTimeout = null;
+        }
+        
+        // Handle tap vs drag differently
+        if (!this.touchMoved && touchDuration < 300) { // Short tap
+            if (this.isEditing) {
+                // Quick tap while editing completes the edit
+                this.completeDrawing();
+                
+                // Add haptic feedback if available
+                if (window.navigator && window.navigator.vibrate) {
+                    window.navigator.vibrate(50);
+                }
+            }
+        } else {
+            // Normal drawing/editing completion
+            if (this.isDrawing || this.isEditing) {
+                this.completeDrawing();
+            }
+        }
+        
+        // Reset touch state
+        this.touchStartTime = 0;
+        this.touchMoved = false;
+        this.touchDistance = 0;
     }
 
 
@@ -512,13 +632,35 @@ export class DrawingPanel {
                     const barWidth = mainPlot.width / this.stockChart.dataViewport.visibleCount;
                     screenPoint.x += barWidth / 2; // Adjust for Fibonacci zone center
                 }
+                // Use larger control points on mobile
+                const isMobile = this._isMobile();
+                const pointSize = isMobile ? 8 : 4;
+                const lineWidth = isMobile ? 2 : 1;
+                
+                // Draw larger hit area first
+                if (isMobile) {
+                    ctx.beginPath();
+                    ctx.arc(screenPoint.x, screenPoint.y, pointSize + 6, 0, Math.PI * 2);
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+                    ctx.fill();
+                }
+                
+                // Draw the main control point
                 ctx.beginPath();
-                ctx.arc(screenPoint.x, screenPoint.y, 4, 0, Math.PI * 2);
+                ctx.arc(screenPoint.x, screenPoint.y, pointSize, 0, Math.PI * 2);
                 ctx.fillStyle = index === this.selectedPoint ? '#ff0000' : '#ffffff';
                 ctx.strokeStyle = '#000000';
-                ctx.lineWidth = 1;
+                ctx.lineWidth = lineWidth;
                 ctx.fill();
                 ctx.stroke();
+                
+                // Add inner dot for better visibility
+                if (isMobile) {
+                    ctx.beginPath();
+                    ctx.arc(screenPoint.x, screenPoint.y, 2, 0, Math.PI * 2);
+                    ctx.fillStyle = '#000000';
+                    ctx.fill();
+                }
             }
         });
     }
@@ -799,7 +941,7 @@ export class DrawingPanel {
      * @param {DrawingItem} drawing - The drawing to check
      * @returns {Object|null} The point index if found, null otherwise
      */
-    isNearDrawingPoint(x, y, drawing) {
+    isNearDrawingPoint(x, y, drawing, threshold = 10) {
         const mainPlot = this.stockChart.plotLayoutManager.getPlotLayout('main');
         if (!mainPlot) return null;
 
@@ -812,9 +954,6 @@ export class DrawingPanel {
             this.stockChart.dataViewport
         );
         if (!priceRange) return null;
-
-        // Convert each drawing point to screen coordinates and check distance
-        const threshold = 10; // pixels
         for (let i = 0; i < drawing.points.length; i++) {
             const point = drawing.points[i];
             const screenPoint = new DrawingItem().getPixelCoordinates(
@@ -855,9 +994,9 @@ export class DrawingPanel {
      * @param {number} y - Screen y coordinate
      * @returns {boolean} True if a point was selected
      */
-    trySelectPoint(x, y) {
+    trySelectPoint(x, y, hitArea = 10) {
         for (const drawing of this.drawings) {
-            const result = this.isNearDrawingPoint(x, y, drawing);
+            const result = this.isNearDrawingPoint(x, y, drawing, hitArea);
             if (result) {
                 this.selectedDrawing = result.drawing;
                 this.selectedPoint = result.pointIndex;

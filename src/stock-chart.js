@@ -56,11 +56,11 @@ class StockChart {
     constructor(container, options) {
         // Ensure container has a valid size
         this.ensureContainerSize(container);
-        
+
+        // Bind instance methods
+        this.updateStockData = this.updateStockData.bind(this);
         this.container = container;
-        this.options = StockChart.ensureValidOptions(options);
-        
-        // Create wrapper div for toolbar and canvas
+        this.options = StockChart.ensureValidOptions(options);        // Create wrapper div for toolbar and canvas
         this.wrapper = document.createElement('div');
         this.wrapper.style.position = 'relative';
         this.wrapper.style.display = 'flex';
@@ -115,7 +115,6 @@ class StockChart {
         this.plotScales = new Map(); // Store scales for each plot
         // Initialize drawing panel
         this.drawingPanel = new DrawingPanel(this);
-        this.updateStockData = this.updateStockData.bind(this);
         this.activeDrawingTool = null;
         this.eligibleMainPlotKeys = ['open', 'high', 'low', 'close'];
 
@@ -2168,6 +2167,7 @@ class StockChart {
     /**
      * Updates the stock data for all plots at once
      * @param {Array<import('./stock-chart.d.ts').PlotConfig>} plots - Array of plot configurations to update
+     * @public
      */
     updateStockData(plots) {
         if (!Array.isArray(plots)) {

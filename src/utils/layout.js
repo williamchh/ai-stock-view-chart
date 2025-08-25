@@ -131,4 +131,13 @@ export class PlotLayoutManager {
     getPlotTotalHeight() {
         return this.plotTotalHeight;
     }
+
+    /**
+     * Updates the plot configurations and recalculates the layout
+     * @param {Array<import("../stock-chart.js").PlotConfig>} newPlotConfigs - The new plot configurations
+     */
+    updatePlotConfigurations(newPlotConfigs) {
+        this.plotConfigs = newPlotConfigs;
+        this.calculateLayout();
+    }
 }

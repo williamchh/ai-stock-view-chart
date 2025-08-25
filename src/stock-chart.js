@@ -59,7 +59,7 @@ class StockChart {
 
         this.container = container;
         this.options = StockChart.ensureValidOptions(options);
-        
+        this.updateStockData = this.updateStockData.bind(this);
         // Create wrapper div for toolbar and canvas
         this.wrapper = document.createElement('div');
         this.wrapper.style.position = 'relative';

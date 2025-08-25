@@ -56,7 +56,7 @@ class StockChart {
     constructor(container, options) {
         // Ensure container has a valid size
         this.ensureContainerSize(container);
-
+        
         this.container = container;
         this.options = StockChart.ensureValidOptions(options);
         
@@ -115,6 +115,7 @@ class StockChart {
         this.plotScales = new Map(); // Store scales for each plot
         // Initialize drawing panel
         this.drawingPanel = new DrawingPanel(this);
+        this.updateStockData = this.updateStockData.bind(this);
         this.activeDrawingTool = null;
         this.eligibleMainPlotKeys = ['open', 'high', 'low', 'close'];
 
@@ -2192,8 +2193,10 @@ class StockChart {
         this.plotLayoutManager.updatePlotConfigurations(this.options.plots);
 
         // Render the updated chart
-        // this.render();
+        this.render();
     }
+
+
 
     /**
      * Updates the chart name information

@@ -11,6 +11,39 @@ const indicators = [
   'sma'
 ];
 
+const models = {
+  'asv-model': 'src/models/mappers/asv-mapper.js'
+};
+
+const themes = [
+  'dark',
+  'light'
+];
+
+const utils = [
+  'data',
+  'drawing-item',
+  'drawing-panel',
+  'drawing',
+  'helpers',
+  'layout'
+];
+
+const terserOptions = {
+  compress: {
+    drop_console: true,
+    passes: 2
+  },
+  mangle: {
+    properties: {
+      regex: /^_/  // Only mangle properties that start with underscore
+    }
+  },
+  format: {
+    comments: false
+  }
+};
+
 const isBuildingUmd = process.env.BUILD === 'umd';
 
 const configs = [
@@ -42,24 +75,14 @@ const configs = [
     ],
     plugins: [
       nodeResolve(),
-      terser({
-        compress: {
-          drop_console: true,
-          passes: 2
-        },
-        mangle: {
-          properties: {
-            regex: /^_/  // Only mangle properties that start with underscore
-          }
-        },
-        format: {
-          comments: false
-        }
-      }),
+      terser(terserOptions),
       copy({
         targets: [
           { src: 'src/stock-chart.d.ts', dest: 'dist' },
-          { src: 'src/indicators/*.d.ts', dest: 'dist/indicators' }
+          { src: 'src/indicators/*.d.ts', dest: 'dist/indicators' },
+          { src: 'src/models/**/*.d.ts', dest: 'dist/models' },
+          { src: 'src/utils/*.d.ts', dest: 'dist/utils' },
+          { src: 'src/themes/*.js', dest: 'dist/themes' }
         ]
       })
     ]
@@ -88,26 +111,93 @@ indicators.forEach(indicator => {
     ],
     plugins: [
       nodeResolve(),
-      terser({
-        compress: {
-          drop_console: true,
-          passes: 2
-        },
-        mangle: {
-          properties: {
-            regex: /^_/  // Only mangle properties that start with underscore
-          }
-        },
-        format: {
-          comments: false
-        }
-      }),
+      terser(terserOptions),
       copy({
         targets: [
           { src: `src/indicators/${indicator}.d.ts`, dest: `dist/indicators` }
         ]
       })
     ]
+  });
+});
+
+// Add configurations for models
+Object.entries(models).forEach(([name, input]) => {
+  configs.push({
+    input,
+    output: isBuildingUmd ? [
+      {
+        file: `dist/models/${name}.umd.min.js`,
+        format: 'umd',
+        name: name.split('-').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join(''),
+        sourcemap: true,
+        compact: true
+      }
+    ] : [
+      {
+        file: `dist/models/${name}.min.js`,
+        format: 'es',
+        sourcemap: true,
+        compact: true
+      }
+    ],
+    plugins: [
+      nodeResolve(),
+      terser(terserOptions),
+      copy({
+        targets: [
+          { src: `src/models/${name}.d.ts`, dest: 'dist/models' }
+        ]
+      })
+    ]
+  });
+});
+
+// Add configurations for utils
+utils.forEach(util => {
+  configs.push({
+    input: `src/utils/${util}.js`,
+    output: isBuildingUmd ? [
+      {
+        file: `dist/utils/${util}.umd.min.js`,
+        format: 'umd',
+        name: util.split('-').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join(''),
+        sourcemap: true,
+        compact: true
+      }
+    ] : [
+      {
+        file: `dist/utils/${util}.min.js`,
+        format: 'es',
+        sourcemap: true,
+        compact: true
+      }
+    ],
+    plugins: [nodeResolve(), terser(terser)]
+  });
+});
+
+// Add configurations for themes
+themes.forEach(theme => {
+  configs.push({
+    input: `src/themes/${theme}.js`,
+    output: isBuildingUmd ? [
+      {
+        file: `dist/themes/${theme}.umd.min.js`,
+        format: 'umd',
+        name: theme.charAt(0).toUpperCase() + theme.slice(1) + 'Theme',
+        sourcemap: true,
+        compact: true
+      }
+    ] : [
+      {
+        file: `dist/themes/${theme}.min.js`,
+        format: 'es',
+        sourcemap: true,
+        compact: true
+      }
+    ],
+    plugins: [nodeResolve(), terser(terser)]
   });
 });
 

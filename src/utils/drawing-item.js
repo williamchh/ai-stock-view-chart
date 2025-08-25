@@ -46,6 +46,13 @@ class DrawingItem {
         const allData = viewport.allData;
         const visibleData = viewport.getVisibleData();
         
+        // If the time is not within the visible range, return null
+        const visibleStart = visibleData[0]?.time;
+        const visibleEnd = visibleData[visibleData.length - 1]?.time;
+        if (!visibleStart || !visibleEnd || time < visibleStart || time > visibleEnd) {
+            return null;
+        }
+
         // Find the index of the nearest time in the data
         const timeIndex = allData.findIndex(d => d.time >= time);
         const nearestTimeIndex = timeIndex === -1 ? allData.length - 1 : 
@@ -66,7 +73,12 @@ class DrawingItem {
                     visibleTimeIndex : visibleTimeIndex - 1));
                     
         // Calculate x coordinate based on the index in visible data
-        const x = plotLayout.x + (nearestVisibleIndex * barWidth);
+        const x = plotLayout.x + (nearestVisibleIndex * barWidth) + barWidth / 2;
+
+        // Check if price is within visible range
+        if (price < minPrice || price > maxPrice) {
+            return null;
+        }
 
         // Calculate y coordinate
         const y = plotLayout.y + ((maxPrice - price) / (maxPrice - minPrice)) * plotLayout.height;
@@ -108,24 +120,24 @@ class DrawingItem {
     }
 }
 
-/**
- * Line drawing item
- */
+
 /**
  * Line drawing item
  */
 class LineDrawing extends DrawingItem {
     /**
+     * @param {number} barWidth - The width of each bar/candle in pixels
      * @param {string} type - The type of line ('line', 'horizontal-line', or 'vertical-line')
      */
-    constructor(type = 'line') {
+    constructor(barWidth, type = 'line') {
         super(type);
+        this.barWidth = barWidth;
         this.constraint = type === 'horizontal-line' ? 'horizontal' :
                          type === 'vertical-line' ? 'vertical' :
                          'line';
     }
 
-    draw(ctx, plotLayout, viewport, minPrice, maxPrice) {
+    draw(ctx, plotLayout, viewport, minPrice, maxPrice) {debugger
         if (this.points.length < 2) return;
 
         const start = this.getPixelCoordinates(
@@ -156,7 +168,6 @@ class LineDrawing extends DrawingItem {
         );
 
         if (!start || !end) return;
-
         ctx.beginPath();
         ctx.strokeStyle = this.style.strokeStyle;
         ctx.lineWidth = this.style.lineWidth;
@@ -304,11 +315,12 @@ class FibonacciZoonDrawing extends DrawingItem {
         this.halfBarWidth = barWidth / 2;
     }
 
-    // Generate Fibonacci sequence: [1, 2, 3, 5, 8, 13, 21, 34]
+    // Generate Fibonacci sequence: [0, 1, 2, 3, 5, 8, 13, 21, 34]
     fibSequence(count = 8) {
-        if (count <= 0) return [];
+        if (count < 0) return [];
+        if (count === 0) return [0];
         if (count === 1) return [1];
-        const seq = [1, 2, 3];
+        const seq = [0, 1, 1];
         while (seq.length < count) {
             const len = seq.length;
             seq.push(seq[len - 1] + seq[len - 2]);
@@ -355,7 +367,7 @@ class FibonacciZoonDrawing extends DrawingItem {
         const baseUnit = timeDiff < barDuration * 2 ? barDuration : timeDiff;
 
         // Get Fibonacci sequence and calculate time zones
-        const fibNumbers = this.fibSequence(8); // Get first 8 Fibonacci numbers
+        const fibNumbers = this.fibSequence(10); // Get first 10 Fibonacci numbers
         const timeZones = fibNumbers.map(step => startTime + direction * step * baseUnit);
 
         const color = this.theme === 'dark' ? '#FFFFFF' : '#000000';
@@ -369,27 +381,6 @@ class FibonacciZoonDrawing extends DrawingItem {
         ctx.setLineDash([5, 5]);
         ctx.textAlign = 'center';
         ctx.font = '12px Arial';
-
-        // Draw selected range indicator
-        if (timeDiff >= barDuration) {
-            ctx.beginPath();
-            ctx.moveTo(start.x + this.halfBarWidth, plotLayout.y);
-            ctx.lineTo(start.x + this.halfBarWidth, plotLayout.y + plotLayout.height);
-            ctx.moveTo(end.x + this.halfBarWidth, plotLayout.y);
-            ctx.lineTo(end.x + this.halfBarWidth, plotLayout.y + plotLayout.height);
-            ctx.strokeStyle = this.style.strokeStyle;
-            ctx.stroke();
-        }
-        else {
-            ctx.beginPath();
-            ctx.moveTo(start.x + this.halfBarWidth, plotLayout.y);
-            ctx.lineTo(start.x + this.halfBarWidth, plotLayout.y + plotLayout.height);
-            ctx.moveTo(end.x + this.halfBarWidth, plotLayout.y);
-            ctx.lineTo(end.x + this.halfBarWidth, plotLayout.y + plotLayout.height);
-            ctx.strokeStyle = this.style.strokeStyle;
-            ctx.stroke();
-            return;
-        }
 
         // Draw each time zone line
         timeZones.forEach((time, index) => {
@@ -410,13 +401,13 @@ class FibonacciZoonDrawing extends DrawingItem {
 
             // Draw vertical line
             ctx.beginPath();
-            ctx.moveTo(coord.x + this.halfBarWidth, plotLayout.y);
-            ctx.lineTo(coord.x + this.halfBarWidth, plotLayout.y + plotLayout.height);
+            ctx.moveTo(coord.x, plotLayout.y);
+            ctx.lineTo(coord.x, plotLayout.y + plotLayout.height);
             ctx.stroke();
 
             // Draw Fibonacci number label at the top
             const label = fibNumbers[index].toString();
-            ctx.fillText(label, coord.x + this.halfBarWidth, plotLayout.height - 15);
+            ctx.fillText(label, coord.x, plotLayout.height - 15);
 
             const labelWidth = ctx.measureText(label).width + 5; // Add some padding for better visibility
 
@@ -424,7 +415,7 @@ class FibonacciZoonDrawing extends DrawingItem {
             const periods = Math.round(fibNumbers[index] * (timeDiff / barDuration));
             if (periods > 0) {
                 const periodLabel = `(${periods})`;
-                ctx.fillText(periodLabel, coord.x + this.halfBarWidth + labelWidth, plotLayout.height - 15);
+                ctx.fillText(periodLabel, coord.x + labelWidth, plotLayout.height - 15);
             }
         });
 

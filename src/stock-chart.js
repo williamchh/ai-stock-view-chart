@@ -601,6 +601,10 @@ class StockChart {
                         this.drawHistogram(plotVisibleData, barWidth, plotLayout, minPrice, maxPrice, plotConfig);
                         break;
                     case 'signal':
+                        if (!plotVisibleData || plotVisibleData.length === 0) {
+                            // Handle empty or undefined plotVisibleData
+                            return;
+                        }
                         // reference or safe margin
                         if (Array.isArray(plotVisibleData[0].value)) {
                             const _plotVisibleData = this.flattenPlotVisibleData(plotVisibleData);
@@ -829,6 +833,7 @@ class StockChart {
         this.ctx.imageSmoothingEnabled = false;
 
         const data = this.groupByIdAndValue(plotVisibleData);
+
         Object.keys(data).forEach(key => {
             const group = data[key];
             const color = this.currentTheme.textColor;
@@ -1891,8 +1896,36 @@ class StockChart {
             }
 
             // Convert points to pixel coordinates
+            // Find index in current data using binary search for better performance
+            const findTimeIndex = (time, data) => {
+                let left = 0;
+                let right = data.length - 1;
+                
+                while (left <= right) {
+                    const mid = Math.floor((left + right) / 2);
+                    if (data[mid].time === time) {
+                        return mid;
+                    }
+                    if (data[mid].time < time) {
+                        left = mid + 1;
+                    } else {
+                        right = mid - 1;
+                    }
+                }
+                
+                // If exact time not found, find closest matching time
+                if (right >= 0 && left < data.length) {
+                    const leftDiff = Math.abs(data[left]?.time - time);
+                    const rightDiff = Math.abs(data[right]?.time - time);
+                    return leftDiff < rightDiff ? left : right;
+                }
+                
+                return right >= 0 ? right : 0;
+            };
+
+            const firstIndex = findTimeIndex(firstPoint.time, this.dataViewport.allData);
             const x1 = plotLayout.x + getXPixel(
-                this.dataViewport.allData.findIndex(d => d.time === firstPoint.time),
+                firstIndex,
                 this.dataViewport.startIndex,
                 this.dataViewport.visibleCount,
                 plotLayout.width,
@@ -1901,8 +1934,9 @@ class StockChart {
 
             const y1 = getYPixel(firstPoint.value, minPrice, maxPrice, plotLayout.height, plotLayout.y);
 
+            const lastIndex = findTimeIndex(lastPoint.time, this.dataViewport.allData);
             const x2 = plotLayout.x + getXPixel(
-                this.dataViewport.allData.findIndex(d => d.time === lastPoint.time),
+                lastIndex,
                 this.dataViewport.startIndex,
                 this.dataViewport.visibleCount,
                 plotLayout.width,
@@ -2125,44 +2159,15 @@ class StockChart {
             return;
         }
 
-        // Keep track if main plot was updated
-        let mainPlotUpdated = false;
-
-        plots.forEach(newPlot => {
-            // Find the existing plot configuration
-            const existingPlotIndex = this.options.plots.findIndex(p => p.id === newPlot.id);
-            if (existingPlotIndex === -1) {
-                console.warn(`StockChart: Plot with ID '${newPlot.id}' not found, it will be added as a new plot`);
-                this.options.plots.push(newPlot);
-            } else {
-                // Update the existing plot with new data and settings
-                this.options.plots[existingPlotIndex] = {
-                    ...this.options.plots[existingPlotIndex],
-                    ...newPlot
-                };
-
-                // Reset plot scale
-                this.plotScales.delete(newPlot.id);
-
-                // Check if main plot was updated
-                if (newPlot.id === 'main') {
-                    mainPlotUpdated = true;
-                    this.dataViewport = new DataViewport(newPlot.data, this.options.initialVisibleCandles, 5);
-                    // Clear all drawings when main plot data is updated
-                    if (this.drawingPanel) {
-                        this.drawingPanel.clearDrawings();
-                    }
-                }
-            }
-        });
-
-        // If main plot wasn't included but exists in options, keep using its data for viewport
-        if (!mainPlotUpdated) {
-            const mainPlot = this.options.plots.find(p => p.id === 'main');
-            if (mainPlot) {
-                this.dataViewport = new DataViewport(mainPlot.data, this.options.initialVisibleCandles, 5);
-            }
+        const mainPlot = plots.find(p => p.id === 'main');
+        if (mainPlot) {
+            // update view port allData
+            this.dataViewport = new DataViewport(mainPlot.data, this.options.initialVisibleCandles, 5);
+            this.drawingPanel.clearDrawings();
         }
+
+        this.options.plots.length = 0;
+        this.options.plots = plots;
 
         // Recalculate Y-axis width and update layout
         const yAxisWidth = this.calculateYAxisWidth();
@@ -2172,7 +2177,7 @@ class StockChart {
         this.plotLayoutManager.updatePlotConfigurations(this.options.plots);
 
         // Render the updated chart
-        this.render();
+        // this.render();
     }
 
     /**

@@ -86,18 +86,23 @@
       </div>
     </div>
   </div>
+  <!-- Add this button div before the chart-container -->
+  <div style="margin-bottom: 10px;">
+    <button id="regenerate-data" style="padding: 8px 16px; cursor: pointer;">Regenerate Data</button>
+  </div>
   <div id="chart-container"></div> 
 
   <script type="module">
     import StockChart from '../src/stock-chart.js';
     // import { extractSignals } from '../src/utils/helpers.js';
-    import { calculateSMA, calculateMACD, calculateRSI } from '../src/indicators/demo.js';
+    import { calculateSMA, calculateMACD, calculateRSI, generateCandlestickData } from '../src/indicators/demo.js';
     import { mapStockBasesToStockData } from '../src/models/mappers/asv-mapper.js';
-
+    let testOrDemo = true;
     // Function to load and process test data
     async function loadTestData() {
       try {
-        const response = await fetch('../inte/test.json');
+        testOrDemo = !testOrDemo;
+        const response = await fetch(testOrDemo ? '../inte/test.json' : '../inte/demo.json');
         const testDataRaw = await response.json();
         
         // Convert date strings to Date objects
@@ -146,7 +151,7 @@
           value: c.safeMargins,
           keyLabel: c.safeMargins?.[0]?.type
         }));
-        debugger
+        
         // Calculate indicators
         const sma20Data = calculateSMA(candlestickData, 20);
         const sma50Data = calculateSMA(candlestickData, 50);
@@ -216,8 +221,160 @@
       input.addEventListener('input', updateCustomTheme);
     });
 
-        // Initialize the chart with the loaded data
-        chartInstance = StockChart.init('chart-container', {
+    // Add regenerate data functionality
+    document.getElementById('regenerate-data').addEventListener('click', async () => {
+      // Load new test data
+      const newTestData = await loadTestData();
+      
+      if (newTestData && chartInstance) {
+        // Map the new data
+        const newCandlestickData = mapStockBasesToStockData(newTestData.values);
+
+        // Calculate new indicators
+        const newSma20Data = calculateSMA(newCandlestickData, 20);
+        const newSma50Data = calculateSMA(newCandlestickData, 50);
+        const newMacdData = calculateMACD(newCandlestickData, 21, 34, 8);
+        const newRsiData = calculateRSI(newCandlestickData);
+
+        // Transform new MACD data
+        const newMacdLine = newMacdData.map(d => ({ time: d.time, value: d.macd, keyLabel: 'Macd' }));
+        const newSignalLine = newMacdData.map(d => ({ time: d.time, value: d.signal, keyLabel: 'Signal' }));
+        const newHistogramLine = newMacdData.map(d => ({ time: d.time, value: d.histogram, keyLabel: 'Histogram' }));
+
+        // Extract new signals
+        const newSignalArr = newCandlestickData.map(c => ({
+          time: c.time,
+          value: c.signals,
+          keyLabel: c.signals?.[0]?.type
+        }));
+        
+        const fiboZoneLinesNew = candlestickData.map(c => c.fiboZoneLines);
+        const referenceLinesNew = candlestickData.map(c => ({
+          time: c.time,
+          value: c.referenceLines,
+          keyLabel: c.referenceLines?.[0]?.type
+        }));
+        const safeMarginsNew = candlestickData.map(c => ({
+          time: c.time,
+          value: c.safeMargins,
+          keyLabel: c.safeMargins?.[0]?.type
+        }));
+        // Update all plots at once with the new array-based API
+        chartInstance.updateStockData([
+          { 
+            id: 'main', 
+            type: 'candlestick',
+            heightRatio: 0.6, 
+            data: newCandlestickData
+          },
+          { 
+            id: 'sma20', 
+            type: 'line', 
+            data: newSma20Data,
+            overlay: true,
+            targetId: 'main',
+            keyLabel: 'SMA 20',
+            style: {
+              lineColor: 'rgba(255, 140, 0, 0.8)',
+              lineWidth: 1.5
+            }
+          },
+          { 
+            id: 'sma50', 
+            type: 'line', 
+            data: newSma50Data,
+            overlay: true,
+            targetId: 'main',
+            keyLabel: 'SMA 50',
+            style: {
+              lineColor: 'rgba(70, 130, 180, 0.8)',
+              lineWidth: 5
+            }
+          },
+          {
+            id: 'signal',
+            type: 'signal',
+            overlay: true,
+            targetId: 'main',
+            keyLabel: 'Signals',
+            data: newSignalArr
+          },
+          {
+            id: 'referenceLines',
+            type: 'signal',
+            overlay: true,
+            targetId: 'main',
+            keyLabel: 'Reference Lines',
+            data: referenceLinesNew
+          },
+          {
+            id: 'fiboLines',
+            type: 'arrowLine',
+            data: fiboZoneLinesNew,
+            targetId: 'main',
+            overlay: true,
+            keyLabel: 'Fibonacci Lines'
+          },
+          { 
+            id: 'macd',
+            type: 'line',
+            heightRatio: 0.15,
+            data: newMacdLine,
+            keyLabel: 'MACD',
+            style: {
+              lineColor: 'rgba(0, 150, 136, 0.8)',
+              lineWidth: 3
+            }
+          },
+          {
+            id: 'signalMacd',
+            type: 'line',
+            data: newSignalLine,
+            overlay: true,
+            targetId: 'macd',
+            keyLabel: 'Signal',
+            style: {
+              lineColor: 'rgba(233, 30, 99, 0.8)',
+              lineWidth: 1.5
+            }
+          },
+          {
+            id: 'histogram',
+            type: 'histogram',
+            data: newHistogramLine,
+            overlay: true,
+            targetId: 'macd',
+            keyLabel: 'Histogram',
+            style: {
+              positiveColor: 'rgba(0, 150, 136, 0.5)',
+              negativeColor: 'rgba(233, 30, 99, 0.5)'
+            }
+          }
+          // Commented out RSI as it was commented in the original code
+          // {
+          //   id: 'rsi',
+          //   type: 'line',
+          //   heightRatio: 0.15,
+          //   data: newRsiData,
+          //   keyLabel: 'RSI',
+          //   style: {
+          //     lineColor: 'rgba(0, 150, 136, 1)',
+          //     lineWidth: 1.5
+          //   }
+          // }
+        ]);
+
+        // Update chart name
+        chartInstance.updateChartName({
+          name: newTestData.code,
+          code: newTestData.code.toLowerCase(),
+          metaString: 'NASDAQ, 1D'
+        });
+      }
+    });
+
+    // Initialize the chart with the loaded data
+    chartInstance = StockChart.init('chart-container', {
           theme: 'dark',
           chartName: {
             name: testData.code,
@@ -294,7 +451,7 @@
               }
             },
             {
-              id: 'signal',
+              id: 'signalMacd',
               type: 'line',
               data: signalLine,
               overlay: true,

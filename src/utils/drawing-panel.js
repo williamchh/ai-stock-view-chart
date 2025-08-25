@@ -171,7 +171,7 @@ export class DrawingPanel {
         // Create the appropriate drawing item
         switch (type) {
             case 'line':
-                this.currentDrawing = new LineDrawing();
+                this.currentDrawing = new LineDrawing(barWidth);
                 break;
             case 'rectangle':
                 this.currentDrawing = new RectangleDrawing();
@@ -180,14 +180,13 @@ export class DrawingPanel {
                 this.currentDrawing = new FibonacciDrawing(this.stockChart.options.theme);
                 break;
             case 'fibonacci-zoon':
-                const barWidth = mainPlotLayout.width / this.stockChart.dataViewport.visibleCount;
                 this.currentDrawing = new FibonacciZoonDrawing(this.stockChart.options.theme, barWidth);
                 break;
             case 'horizontal-line':
-                this.currentDrawing = new LineDrawing('horizontal-line');
+                this.currentDrawing = new LineDrawing(barWidth, 'horizontal-line');
                 break;
             case 'vertical-line':
-                this.currentDrawing = new LineDrawing('vertical-line');
+                this.currentDrawing = new LineDrawing(barWidth, 'vertical-line');
                 break;
             default:
                 return;

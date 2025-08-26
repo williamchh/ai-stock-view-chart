@@ -21,13 +21,20 @@
 
 <body>
   <h1>AI Stock View Chart Test</h1>
-  <div style="margin-bottom: 10px;">
-    <label for="theme-select">Theme:</label>
-    <select id="theme-select">
-      <option value="dark">Dark</option>
-      <option value="light">Light</option>
-      <option value="custom">Custom</option>
-    </select>
+  <div style="margin-bottom: 10px; display: flex; gap: 20px; align-items: center;">
+    <div>
+      <label for="theme-select">Theme:</label>
+      <select id="theme-select">
+        <option value="dark">Dark</option>
+        <option value="light">Light</option>
+        <option value="custom">Custom</option>
+      </select>
+    </div>
+    <div>
+      <label for="date-picker">Center on Date:</label>
+      <input type="date" id="date-picker" style="padding: 4px;">
+      <button id="center-date-btn" style="margin-left: 8px; padding: 4px 8px;">Center</button>
+    </div>
   </div>
   <div id="custom-theme-controls" style="display: none; margin-bottom: 20px; padding: 15px; border: 1px solid #ccc; border-radius: 5px;">
     <h3 style="margin-top: 0;">Custom Theme Colors</h3>
@@ -219,6 +226,23 @@
     // Add change listeners to all color inputs
     document.querySelectorAll('#custom-theme-controls input[type="color"]').forEach(input => {
       input.addEventListener('input', updateCustomTheme);
+    });
+
+    // Add date picker functionality
+    document.getElementById('center-date-btn').addEventListener('click', () => {
+
+      const dateInput = document.getElementById('date-picker');
+      if (dateInput.value) {
+        // Convert the datetime-local value to Unix timestamp (in seconds)
+        // const timestamp = Math.floor(new Date(dateInput.value).getTime() / 1000);
+        const timestamp = new Date(dateInput.value).getTime();
+        
+        // Center the chart on the selected date with a red vertical line
+        chartInstance.centerOnDate(timestamp, {
+          lineColor: '#ff0000',
+          lineWidth: 1
+        });
+      }
     });
 
     // Add regenerate data functionality

@@ -37,6 +37,12 @@ export class DataViewport {
         return this.allData.slice(this.startIndex, endIndex);
     }
 
+    getVisibleStartEndTime() {
+        const vd = this.getVisibleData();
+        if (!vd || vd.length === 0) return null;
+        return { startTime: vd[0].time, endTime: vd[vd.length - 1].time };
+    }
+
     /**
      * Scrolls the viewport horizontally.
      * @param {number} delta - The number of data points to scroll. Positive scrolls right (newer data), negative scrolls left (older data).

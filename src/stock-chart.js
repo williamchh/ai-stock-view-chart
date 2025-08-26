@@ -397,6 +397,7 @@ class StockChart {
      */
     resize() {
         let { clientWidth, clientHeight } = this.container;
+        const parentElement = this.container.parentElement;
 
         // Fallback to window dimensions if container size is not set
         if (clientWidth === 0) {
@@ -404,6 +405,31 @@ class StockChart {
         }
         if (clientHeight === 0) {
             clientHeight = window.innerHeight;
+        }
+
+        // if parent is not match
+        if (parentElement) {
+            // check if parentElement is body
+            const isBody = parentElement.tagName === 'BODY';
+            if (isBody) {
+                clientWidth = window.innerWidth * 0.9;
+                clientHeight = window.innerHeight * 0.8;
+
+                // Update the actual container dimensions via style
+                this.container.style.width = `${clientWidth}px`;
+                this.container.style.height = `${clientHeight}px`;
+            }
+            else {
+                const { clientWidth: parentWidth, clientHeight: parentHeight } = parentElement;
+                if (parentWidth !== clientWidth || parentHeight !== clientHeight) {
+                    clientWidth = parentWidth;
+                    clientHeight = parentHeight;
+
+                    // Update the actual container dimensions via style
+                    this.container.style.width = `${parentWidth}px`;
+                    this.container.style.height = `${parentHeight}px`;
+                }                
+            }
         }
 
         // Adjust width to account for toolbar if shown
@@ -1991,19 +2017,44 @@ class StockChart {
         this.render();
     }
 
+    /**
+     * Ensures the container has a valid size
+     * @param {HTMLElement} container 
+     * @returns 
+     */
     ensureContainerSize(container) {
-        // For mobile devices, use the full viewport height/width
         const isMobile = window.innerWidth <= 768;
+        const parentContainer = container.parentElement;
         
-        if (container.clientHeight < 1) {
-            container.style.height = isMobile ? 
-                `${window.innerHeight}px` : 
-                `${window.innerHeight * 0.9}px`;
+        const needsHeight = container.clientHeight < 1;
+        const needsWidth = container.clientWidth < 1;
+        
+        // If neither dimension needs fixing, exit early
+        if (!needsHeight && !needsWidth) {
+            return;
         }
-        if (container.clientWidth < 1) {
-            container.style.width = isMobile ? 
-                `${window.innerWidth}px` : 
-                `${window.innerWidth * 0.9}px`;
+        
+        // If parent exists and has both valid dimensions, and container needs at least one dimension
+        if (parentContainer && 
+            parentContainer.clientHeight > 1 && 
+            parentContainer.clientWidth > 1 && 
+            (needsHeight || needsWidth)) {
+            
+            // Set both dimensions to match parent
+            container.style.height = `${parentContainer.clientHeight}px`;
+            container.style.width = `${parentContainer.clientWidth}px`;
+        } else {
+            // Fallback to viewport dimensions for any missing dimensions
+            if (needsHeight) {
+                container.style.height = isMobile ? 
+                    `${window.innerHeight}px` : 
+                    `${window.innerHeight * 0.9}px`;
+            }
+            if (needsWidth) {
+                container.style.width = isMobile ? 
+                    `${window.innerWidth}px` : 
+                    `${window.innerWidth * 0.9}px`;
+            }
         }
     }
 
@@ -2057,6 +2108,105 @@ class StockChart {
      */
     exportDrawings() {
         return this.drawingPanel.exportDrawings();
+    }
+
+    /**
+     * Centers the chart on a specific date and draws a vertical line
+     * @param {number} timestamp - Unix timestamp (in seconds) to center on
+     * @param {Object} [options] - Configuration options
+     * @param {string} [options.lineColor] - Color of the vertical line (defaults to theme textColor)
+     * @param {number} [options.lineWidth] - Width of the vertical line (defaults to 1)
+     * @param {boolean} [options.drawLine] - Whether to draw the vertical line (defaults to true)
+     */
+    centerOnDate(timestamp, options = {}) {
+        // Validate timestamp
+        if (!timestamp || typeof timestamp !== 'number') {
+            console.error('StockChart: centerOnDate requires a valid Unix timestamp (ms)');
+            return;
+        }
+
+        // Normalize to seconds since your data seems to store in seconds
+        const tsInSeconds = Math.floor(timestamp / 1000);
+
+        // Try to find exact match
+        let targetIndex = this.dataViewport.allData.findIndex(d => d.time === tsInSeconds);
+
+        // If no exact match, allow tolerance (within 1s)
+        if (targetIndex === -1) {
+            const tolerance = 1; // seconds
+            targetIndex = this.dataViewport.allData.findIndex(
+                d => Math.abs(d.time - tsInSeconds) <= tolerance
+            );
+        }
+
+        // If still no match, fallback to closest
+        if (targetIndex === -1) {
+            const closest = this.dataViewport.allData.reduce((prev, curr) =>
+                Math.abs(curr.time - tsInSeconds) < Math.abs(prev.time - tsInSeconds) ? curr : prev
+            );
+            console.warn(
+                `StockChart: No exact match for ${new Date(timestamp)}. ` +
+                `Closest is ${new Date(closest.time * 1000)}`
+            );
+            targetIndex = this.dataViewport.allData.indexOf(closest);
+        }
+
+        // Calculate how many candles should be shown on each side of the target
+        const halfVisibleCount = Math.floor(this.dataViewport.visibleCount / 2);
+
+        // Calculate the new start index, ensuring it stays within bounds
+        let newStartIndex = targetIndex - halfVisibleCount;
+        if (newStartIndex < 0) {
+            newStartIndex = 0;
+        } else if (newStartIndex + this.dataViewport.visibleCount >= this.dataViewport.allData.length) {
+            newStartIndex = this.dataViewport.allData.length - this.dataViewport.visibleCount;
+        }
+
+        // Update the viewport to center on this date
+        this.dataViewport.startIndex = newStartIndex;
+
+        // Create a vertical line at the target date
+        if (options.drawLine !== false) {
+            const mainPlot = this.plotLayoutManager.getPlotLayout('main');
+            if (mainPlot) {
+                const barWidth = mainPlot.width / this.dataViewport.visibleCount;
+                const relativeIndex = targetIndex - this.dataViewport.startIndex;
+                const x = mainPlot.x + getXPixel(
+                    targetIndex,
+                    this.dataViewport.startIndex,
+                    this.dataViewport.visibleCount,
+                    mainPlot.width,
+                    barWidth
+                ) + barWidth / 2;
+
+                this.render();
+                // Draw vertical line
+                this.drawVerticalLine({
+                    x,
+                    color: options.lineColor || this.currentTheme.textColor,
+                    width: options.lineWidth || 1
+                });
+            }
+        }
+
+    }
+
+    /**
+     * Draws a vertical line at the specified x-coordinate
+     * @private
+     * @param {Object} params - Line parameters
+     * @param {number} params.x - X coordinate for the line
+     * @param {string} params.color - Line color
+     * @param {number} params.width - Line width
+     */
+    drawVerticalLine({ x, color, width }) {
+        // Draw vertical line through all plots
+        this.ctx.beginPath();
+        this.ctx.strokeStyle = color;
+        this.ctx.lineWidth = width;
+        this.ctx.moveTo(x, 0);
+        this.ctx.lineTo(x, this.plotLayoutManager.getPlotTotalHeight());
+        this.ctx.stroke();
     }
 }
 export default StockChart;

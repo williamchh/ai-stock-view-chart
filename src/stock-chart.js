@@ -209,15 +209,16 @@ class StockChart {
         toolbar.style.justifyContent = isMobile ? 'space-around' : 'flex-start';
         toolbar.style.zIndex = '1000';
 
+        const iconSize = isMobile ? 24 : 18;
         const tools = [
-            { name: 'cursor', icon: `<svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M13.64,21.97C13.14,22.21 12.54,22 12.31,21.5L10.13,16.76L7.62,18.78C7.45,18.92 7.24,19 7,19A1,1 0 0,1 6,18V3A1,1 0 0,1 7,2C7.24,2 7.47,2.09 7.64,2.23L7.65,2.22L19.14,11.86C19.57,12.22 19.62,12.85 19.27,13.27C19.12,13.45 18.91,13.57 18.7,13.61L15.54,14.23L17.74,18.96C18,19.46 17.76,20.05 17.26,20.28L13.64,21.97Z"/></svg>`, tooltip: 'Select Tool' },
-            { name: 'line', icon: `<svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M7 21L17 3h2L9 21H7"/></svg>`, tooltip: 'Line Tool' },
-            { name: 'vertical-line', icon: `<svg viewBox="0 0 24 24" width="18" height="18"> <path fill="currentColor" d="M12 3h2v18h-2V3"/></svg>`, tooltip: 'Vertical Line Tool' },
-            { name: 'horizontal-line', icon: `<svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M3 12h18v2H3v-2"/></svg>`, tooltip: 'Horizontal Line Tool' },
-            { name: 'rectangle', icon: `<svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M2 4H22V20H2V4M4 6V18H20V6H4Z"/></svg>`, tooltip: 'Rectangle Tool' },
-            { name: 'fibonacci', icon: `<svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M3 5h18v2H3V5m0 4h18v2H3V9m0 4h18v2H3v-2m0 4h18v2H3v-2"/></svg>`, tooltip: 'Fibonacci Tool' },
-            { name: 'fibonacci-zoon', icon: `<svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M3 3v18h18v-2H5V3H3m5 0v14h2V3H8m5 0v14h2V3h-2m5 0v14h2V3h-2"/></svg>`, tooltip: 'Fibonacci Zoon Tool' },
-            { name: 'clear', icon: `<svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z"/></svg>`, tooltip: 'Clear All Drawings' }
+            { name: 'cursor', icon: `<svg viewBox="0 0 24 24" width="${iconSize}" height="${iconSize}"><path fill="currentColor" d="M13.64,21.97C13.14,22.21 12.54,22 12.31,21.5L10.13,16.76L7.62,18.78C7.45,18.92 7.24,19 7,19A1,1 0 0,1 6,18V3A1,1 0 0,1 7,2C7.24,2 7.47,2.09 7.64,2.23L7.65,2.22L19.14,11.86C19.57,12.22 19.62,12.85 19.27,13.27C19.12,13.45 18.91,13.57 18.7,13.61L15.54,14.23L17.74,18.96C18,19.46 17.76,20.05 17.26,20.28L13.64,21.97Z"/></svg>`, tooltip: 'Select Tool' },
+            { name: 'line', icon: `<svg viewBox="0 0 24 24" width="${iconSize}" height="${iconSize}"><path fill="currentColor" d="M7 21L17 3h2L9 21H7"/></svg>`, tooltip: 'Line Tool' },
+            { name: 'vertical-line', icon: `<svg viewBox="0 0 24 24" width="${iconSize}" height="${iconSize}"> <path fill="currentColor" d="M12 3h2v18h-2V3"/></svg>`, tooltip: 'Vertical Line Tool' },
+            { name: 'horizontal-line', icon: `<svg viewBox="0 0 24 24" width="${iconSize}" height="${iconSize}"><path fill="currentColor" d="M3 12h18v2H3v-2"/></svg>`, tooltip: 'Horizontal Line Tool' },
+            { name: 'rectangle', icon: `<svg viewBox="0 0 24 24" width="${iconSize}" height="${iconSize}"><path fill="currentColor" d="M2 4H22V20H2V4M4 6V18H20V6H4Z"/></svg>`, tooltip: 'Rectangle Tool' },
+            { name: 'fibonacci', icon: `<svg viewBox="0 0 24 24" width="${iconSize}" height="${iconSize}"><path fill="currentColor" d="M3 5h18v2H3V5m0 4h18v2H3V9m0 4h18v2H3v-2m0 4h18v2H3v-2"/></svg>`, tooltip: 'Fibonacci Tool' },
+            { name: 'fibonacci-zoon', icon: `<svg viewBox="0 0 24 24" width="${iconSize}" height="${iconSize}"><path fill="currentColor" d="M3 3v18h18v-2H5V3H3m5 0v14h2V3H8m5 0v14h2V3h-2m5 0v14h2V3h-2"/></svg>`, tooltip: 'Fibonacci Zoon Tool' },
+            { name: 'clear', icon: `<svg viewBox="0 0 24 24" width="${iconSize}" height="${iconSize}"><path fill="currentColor" d="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z"/></svg>`, tooltip: 'Clear All Drawings' }
         ];
 
         tools.forEach(tool => {
@@ -397,6 +398,7 @@ class StockChart {
      */
     resize() {
         let { clientWidth, clientHeight } = this.container;
+        const parentElement = this.container.parentElement;
 
         // Fallback to window dimensions if container size is not set
         if (clientWidth === 0) {
@@ -404,6 +406,31 @@ class StockChart {
         }
         if (clientHeight === 0) {
             clientHeight = window.innerHeight;
+        }
+
+        // if parent is not match
+        if (parentElement) {
+            // check if parentElement is body
+            const isBody = parentElement.tagName === 'BODY';
+            if (isBody) {
+                clientWidth = window.innerWidth * 0.9;
+                clientHeight = window.innerHeight * 0.8;
+
+                // Update the actual container dimensions via style
+                this.container.style.width = `${clientWidth}px`;
+                this.container.style.height = `${clientHeight}px`;
+            }
+            else {
+                const { clientWidth: parentWidth, clientHeight: parentHeight } = parentElement;
+                if (parentWidth !== clientWidth || parentHeight !== clientHeight) {
+                    clientWidth = parentWidth;
+                    clientHeight = parentHeight;
+
+                    // Update the actual container dimensions via style
+                    this.container.style.width = `${parentWidth}px`;
+                    this.container.style.height = `${parentHeight}px`;
+                }                
+            }
         }
 
         // Adjust width to account for toolbar if shown
@@ -1991,19 +2018,44 @@ class StockChart {
         this.render();
     }
 
+    /**
+     * Ensures the container has a valid size
+     * @param {HTMLElement} container 
+     * @returns 
+     */
     ensureContainerSize(container) {
-        // For mobile devices, use the full viewport height/width
         const isMobile = window.innerWidth <= 768;
+        const parentContainer = container.parentElement;
         
-        if (container.clientHeight < 1) {
-            container.style.height = isMobile ? 
-                `${window.innerHeight}px` : 
-                `${window.innerHeight * 0.9}px`;
+        const needsHeight = container.clientHeight < 1;
+        const needsWidth = container.clientWidth < 1;
+        
+        // If neither dimension needs fixing, exit early
+        if (!needsHeight && !needsWidth) {
+            return;
         }
-        if (container.clientWidth < 1) {
-            container.style.width = isMobile ? 
-                `${window.innerWidth}px` : 
-                `${window.innerWidth * 0.9}px`;
+        
+        // If parent exists and has both valid dimensions, and container needs at least one dimension
+        if (parentContainer && 
+            parentContainer.clientHeight > 1 && 
+            parentContainer.clientWidth > 1 && 
+            (needsHeight || needsWidth)) {
+            
+            // Set both dimensions to match parent
+            container.style.height = `${parentContainer.clientHeight}px`;
+            container.style.width = `${parentContainer.clientWidth}px`;
+        } else {
+            // Fallback to viewport dimensions for any missing dimensions
+            if (needsHeight) {
+                container.style.height = isMobile ? 
+                    `${window.innerHeight}px` : 
+                    `${window.innerHeight * 0.9}px`;
+            }
+            if (needsWidth) {
+                container.style.width = isMobile ? 
+                    `${window.innerWidth}px` : 
+                    `${window.innerWidth * 0.9}px`;
+            }
         }
     }
 
@@ -2057,6 +2109,105 @@ class StockChart {
      */
     exportDrawings() {
         return this.drawingPanel.exportDrawings();
+    }
+
+    /**
+     * Centers the chart on a specific date and draws a vertical line
+     * @param {number} timestamp - Unix timestamp (in seconds) to center on
+     * @param {Object} [options] - Configuration options
+     * @param {string} [options.lineColor] - Color of the vertical line (defaults to theme textColor)
+     * @param {number} [options.lineWidth] - Width of the vertical line (defaults to 1)
+     * @param {boolean} [options.drawLine] - Whether to draw the vertical line (defaults to true)
+     */
+    centerOnDate(timestamp, options = {}) {
+        // Validate timestamp
+        if (!timestamp || typeof timestamp !== 'number') {
+            console.error('StockChart: centerOnDate requires a valid Unix timestamp (ms)');
+            return;
+        }
+
+        // Normalize to seconds since your data seems to store in seconds
+        const tsInSeconds = Math.floor(timestamp / 1000);
+
+        // Try to find exact match
+        let targetIndex = this.dataViewport.allData.findIndex(d => d.time === tsInSeconds);
+
+        // If no exact match, allow tolerance (within 1s)
+        if (targetIndex === -1) {
+            const tolerance = 1; // seconds
+            targetIndex = this.dataViewport.allData.findIndex(
+                d => Math.abs(d.time - tsInSeconds) <= tolerance
+            );
+        }
+
+        // If still no match, fallback to closest
+        if (targetIndex === -1) {
+            const closest = this.dataViewport.allData.reduce((prev, curr) =>
+                Math.abs(curr.time - tsInSeconds) < Math.abs(prev.time - tsInSeconds) ? curr : prev
+            );
+            console.warn(
+                `StockChart: No exact match for ${new Date(timestamp)}. ` +
+                `Closest is ${new Date(closest.time * 1000)}`
+            );
+            targetIndex = this.dataViewport.allData.indexOf(closest);
+        }
+
+        // Calculate how many candles should be shown on each side of the target
+        const halfVisibleCount = Math.floor(this.dataViewport.visibleCount / 2);
+
+        // Calculate the new start index, ensuring it stays within bounds
+        let newStartIndex = targetIndex - halfVisibleCount;
+        if (newStartIndex < 0) {
+            newStartIndex = 0;
+        } else if (newStartIndex + this.dataViewport.visibleCount >= this.dataViewport.allData.length) {
+            newStartIndex = this.dataViewport.allData.length - this.dataViewport.visibleCount;
+        }
+
+        // Update the viewport to center on this date
+        this.dataViewport.startIndex = newStartIndex;
+
+        // Create a vertical line at the target date
+        if (options.drawLine !== false) {
+            const mainPlot = this.plotLayoutManager.getPlotLayout('main');
+            if (mainPlot) {
+                const barWidth = mainPlot.width / this.dataViewport.visibleCount;
+                const relativeIndex = targetIndex - this.dataViewport.startIndex;
+                const x = mainPlot.x + getXPixel(
+                    targetIndex,
+                    this.dataViewport.startIndex,
+                    this.dataViewport.visibleCount,
+                    mainPlot.width,
+                    barWidth
+                ) + barWidth / 2;
+
+                this.render();
+                // Draw vertical line
+                this.drawVerticalLine({
+                    x,
+                    color: options.lineColor || this.currentTheme.textColor,
+                    width: options.lineWidth || 1
+                });
+            }
+        }
+
+    }
+
+    /**
+     * Draws a vertical line at the specified x-coordinate
+     * @private
+     * @param {Object} params - Line parameters
+     * @param {number} params.x - X coordinate for the line
+     * @param {string} params.color - Line color
+     * @param {number} params.width - Line width
+     */
+    drawVerticalLine({ x, color, width }) {
+        // Draw vertical line through all plots
+        this.ctx.beginPath();
+        this.ctx.strokeStyle = color;
+        this.ctx.lineWidth = width;
+        this.ctx.moveTo(x, 0);
+        this.ctx.lineTo(x, this.plotLayoutManager.getPlotTotalHeight());
+        this.ctx.stroke();
     }
 }
 export default StockChart;

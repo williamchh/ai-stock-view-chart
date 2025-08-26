@@ -48,7 +48,7 @@ export interface PlotConfig {
     id: string;
     heightRatio: number;
     yPosition?: number;
-    type: 'candlestick' | 'line' | 'volume' | 'histogram' | 'signal';
+    type: 'candlestick' | 'line' | 'volume' | 'histogram' | 'signal' | 'arrowLine';
     overlay?: boolean;
     targetId?: string; // ID of the plot to overlay on top of
     data: Array<StockData | number | any>;
@@ -89,4 +89,15 @@ export default class StockChart {
    * @param chartName - The new chart name information
    */
   updateChartName(chartName: ChartName): void;
+
+  /**
+   * Centers the chart on a specific date and draws a vertical line
+   * @param timestamp - Unix timestamp (in seconds) to center on
+   * @param options - Configuration options
+   */
+  centerOnDate(timestamp: number, options?: {
+    lineColor?: string;
+    lineWidth?: number;
+    drawLine?: boolean;
+  }): void;
 }

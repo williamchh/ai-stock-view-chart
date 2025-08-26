@@ -21,13 +21,20 @@
 
 <body>
   <h1>AI Stock View Chart Test</h1>
-  <div style="margin-bottom: 10px;">
-    <label for="theme-select">Theme:</label>
-    <select id="theme-select">
-      <option value="dark">Dark</option>
-      <option value="light">Light</option>
-      <option value="custom">Custom</option>
-    </select>
+  <div style="margin-bottom: 10px; display: flex; gap: 20px; align-items: center;">
+    <div>
+      <label for="theme-select">Theme:</label>
+      <select id="theme-select">
+        <option value="dark">Dark</option>
+        <option value="light">Light</option>
+        <option value="custom">Custom</option>
+      </select>
+    </div>
+    <div>
+      <label for="date-picker">Center on Date:</label>
+      <input type="date" id="date-picker" style="padding: 4px;">
+      <button id="center-date-btn" style="margin-left: 8px; padding: 4px 8px;">Center</button>
+    </div>
   </div>
   <div id="custom-theme-controls" style="display: none; margin-bottom: 20px; padding: 15px; border: 1px solid #ccc; border-radius: 5px;">
     <h3 style="margin-top: 0;">Custom Theme Colors</h3>

@@ -679,13 +679,14 @@ _getTouchCoordinates(touch) {
             case 'line':
             case 'horizontal-line':
             case 'vertical-line':
-                this.renderLine(ctx, points, style);
+                this.renderLine(ctx, points, style, type);
                 break;
             case 'rectangle':
                 this.renderRectangle(ctx, points, style);
                 break;
             case 'fibonacci':
             case 'fibonacci-zoon':
+                const times = this.stockChart.dataViewport.getVisibleStartEndTime();
                 drawing.draw(ctx, 
                     this.stockChart.plotLayoutManager.getPlotLayout('main'),
                     this.stockChart.dataViewport,
@@ -698,7 +699,9 @@ _getTouchCoordinates(touch) {
                         this.stockChart.options.plots.find(p => p.id === 'main'),
                         this.stockChart.dataViewport.getVisibleData(),
                         this.stockChart.dataViewport
-                    ).maxPrice
+                    ).maxPrice,
+                    this.stockChart.currentTheme,
+                    times
                 );
                 break;
         }
@@ -710,9 +713,9 @@ _getTouchCoordinates(touch) {
      * Render a line drawing
      * @private
      */
-    renderLine(ctx, points, style) {
+    renderLine(ctx, points, style, type) {
         if (points.length < 2) return;
-
+        
         const mainPlot = this.stockChart.plotLayoutManager.getPlotLayout('main');
         if (!mainPlot) return;
 
@@ -753,6 +756,15 @@ _getTouchCoordinates(touch) {
             priceRange.maxPrice
         );
 
+        const times = this.stockChart.dataViewport.getVisibleStartEndTime();
+        if (times) {
+            const { startTime, endTime } = times;
+            // either points time before start time or after end time 
+            // return
+            if (points[0].time < startTime && points[1].time < startTime) return;
+            if (points[0].time > endTime && points[1].time > endTime) return;
+        }
+
         if (!start || !end) return;
         
         ctx.strokeStyle = style.strokeStyle;
@@ -762,6 +774,7 @@ _getTouchCoordinates(touch) {
         ctx.moveTo(start.x, start.y);
         ctx.lineTo(end.x, end.y);
         ctx.stroke();
+        
     }
 
     /**
@@ -803,8 +816,17 @@ _getTouchCoordinates(touch) {
             priceRange.maxPrice
         );
 
-        if (!start || !end) return;
-        
+        const times = this.stockChart.dataViewport.getVisibleStartEndTime();
+        if (times) {
+            const { startTime, endTime } = times;
+            // either points time before start time or after end time 
+            // return
+            if (points[0].time < startTime && points[1].time < startTime) return;
+            if (points[0].time > endTime && points[1].time > endTime) return;
+        }
+
+        if (!start && !end) return;
+
         const x = Math.min(start.x, end.x);
         const y = Math.min(start.y, end.y);
         const width = Math.abs(end.x - start.x);
@@ -817,7 +839,7 @@ _getTouchCoordinates(touch) {
         
         ctx.strokeStyle = style.strokeStyle;
         ctx.lineWidth = style.lineWidth;
-        ctx.strokeRect(x, y, width, height);
+        ctx.strokeRect(x, y, width, height); 
     }
 
 

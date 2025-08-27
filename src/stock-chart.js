@@ -196,7 +196,7 @@ class StockChart {
 
         const toolbar = document.createElement('div');
         toolbar.style.width = isMobile ? '100%' : '40px';
-        toolbar.style.height = isMobile ? '40px' : 'auto';
+        toolbar.style.height = isMobile ? '45px' : 'auto';
         toolbar.style.position = isMobile ? 'absolute' : 'relative';
         toolbar.style.bottom = isMobile ? '0' : 'auto';
         toolbar.style.backgroundColor = this.currentTheme?.background || '#ffffff';

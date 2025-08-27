@@ -38,9 +38,10 @@ class DrawingItem {
      * @param {object} viewport - The data viewport
      * @param {number} minPrice - The minimum price in the current view
      * @param {number} maxPrice - The maximum price in the current view
+     * @param {boolean} ignorePriceLimit - Whether to ignore price limits
      * @returns {{x: number, y: number}} The pixel coordinates
      */
-    getPixelCoordinates(time, price, plotLayout, viewport, minPrice, maxPrice) {
+    getPixelCoordinates(time, price, plotLayout, viewport, minPrice, maxPrice, ignorePriceLimit = false) {
         if (!viewport?.allData || !viewport.getVisibleData) return null;
         
         const allData = viewport.allData;
@@ -69,7 +70,7 @@ class DrawingItem {
         const x = plotLayout.x + (nearestVisibleIndex * barWidth) + barWidth / 2;
 
         // Check if price is within visible range
-        if (price < minPrice || price > maxPrice) {
+        if ((price < minPrice || price > maxPrice) && !ignorePriceLimit) {
             return null;
         }
 
@@ -230,13 +231,16 @@ class FibonacciDrawing extends DrawingItem {
     draw(ctx, plotLayout, viewport, minPrice, maxPrice, currentTheme, startEndTimes) {
         if (this.points.length < 2) return;
 
+        const ignorePriceLimit = true;
+
         const start = this.getPixelCoordinates(
             this.points[0].time,
             this.points[0].price,
             plotLayout,
             viewport,
             minPrice,
-            maxPrice
+            maxPrice,
+            ignorePriceLimit
         );
 
         const end = this.getPixelCoordinates(
@@ -245,7 +249,8 @@ class FibonacciDrawing extends DrawingItem {
             plotLayout,
             viewport,
             minPrice,
-            maxPrice
+            maxPrice,
+            ignorePriceLimit
         );
 
         if (!start || !end) return;

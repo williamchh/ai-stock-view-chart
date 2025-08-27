@@ -13,12 +13,15 @@
  * @param {number} lowY - The y-coordinate for the low price.
  * @param {number} closeY - The y-coordinate for the close price.
  * @param {number} width - The width of the candlestick body.
- * @param {object} theme - The current theme object.
+ * @param {import("../stock-chart.js").Theme} theme - The current theme object.
  */
 export function drawCandlestick(ctx, data, x, openY, highY, lowY, closeY, width, theme) {
     const isBullish = data.close > data.open;
     const bodyColor = isBullish ? theme.candleUp : theme.candleDown;
-    const borderColor = theme.candleBorderColor || theme.textColor; // Fall back to textColor if candleBorderColor is not set
+    let borderColor = theme.candleBorderColor || theme.textColor; 
+    if (theme.borderColorUseBodyColor) {
+        borderColor = bodyColor;
+    }
 
     // Draw wick
     ctx.strokeStyle = borderColor;

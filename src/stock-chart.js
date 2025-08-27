@@ -927,10 +927,10 @@ class StockChart {
             // Calculate which candlestick the mouse is closest to
             const relativeX = mouseX - mainPlotLayout.x;  // Adjust for plot area x-offset
             const dataIndex = Math.round(relativeX / barWidth - 0.5);
-            
+
             // Ensure dataIndex stays within valid bounds
             const clampedIndex = Math.max(0, Math.min(this.dataViewport.visibleCount - 1, dataIndex));
-            
+
             // Calculate exact center of the candlestick using getXPixel and adding half candle width
             const candleX = mainPlotLayout.x + getXPixel(this.dataViewport.startIndex + clampedIndex, this.dataViewport.startIndex, this.dataViewport.visibleCount, mainPlotLayout.width, barWidth);
             this.crosshairX = candleX + (barWidth / 2);
@@ -1002,8 +1002,10 @@ class StockChart {
                 this.render();
             }
         } else {
-            // Check if mouse is over a resize handle or Y-axis
+            // Check if mouse is over a resize handle or Y-axis (price area)
             let specialCursor = false;
+            // Use dynamic Y-axis width
+            const yAxisWidth = this.plotLayoutManager.yAxisWidth || this.calculateYAxisWidth();
             for (const plot of this.options.plots) {
                 if (plot.overlay) continue;
                 const layout = this.plotLayoutManager.getPlotLayout(plot.id);
@@ -1016,15 +1018,19 @@ class StockChart {
                         break;
                     }
 
-                    // Check Y-axis area
+                    // Check Y-axis area (right of main plot, price area)
+                    // Use dynamic width, not hardcoded 50
                     const yAxisArea = {
                         x: layout.x + layout.width,
                         y: layout.y,
-                        width: 50,
+                        width: yAxisWidth,
                         height: layout.height
                     };
-                    if (this.crosshairX >= yAxisArea.x && this.crosshairX <= yAxisArea.x + yAxisArea.width &&
-                        this.crosshairY >= yAxisArea.y && this.crosshairY <= yAxisArea.y + yAxisArea.height) {
+                    if (
+                        mouseX >= yAxisArea.x && mouseX <= yAxisArea.x + yAxisArea.width &&
+                        mouseY >= yAxisArea.y && mouseY <= yAxisArea.y + yAxisArea.height &&
+                        plot.id === 'main' // Only main plot price area
+                    ) {
                         this.canvas.style.cursor = 'ns-resize';
                         specialCursor = true;
                         break;

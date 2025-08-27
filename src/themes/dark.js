@@ -21,6 +21,7 @@ const darkTheme = {
     overlayTextColor: '#E0E0E0',
     positiveColor: 'rgba(102, 187, 106, 0.8)',
     negativeColor: 'rgba(239, 83, 80, 0.8)',
+    borderColorUseBodyColor: true
 };
 
 export default darkTheme;

@@ -6,10 +6,13 @@ export interface Theme {
   lineColor: string;
   positiveColor: string;
   negativeColor: string;
+  candleUp: string;
+  candleDown: string;
   volumeColor: string;
   crosshairColor: string;
   overlayTextColor: string;
   candleBorderColor: string;
+  borderColorUseBodyColor?: boolean;
 }
 
 export interface StockChartOptions {

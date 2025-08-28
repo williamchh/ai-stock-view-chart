@@ -11,7 +11,8 @@ export function mapStockBaseToStockData(stockBase) {
             type: 'resistance',
             value: stockBase.trigger,
             description: 'Sell Signal',
-            strength: 1
+            strength: 1,
+            referTf: stockBase.referTf
         };
     }
     else if (stockBase.isBuy === 1) {
@@ -19,7 +20,8 @@ export function mapStockBaseToStockData(stockBase) {
             type: 'support',
             value: stockBase.trigger,
             description: 'Buy Signal',
-            strength: 1
+            strength: 1,
+            referTf: stockBase.referTf
         };
     }
     else if (stockBase.isBuy === 2) {
@@ -27,7 +29,8 @@ export function mapStockBaseToStockData(stockBase) {
             type: 'weak-resistance',
             value: stockBase.trigger,
             description: 'Downtrend Signal',
-            strength: 1
+            strength: 1,
+            referTf: stockBase.referTf
         };
     }
     else if (stockBase.isBuy === 3) {
@@ -35,7 +38,8 @@ export function mapStockBaseToStockData(stockBase) {
             type: 'weak-support',
             value: stockBase.trigger,
             description: 'Uptrend Signal',
-            strength: 1
+            strength: 1,
+            referTf: stockBase.referTf
         };
     }
     else if (stockBase.isBuy === 5) {

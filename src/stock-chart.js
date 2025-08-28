@@ -844,17 +844,24 @@ class StockChart {
         this.ctx.imageSmoothingEnabled = false;
 
         const pathsByColor = {};
+        const labelPrice = new Map();
         plotVisibleData.filter(d => d.value != null).forEach((dataPoint, i) => {
             const color = getSignalTypeColor(dataPoint.value.type);
             if (!pathsByColor[color]) {
                 pathsByColor[color] = new Path2D();
             }
 
+            
             if (dataPoint.value.value != null) {
                 const x = Math.floor(plotLayout.x + getXPixel(this.dataViewport.startIndex + i, this.dataViewport.startIndex, this.dataViewport.visibleCount, plotLayout.width, barWidth));
                 const y = Math.floor(getYPixel(dataPoint.value.value, minPrice, maxPrice, plotLayout.height, plotLayout.y));
-    
+                
                 pathsByColor[color].rect(x, y, Math.ceil(barWidth), 8);
+
+                const hasPrice = labelPrice.get(dataPoint.value.value);
+                if (!hasPrice && dataPoint.value.referTf) {
+                    labelPrice.set(dataPoint.value.value, { label: dataPoint.value.referTf, x, y });
+                }
             }
         });
 
@@ -863,6 +870,14 @@ class StockChart {
             this.ctx.fillStyle = color;
             this.ctx.fill(pathsByColor[color]);
         });
+
+        if (this.options.showDrawingToolbar) {
+            // Draw labels for each price level
+            labelPrice.forEach(({ label, x, y }) => {
+                this.ctx.fillStyle = this.currentTheme.textColor;
+                this.ctx.fillText(label, x - 7, y + 5);
+            });
+        }
     }
 
     /**

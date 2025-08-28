@@ -35,6 +35,7 @@ export interface Signal {
     value: number;
     description?: string;
     strength?: number;
+    referTf?: number;
 }
 
 export interface StockData {

@@ -198,7 +198,7 @@ class StockChart {
         toolbar.style.width = isMobile ? '100%' : '40px';
         toolbar.style.height = isMobile ? '40px' : 'auto';
         toolbar.style.position = isMobile ? 'absolute' : 'relative';
-        toolbar.style.bottom = isMobile ? '0' : 'auto';
+        toolbar.style.bottom = isMobile ? '-45px' : 'auto';
         toolbar.style.backgroundColor = this.currentTheme?.background || '#ffffff';
         toolbar.style.borderRight = isMobile ? 'none' : '1px solid ' + (this.currentTheme?.gridColor || '#e0e0e0');
         toolbar.style.borderTop = isMobile ? '1px solid ' + (this.currentTheme?.gridColor || '#e0e0e0') : 'none';

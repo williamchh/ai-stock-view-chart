@@ -216,7 +216,7 @@ class StockChart {
             { name: 'vertical-line', icon: `<svg viewBox="0 0 24 24" width="${iconSize}" height="${iconSize}"> <path fill="currentColor" d="M12 3h2v18h-2V3"/></svg>`, tooltip: 'Vertical Line Tool' },
             { name: 'horizontal-line', icon: `<svg viewBox="0 0 24 24" width="${iconSize}" height="${iconSize}"><path fill="currentColor" d="M3 12h18v2H3v-2"/></svg>`, tooltip: 'Horizontal Line Tool' },
             { name: 'rectangle', icon: `<svg viewBox="0 0 24 24" width="${iconSize}" height="${iconSize}"><path fill="currentColor" d="M2 4H22V20H2V4M4 6V18H20V6H4Z"/></svg>`, tooltip: 'Rectangle Tool' },
-            { name: 'fibonacci', icon: `<svg viewBox="0 0 24 24" width="${iconSize}" height="${iconSize}"><path fill="currentColor" d="M3 5h18v2H3V5m0 4h18v2H3V9m0 4h18v2H3v-2m0 4h18v2H3v-2"/></svg>`, tooltip: 'Fibonacci Tool' },
+            { name: 'fibonacci', icon: `<svg viewBox="0 0 24 24" width="${iconSize}" height="${iconSize}"><path fill="currentColor" d="M 3 3 v 18 h 18 v -2 H 5 V 3 H 3 M 7 5 L 7 7 L 19 7 L 19 5 L 7 5 M 7 10 L 7 12 L 19 12 L 19 10 L 7 10 M 7 15 L 7 17 L 19 17 L 19 15 L 7 15"/></svg>`, tooltip: 'Fibonacci Tool' },
             { name: 'fibonacci-zoon', icon: `<svg viewBox="0 0 24 24" width="${iconSize}" height="${iconSize}"><path fill="currentColor" d="M3 3v18h18v-2H5V3H3m5 0v14h2V3H8m5 0v14h2V3h-2m5 0v14h2V3h-2"/></svg>`, tooltip: 'Fibonacci Zoon Tool' },
             { name: 'clear', icon: `<svg viewBox="0 0 24 24" width="${iconSize}" height="${iconSize}"><path fill="currentColor" d="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z"/></svg>`, tooltip: 'Clear All Drawings' }
         ];

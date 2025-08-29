@@ -116,63 +116,217 @@ const getFiboZones = (stockDatas, retracements) => {
             times = -1;
         }
 
+        let minPrediction = null, maxPrediction = null;
+        if (retracement.prediction.next != null && retracement.prediction?.stop != null) {
+            minPrediction = Math.min(retracement.prediction.next.item1, retracement.prediction.stop.item1);
+            maxPrediction = Math.max(retracement.prediction.next.item1, retracement.prediction.stop.item1);
+            
+            // find last sequence is pointing to up or down, which needs to compare one before
+            const last = fiboSequence[fiboSequence.length - 1];
+            const fiboNums = [0, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144];
+            const nextDistanceIndex = fiboNums.indexOf(last.distance) + 1;
+            const nextDistance = nextDistanceIndex < fiboNums.length ? fiboNums[nextDistanceIndex] : null;
+            if (fiboSequence.length > 1) {
+                const beforeLast = fiboSequence[fiboSequence.length - 2];
+                if (last.ratio > beforeLast.ratio) {
+                    // up
+                    fiboSequence.push({
+                        date: null,
+                        distance: nextDistance == null ? last.distance : nextDistance,
+                        priceFrom: last.priceFrom,
+                        priceTo: last.priceTo,
+                        ratio: minPrediction == last.ratio ? beforeLast.ratio : minPrediction,
+                        target: last.target,
+                        targetID: last.targetID
+                    });
+                    fiboSequence.push({
+                        date: null,
+                        distance: nextDistance == null ? last.distance : nextDistance,
+                        priceFrom: last.priceFrom,
+                        priceTo: last.priceTo,
+                        ratio: maxPrediction,
+                        target: last.target,
+                        targetID: last.targetID
+                    });
+                } else {
+                    // down
+                    fiboSequence.push({
+                        date: null,
+                        distance: nextDistance == null ? last.distance : nextDistance,
+                        priceFrom: last.priceFrom,
+                        priceTo: last.priceTo,
+                        ratio: maxPrediction == last.ratio ? beforeLast.ratio : maxPrediction,
+                        target: last.target,
+                        targetID: last.targetID
+                    });
+                    fiboSequence.push({
+                        date: null,
+                        distance: nextDistance == null ? last.distance : nextDistance,
+                        priceFrom: last.priceFrom,
+                        priceTo: last.priceTo,
+                        ratio: minPrediction,
+                        target: last.target,
+                        targetID: last.targetID
+                    });
+                }
+            }
+            else {
+                if (times < 0) {
+                    fiboSequence.push({
+                        date: null,
+                        distance: nextDistance == null ? last.distance : nextDistance,
+                        priceFrom: last.priceFrom,
+                        priceTo: last.priceTo,
+                        ratio: minPrediction == last.ratio ? minPrediction - 0.145 : minPrediction,
+                        target: last.target,
+                        targetID: last.targetID
+                    });
+                    fiboSequence.push({
+                        date: null,
+                        distance: nextDistance == null ? last.distance : nextDistance,
+                        priceFrom: last.priceFrom,
+                        priceTo: last.priceTo,
+                        ratio: maxPrediction == last.ratio ? maxPrediction + 0.145 : maxPrediction,
+                        target: last.target,
+                        targetID: last.targetID
+                    });
+                }
+                else {
+                    fiboSequence.push({
+                        date: null,
+                        distance: nextDistance == null ? last.distance : nextDistance,
+                        priceFrom: last.priceFrom,
+                        priceTo: last.priceTo,
+                        ratio: maxPrediction,
+                        target: last.target,
+                        targetID: last.targetID
+                    });
+                    fiboSequence.push({
+                        date: null,
+                        distance: nextDistance == null ? last.distance : nextDistance,
+                        priceFrom: last.priceFrom,
+                        priceTo: last.priceTo,
+                        ratio: minPrediction,
+                        target: last.target,
+                        targetID: last.targetID
+                    });
+                }
+            }
+        }
+
+        let lastFiboDate = null;
+        let last = { targetID: null }; // Initialize last with a default value
         for (const s of fiboSequence) {
             const hasNextSequence = fiboSequence.indexOf(s) < fiboSequence.length - 1;
             if (!hasNextSequence) break;
             const next = fiboSequence[fiboSequence.indexOf(s) + 1];
-            _start = retracement.escapePrice + total * s.ratio * times;
-            const bases = stockDatas.filter(d => d.time  >= new Date(s.date).valueOf() / 1000 && 
+
+            if (s.date == null) {
+                const predictionFiboSequences = fiboSequence.filter(f => f.date == null);
+                if (predictionFiboSequences.length < 2) break;
+                const previousDate = new Date(lastFiboDate * 1000);
+                const bases = stockDatas.filter(d => d.time * 1000 >= previousDate.valueOf());
+                if (bases.length === 0) break;
+
+                const ratio1 = predictionFiboSequences[0].ratio;
+                const ratio2 = predictionFiboSequences[1].ratio;
+
+                if (bases.length > 4) {
+                    const midIndex = Math.floor(bases.length / 2);
+                    const firstHalf = bases.slice(0, midIndex);
+                    const secondHalf = bases.slice(midIndex - 1); // include midIndex in second half
+
+                    const targetFirstHalf = retracement.escapePrice + total * ratio1 * times;
+                    const targetSecondHalf = retracement.escapePrice + total * ratio2 * times;
+
+                    const stepValueFirstHalf = (targetFirstHalf - _start) / (firstHalf.length - 1);
+                    const stepValueSecondHalf = (targetSecondHalf - targetFirstHalf) / (secondHalf.length - 1);
+                
+                    firstHalf.forEach((b, i) => {
+                        b.fiboZoneLines ??= [];
+                        b.fiboZoneLines.push({
+                            time: b.time,
+                            value: _start + stepValueFirstHalf * i,
+                            id: Number(firstHalf[0].id),
+                            isPrediction: true
+                        });
+                    });
+                
+                    secondHalf.forEach((b, i) => {
+                        b.fiboZoneLines ??= [];
+                        b.fiboZoneLines.push({
+                            time: b.time,
+                            value: targetFirstHalf + stepValueSecondHalf * i,
+                            id: Number(secondHalf[0].id),
+                            isPrediction: true
+                        });
+                    });
+                } else {
+                    const target = retracement.escapePrice + total * next.ratio * times;
+                    const diff = target - _start;
+                    const stepValue = diff / (bases.length - 1);
+                
+                    bases.forEach((b, i) => {
+                        b.fiboZoneLines ??= [];
+                        b.fiboZoneLines.push({
+                            time: b.time,
+                            value: _start + stepValue * i,
+                            id: Number(bases[0].id),
+                            isPrediction: true
+                        });
+                    });
+                }
+                
+                break;
+            }
+            else {
+                _start = retracement.escapePrice + total * s.ratio * times;
+
+                const bases = stockDatas.filter(d => d.time  >= new Date(s.date).valueOf() / 1000 && 
                 d.time <= new Date(next.date).valueOf() / 1000);
-
-            if (bases.length === 0) continue;
-
-            const target = retracement.escapePrice + total * next.ratio * times;
-            const diff = target - _start;
-            const stepValue = diff / (bases.length - 1);
-
-            bases.forEach((b, i) => {
-
-                b.fiboZoneLines ??= [];
-                b.fiboZoneLines.push({
-                    id: s.targetID,
-                    time: b.time,
-                    value: _start + stepValue * i,
+                
+                if (bases.length === 0) continue;
+                lastFiboDate = bases[bases.length - 1].time;
+    
+                const target = retracement.escapePrice + total * next.ratio * times;
+                const diff = target - _start;
+                const stepValue = diff / (bases.length - 1);
+    
+                bases.forEach((b, i) => {
+    
+                    b.fiboZoneLines ??= [];
+                    b.fiboZoneLines.push({
+                        id: s.targetID,
+                        time: b.time,
+                        value: _start + stepValue * i,
+                    });
+    
+                    if (retracement.referenceLines && retracement.referenceLines.length > 0) {
+                        b.referenceLines ??= [];
+                        retracement.referenceLines.forEach(r => {
+                            
+                            b.referenceLines.push({
+                                id: retracement.startID,
+                                time: b.time,
+                                type: 'reference',
+                                value: r
+                            });
+                        })
+                    }
+    
+                    if (retracement.safeMargins && retracement.safeMargins.length > 0) {
+                        b.safeMargins ??= [];
+                        retracement.safeMargins.forEach(f => {
+                            b.safeMargins.push({
+                                id: retracement.startID,
+                                time: b.time,
+                                type: 'safe-margin',
+                                value: f
+                            });
+                        })
+                    }
                 });
-
-                if (retracement.referenceLines && retracement.referenceLines.length > 0) {
-                    b.referenceLines ??= [];
-                    retracement.referenceLines.forEach(r => {
-                        
-                        b.referenceLines.push({
-                            id: retracement.startID,
-                            time: b.time,
-                            type: 'reference',
-                            value: r
-                        });
-                    })
-                }
-
-                if (retracement.safeMargins && retracement.safeMargins.length > 0) {
-                    b.safeMargins ??= [];
-                    retracement.safeMargins.forEach(f => {
-                        b.safeMargins.push({
-                            id: retracement.startID,
-                            time: b.time,
-                            type: 'safe-margin',
-                            value: f
-                        });
-                    })
-                }
-            });
-
-            // if (retracement.prediction?.next?.item1) {
-            //     debugger;
-            //     const nextRatio = retracement.prediction.next.item1;
-            //     const stopRatio = retracement.prediction.stop.item1;
-
-            //     const nextValue = retracement.escapePrice + total * nextRatio * times;
-            //     const stopValue = retracement.escapePrice + total * stopRatio * times;
-            // }
+            }
             
             fs = s;
         }

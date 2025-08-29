@@ -64,6 +64,7 @@ export interface FiboZoneLine {
     id?: number;
     time: number;
     value: number;
+    isPrediction?: boolean
 }
 
 export interface PlotConfig {

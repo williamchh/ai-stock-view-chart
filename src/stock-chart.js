@@ -2010,6 +2010,11 @@ class StockChart {
 
             const y2 = getYPixel(lastPoint.value, minPrice, maxPrice, plotLayout.height, plotLayout.y);
 
+            const isPrediction = firstPoint.isPrediction;
+            // use dashed line for prediction
+            if (isPrediction) {
+                this.ctx.setLineDash([5, 5]);
+            }
             // Draw arrow line
             const headlen = 10; // arrow head length
             const dx = x2 - x1;
@@ -2023,6 +2028,9 @@ class StockChart {
             this.ctx.moveTo(x1, y1);
             this.ctx.lineTo(x2, y2);
             this.ctx.stroke();
+
+            // Reset line dash
+            this.ctx.setLineDash([]);
 
             // Draw the arrow head
             this.ctx.beginPath();

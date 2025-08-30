@@ -148,6 +148,7 @@
         }));
 
         const fiboZoneLines = candlestickData.map(c => c.fiboZoneLines);
+        const orders = candlestickData.map(c => c.order);
         const referenceLines = candlestickData.map(c => ({
           time: c.time,
           value: c.referenceLines,
@@ -272,6 +273,7 @@
           keyLabel: c.signals?.[0]?.type
         }));
         
+        const orders = newCandlestickData.map(c => c.order);
         const fiboZoneLinesNew = newCandlestickData.map(c => c.fiboZoneLines);
         const referenceLinesNew = newCandlestickData.map(c => ({
           time: c.time,
@@ -339,7 +341,15 @@
             overlay: true,
             keyLabel: 'Fibonacci Lines'
           },
-          { 
+          {
+            id: 'orders',
+            type: 'order',
+            overlay: true,
+            targetId: 'main',
+            keyLabel: 'Orders',
+            data: orders
+          },
+          {
             id: 'macd',
             type: 'line',
             heightRatio: 0.15,
@@ -463,7 +473,15 @@
               overlay: true,
               keyLabel: 'Fibonacci Lines',
             },
-            { 
+            {
+              id: 'orders',
+              type: 'order',
+              overlay: true,
+              targetId: 'main',
+              keyLabel: 'Orders',
+              data: orders
+            },
+            {
               id: 'macd',
               type: 'line',
               heightRatio: 0.15,

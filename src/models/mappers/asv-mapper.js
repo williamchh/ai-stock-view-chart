@@ -71,9 +71,9 @@ export function mapStockBaseToStockData(stockBase) {
                 time: stockBase.date.getTime() / 1000,
                 type: 'safe-margin',
                 value: null
-            }
-        ]
-
+            },
+        ],
+        order: null
     };
 }
 
@@ -89,8 +89,32 @@ export function mapStockBasesToStockData(response) {
         : [];
 
     const retracements = Object.values(response.retraceSequenceDic).flat();
+    const orders = response.orders || [];
     stockDatas = getFiboZones(stockDatas, retracements);
+    stockDatas = getOrders(stockDatas, orders);
 
+    return stockDatas;
+}
+
+/**
+ * 
+ * @param {Array<import('../../stock-chart.js').StockData>} stockDatas 
+ * @param {Array<import('../asv-model.js').Order>} orders 
+ * @returns {Array<import('../../stock-chart.js').StockData>}
+ */
+const getOrders = (stockDatas, orders) => {
+    for (const order of orders) {
+        const d = new Date(order.entryDate);
+        const stockData = stockDatas.find(sd => sd.time === d.getTime() / 1000);
+        if (stockData) {
+            stockData.order = {
+                id: order.id,
+                time: d.getTime() / 1000,
+                type: order.orderType,
+                value: order.entry
+            };
+        }
+    }
     return stockDatas;
 }
 
@@ -215,7 +239,6 @@ const getFiboZones = (stockDatas, retracements) => {
         }
 
         let lastFiboDate = null;
-        let last = { targetID: null }; // Initialize last with a default value
         for (const s of fiboSequence) {
             const hasNextSequence = fiboSequence.indexOf(s) < fiboSequence.length - 1;
             if (!hasNextSequence) break;

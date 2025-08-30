@@ -660,6 +660,9 @@ class StockChart {
                     case 'arrowLine':
                         this.drawArrowLines(plotVisibleData, plotLayout, barWidth, minPrice, maxPrice);
                         break;
+                    case 'order':
+                        this.drawOrders(plotVisibleData, plotLayout, barWidth, minPrice, maxPrice);
+                        break;
                 }
             }
             this.ctx.restore();
@@ -1914,6 +1917,60 @@ class StockChart {
     /**
      * Displays price and indicator information at the crosshair position.
      */
+
+    /**
+     * Draws order markers on the chart.
+     * @param {Array<Object>} plotVisibleData - The visible data points for the plot.
+     * @param {import('./stock-chart.d.ts').PlotLayout} plotLayout - The layout information for the plot.
+     * @param {number} barWidth - The width of each bar in the plot.
+     * @param {number} minPrice - The minimum price in the visible data range.
+     * @param {number} maxPrice - The maximum price in the visible data range.
+     */
+    drawOrders(plotVisibleData, plotLayout, barWidth, minPrice, maxPrice) {
+        // Draw order markers on the chart
+        plotVisibleData.forEach((point, idx) => {
+            if (point) {
+                const { time, type, value } = point;
+                const firstIndex = this.findTimeIndex(time, this.dataViewport.allData);
+                const x1 = plotLayout.x + getXPixel(
+                    firstIndex,
+                    this.dataViewport.startIndex,
+                    this.dataViewport.visibleCount,
+                    plotLayout.width,
+                    barWidth
+                ) + barWidth / 2;
+
+                const y = plotLayout.y + (1 - (value - minPrice) / (maxPrice - minPrice)) * plotLayout.height;
+
+                // Draw up triangle if type is 1, down triangle otherwise
+                // Make the triangle width equal to the candle/bar width
+                const triangleWidth = barWidth * 0.7;
+                const triangleHeight = 8;
+                this.ctx.beginPath();
+                if (type === 1) {
+                    // Up triangle
+                    this.ctx.moveTo(x1, y - triangleHeight / 2);
+                    this.ctx.lineTo(x1 - triangleWidth / 2, y + triangleHeight / 2);
+                    this.ctx.lineTo(x1 + triangleWidth / 2, y + triangleHeight / 2);
+                } else {
+                    // Down triangle
+                    this.ctx.moveTo(x1, y + triangleHeight / 2);
+                    this.ctx.lineTo(x1 - triangleWidth / 2, y - triangleHeight / 2);
+                    this.ctx.lineTo(x1 + triangleWidth / 2, y - triangleHeight / 2);
+                }
+                this.ctx.closePath();
+                this.ctx.fillStyle = this.currentTheme.textColor;
+                this.ctx.fill();
+                this.ctx.strokeStyle = this.currentTheme.gridColor;
+                this.ctx.stroke();
+
+                // // Draw order type label
+                // this.ctx.fillStyle = this.currentTheme.textColor;
+                // this.ctx.fillText(type, x1 + triangleWidth / 2 + 2, y);
+            }
+        });
+    }
+
     /**
      * Draws arrow lines connecting points with the same ID
      * @param {Array<Object>} plotVisibleData - The visible data points for the plot.
@@ -1961,34 +2018,9 @@ class StockChart {
             }
 
             // Convert points to pixel coordinates
-            // Find index in current data using binary search for better performance
-            const findTimeIndex = (time, data) => {
-                let left = 0;
-                let right = data.length - 1;
-                
-                while (left <= right) {
-                    const mid = Math.floor((left + right) / 2);
-                    if (data[mid].time === time) {
-                        return mid;
-                    }
-                    if (data[mid].time < time) {
-                        left = mid + 1;
-                    } else {
-                        right = mid - 1;
-                    }
-                }
-                
-                // If exact time not found, find closest matching time
-                if (right >= 0 && left < data.length) {
-                    const leftDiff = Math.abs(data[left]?.time - time);
-                    const rightDiff = Math.abs(data[right]?.time - time);
-                    return leftDiff < rightDiff ? left : right;
-                }
-                
-                return right >= 0 ? right : 0;
-            };
+            
 
-            const firstIndex = findTimeIndex(firstPoint.time, this.dataViewport.allData);
+            const firstIndex = this.findTimeIndex(firstPoint.time, this.dataViewport.allData);
             const x1 = plotLayout.x + getXPixel(
                 firstIndex,
                 this.dataViewport.startIndex,
@@ -1999,7 +2031,7 @@ class StockChart {
 
             const y1 = getYPixel(firstPoint.value, minPrice, maxPrice, plotLayout.height, plotLayout.y);
 
-            const lastIndex = findTimeIndex(lastPoint.time, this.dataViewport.allData);
+            const lastIndex = this.findTimeIndex(lastPoint.time, this.dataViewport.allData);
             const x2 = plotLayout.x + getXPixel(
                 lastIndex,
                 this.dataViewport.startIndex,
@@ -2047,6 +2079,39 @@ class StockChart {
             this.ctx.stroke();
         });
     }
+
+    // Find index in current data using binary search for better performance
+    /**
+     * Find the index of a specific time in the data array.
+     * @param {any} time 
+     * @param {Array} data 
+     * @returns {number}
+     */
+    findTimeIndex (time, data) {
+        let left = 0;
+        let right = data.length - 1;
+        
+        while (left <= right) {
+            const mid = Math.floor((left + right) / 2);
+            if (data[mid].time === time) {
+                return mid;
+            }
+            if (data[mid].time < time) {
+                left = mid + 1;
+            } else {
+                right = mid - 1;
+            }
+        }
+        
+        // If exact time not found, find closest matching time
+        if (right >= 0 && left < data.length) {
+            const leftDiff = Math.abs(data[left]?.time - time);
+            const rightDiff = Math.abs(data[right]?.time - time);
+            return leftDiff < rightDiff ? left : right;
+        }
+        
+        return right >= 0 ? right : 0;
+    };
 
     displayInfoOverlay() {
         const visibleData = this.dataViewport.getVisibleData();

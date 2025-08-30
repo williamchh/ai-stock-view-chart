@@ -51,6 +51,14 @@ export interface StockData {
     volume?: number;
     signals?: Signal[] | Signal;
     retracements?: import('./models/asv-model.d.ts').Retracement[];
+    order: Order | null;
+}
+
+export interface Order {
+  id: string;
+  time: number;
+  type: number;
+  value: number;
 }
 
 export interface ReferenceLine {

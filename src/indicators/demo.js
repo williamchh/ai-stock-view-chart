@@ -1,6 +1,9 @@
 import { initMACDState, updateMACD } from './macd.js';
 import { initSMAState, updateSMA } from './sma.js';
 import { initRSIState, updateRSI } from './rsi.js';
+import { initBollingerBandState, updateBollingerBands } from './bollingband.js';
+import { initEMAState, updateEMA } from './ema.js';
+import { initDeMarkerState, updateDeMarker } from './demarket.js';
 
 /**
  * Calculate SMA for a series of data
@@ -24,6 +27,68 @@ export function calculateSMA(data, period, valueSelector = d => d.close) {
     }
 
     return smaData;
+}
+
+/**
+ * Calculate Bollinger Bands for a series of data
+ * @param {Array} data - Array of price data
+ * @param {number} period - Bollinger Bands period
+ * @param {number} standardDeviationMultiplier - Standard deviation multiplier (default: 2)
+ * @returns {Array} Array of Bollinger Bands with timestamps
+ */
+export function calculateBollingerBands(data, period, standardDeviationMultiplier = 2) {
+    let band = initBollingerBandState(period, standardDeviationMultiplier);
+    const bollingerBands = [];
+
+    for (const point of data) {
+        const result = updateBollingerBands(point.close, band);
+        bollingerBands.push({
+            time: point.time,
+            upper: result.upper,
+            lower: result.lower
+        });
+        band = result.state;
+    }
+
+    return bollingerBands;
+}
+
+/**
+ * Calculate EMA for a series of data
+ * @param {Array} data - Array of price data
+ * @param {number} period - EMA period
+ * @returns {Array} Array of EMA values with timestamps
+ */
+export function calculateEMA(data, period) {
+    let ema = initEMAState(period);
+    const emaData = [];
+
+    for (const point of data) {
+        const result = updateEMA(point.close, ema);
+        emaData.push({
+            time: point.time,
+            value: result.value
+        });
+        ema = result.state;
+    }
+
+    return emaData;
+}
+
+export function calculateDeMarker(data, period = 14) {
+    let state = initDeMarkerState(period);
+    const deMarkerData = [];
+
+    for (const point of data) {
+        const result = updateDeMarker(point.high, point.low, state);
+        deMarkerData.push({
+            time: point.time,
+            value: result.value
+        });
+        state = result.state;
+    }
+
+    return deMarkerData;
 }
 
 /**

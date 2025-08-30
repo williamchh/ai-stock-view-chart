@@ -92,6 +92,10 @@ export interface PlotConfig {
         positiveColor?: string;
         negativeColor?: string;
     };
+    indicator?: {
+        id: string;
+        [key: string]: any;
+    };
 }
 
 export interface PlotLayout {

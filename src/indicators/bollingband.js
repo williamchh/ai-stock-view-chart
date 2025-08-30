@@ -17,7 +17,7 @@
  * @param {number} multiplier - Standard deviation multiplier for bands
  * @returns {BollingerState} Initial Bollinger Bands state
  */
-function initBollingerState(period = 20, multiplier = 2) {
+export function initBollingerBandState(period = 20, multiplier = 2) {
     return { period, multiplier, window: [], sum: 0, sumSquares: 0 };
 }
 
@@ -29,7 +29,7 @@ function initBollingerState(period = 20, multiplier = 2) {
  * @param {boolean} useSampleStdDev - Whether to use sample standard deviation (N-1) instead of population (N)
  * @returns {{middle: number|null, upper: number|null, lower: number|null, state: BollingerState}}
  */
-function updateBollinger(price, state, isSamePeriod = false, useSampleStdDev = false) {
+export function updateBollingerBands(price, state, isSamePeriod = false, useSampleStdDev = false) {
     let newWindow = [...state.window];
     let newSum = state.sum;
     let newSumSquares = state.sumSquares;
@@ -82,7 +82,7 @@ function updateBollinger(price, state, isSamePeriod = false, useSampleStdDev = f
  * @param {BollingerState} state - Current Bollinger Bands state
  * @returns {string} Serialized state as JSON string
  */
-function serializeBollingerState(state) {
+export function serializeBollingerBandState(state) {
     return JSON.stringify(state);
 }
 
@@ -91,13 +91,6 @@ function serializeBollingerState(state) {
  * @param {string} serializedState - Serialized Bollinger Bands state
  * @returns {BollingerState} Deserialized Bollinger Bands state object
  */
-function deserializeBollingerState(serializedState) {
+export function deserializeBollingerBandState(serializedState) {
     return JSON.parse(serializedState);
-}
-
-export {
-    initBollingerState,
-    updateBollinger,
-    serializeBollingerState,
-    deserializeBollingerState,
 }

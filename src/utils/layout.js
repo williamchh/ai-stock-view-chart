@@ -103,6 +103,18 @@ export class PlotLayoutManager {
     }
 
     /**
+     * Updates the layout for a specific plot.
+     * @param {import("../stock-chart.js").PlotConfig} plot - The plot configuration to update.
+     * @param {'add'|'delete'} addOrDelete - Whether to add or delete the plot.
+     */
+    updatePlotLayout(plot, addOrDelete) {
+        if (addOrDelete === 'delete') {
+            this.plots = this.plots.filter(p => p.id !== plot.id);
+        }
+        this.calculateLayout();
+    }
+
+    /**
      * Updates the canvas dimensions and recalculates the layout.
      * @param {number} newWidth - The new width of the canvas.
      * @param {number} newHeight - The new height of the canvas.

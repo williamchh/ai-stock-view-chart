@@ -1,5 +1,7 @@
 
 
+import { calculateBollingerBands, calculateDeMarker, calculateEMA, calculateMACD, calculateRSI, calculateSMA } from '../indicators/demo.js';
+import { initSMAState } from '../indicators/sma.js';
 import { DataViewport } from './data.js';
 import { DrawingItem, LineDrawing, RectangleDrawing, FibonacciDrawing, FibonacciZoonDrawing } from './drawing-item.js';
 import { PlotLayoutManager } from './layout.js';
@@ -1309,6 +1311,14 @@ _getTouchCoordinates(touch) {
         this.initializeIndicatorDialog(overlay, indicators);
     }
 
+    /**
+     * Get the stock data for the main plot.
+     * @returns {Array<import('../stock-chart.js').StockData>}
+     */
+    getMainPlotStockData() {
+        return this.stockChart.options.plots.find(p => p.id === 'main').data;
+    }
+
     initializeIndicatorDialog(overlay, indicators) {
         const dialog = overlay.querySelector('div');
         
@@ -1360,7 +1370,6 @@ _getTouchCoordinates(touch) {
                 const setting = indicator.settings.find(s => s.key === key);
                 
                 if (setting && setting.type === 'number') {
-                    debugger;
 
                     // @ts-ignore
                     settings[key] = parseFloat(value);
@@ -1397,7 +1406,7 @@ _getTouchCoordinates(touch) {
                     const setting = indicator.settings.find(s => s.key === key);
                     
                     if (setting && setting.type === 'number') {
-                        debugger;
+
                         // @ts-ignore
                         settings[key] = parseFloat(value);
                     } else {
@@ -1514,6 +1523,11 @@ _getTouchCoordinates(touch) {
             }));
     }
 
+    /**
+     * Add a new indicator with the specified settings.
+     * @param {string} indicatorId - The ID of the indicator to add.
+     * @param {Object} settings - The settings for the indicator.
+     */
     addIndicatorWithSettings(indicatorId, settings) {
         const timestamp = Date.now();
         const newPlotId = `${indicatorId}-${timestamp}`;
@@ -1528,20 +1542,161 @@ _getTouchCoordinates(touch) {
             this.stockChart.options.plots = [];
         }
 
-        this.stockChart.options.plots.push({
-            id: newPlotId,
-            heightRatio: 0.3,
-            data: [],
-            type: 'line',
-            indicator: {
-                id: indicatorId,
-                name: name,
-                settings: settings
+        let data = [];
+        const mainPlotData = this.getMainPlotStockData();
+        switch (indicatorId) {
+            case 'sma':
+                data = calculateSMA(mainPlotData, settings.period);
+                break;
+            case 'bollinger':
+                data = calculateBollingerBands(mainPlotData, settings.period);
+                break;
+            case 'demarker':
+                data = calculateDeMarker(mainPlotData, settings.period);
+                break;
+            case 'macd':
+                data = calculateMACD(mainPlotData, settings.fastPeriod, settings.slowPeriod, settings.signalPeriod);
+                break;
+            case 'ema':
+                data = calculateEMA(mainPlotData, settings.period);
+                break;
+            case 'rsi':
+                data = calculateRSI(mainPlotData, settings.period);
+                break;
+            // Add more cases for different indicators as needed
+        }
+
+        const plots = this.getPlotsByIndicatorId(indicatorId, data);
+
+        plots.forEach(plot => {
+            // @ts-ignore
+            this.stockChart.options.plots.push(plot);
+            const isMainPlot = plot.id === 'main';
+
+            if (!isMainPlot) {
+                // @ts-ignore
+                this.stockChart.plotLayoutManager.updatePlotLayout(plot, 'add');
             }
         });
+
         
         this.stockChart.render();
     }
+
+    getPlotsByIndicatorId(indicatorId, data) {
+        const plots = [];
+
+        switch (indicatorId) {
+            case 'macd':
+                plots.push({
+                    id: 'macd',
+                    type: 'line',
+                    heightRatio: 0.15,
+                    data: data.map(d => ({ time: d.time, value: d.macd })),
+                    keyLabel: 'MACD',
+                    style: {
+                        lineColor: 'rgba(0, 150, 136, 0.8)', // Teal
+                        lineWidth: 3
+                    }
+                });
+                plots.push({
+                    id: 'signal',
+                    type: 'line',
+                    data: data.map(d => ({ time: d.time, value: d.signal })),
+                    overlay: true,
+                    targetId: 'macd',
+                    keyLabel: 'Signal',
+                    style: {
+                        lineColor: 'rgba(233, 30, 99, 0.8)', // Pink
+                        lineWidth: 1.5
+                    }
+                });
+                plots.push({
+                    id: 'histogram',
+                    type: 'histogram',
+                    data: data.map(d => ({ time: d.time, value: d.histogram })),
+                    overlay: true,
+                    targetId: 'macd',
+                    keyLabel: 'Histogram',
+                    style: {
+                        positiveColor: 'rgba(0, 150, 136, 0.5)',
+                        negativeColor: 'rgba(233, 30, 99, 0.5)'
+                    }
+                });
+                break;
+            case 'rsi':
+                plots.push({
+                    id: 'rsi',
+                    type: 'line',
+                    heightRatio: 0.15,
+                    data: data,
+                    keyLabel: 'RSI',
+                    style: {
+                        lineColor: 'rgba(0, 150, 136, 1)', // Teal
+                        lineWidth: 1.5
+                    }
+                });
+                break;
+            case 'sma':
+                plots.push({
+                    id: 'sma',
+                    type: 'line',
+                    data: data,
+                    targetId: 'main',
+                    keyLabel: 'SMA',
+                    overlay: true,
+                    style: {
+                        lineColor: 'rgba(0, 150, 136, 1)', // Teal
+                        lineWidth: 1.5
+                    }
+                });
+            case 'ema':
+                plots.push({
+                    id: 'ema',
+                    type: 'line',
+                    heightRatio: 0.15,
+                    targetId: 'main',
+                    data: data,
+                    keyLabel: 'EMA',
+                    overlay: true,
+                    style: {
+                        lineColor: 'rgba(0, 150, 136, 1)', // Teal
+                        lineWidth: 1.5
+                    }
+                });
+                break;
+            case 'bollinger':
+                plots.push({
+                    id: 'bollinger',
+                    type: 'line',
+                    heightRatio: 0.15,
+                    targetId: 'main',
+                    data: data.map(d => ({ time: d.time, value: d.upper })),
+                    overlay: true,
+                    keyLabel: 'Bollinger Bands',
+                    style: {
+                        lineColor: 'rgba(0, 150, 136, 1)', // Teal
+                        lineWidth: 1.5
+                    }
+                });
+                plots.push({
+                    id: 'bollinger_lower',
+                    type: 'line',
+                    heightRatio: 0.15,
+                    targetId: 'main',
+                    data: data.map(d => ({ time: d.time, value: d.lower })),
+                    overlay: true,
+                    keyLabel: 'Bollinger Bands',
+                    style: {
+                        lineColor: 'rgba(0, 150, 136, 1)', // Teal
+                        lineWidth: 1.5
+                    }
+                });
+                break;
+        }
+
+        return plots;
+    }   
 
     previewIndicator(indicatorId, settings) {
         // Implement preview functionality - could show a temporary overlay or highlight

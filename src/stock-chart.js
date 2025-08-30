@@ -239,9 +239,6 @@ class StockChart {
             button.style.alignItems = 'center';
             button.style.justifyContent = 'center';
 
-            button.addEventListener('click', () => {
-                this.setDrawingTool(tool.name);
-            });
             button.style.padding = isMobile ? '8px' : '6px';
             button.style.color = this.currentTheme?.textColor || '#000000';
             button.style.touchAction = 'manipulation'; // Improve touch response

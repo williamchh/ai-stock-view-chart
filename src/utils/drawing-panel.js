@@ -135,6 +135,11 @@ _getTouchCoordinates(touch) {
      * @param {string} tool - The tool to activate (null to disable drawing)
      */
     setActiveTool(tool) {
+        console.log('setActiveTool', tool);
+        if (tool === 'settings') {
+            this.showIndicatorSettings();
+            return;
+        }
         // If clicking the same tool that's already active, deactivate it
         if (this.activeTool === tool) {
             this.activeTool = null;
@@ -1049,4 +1054,541 @@ _getTouchCoordinates(touch) {
             console.error('Failed to import drawings:', error);
         }
     }
+    showIndicatorSettings() {
+        const indicators = [
+            { 
+                name: 'SMA', 
+                id: 'sma',
+                settings: [
+                    { key: 'period', label: 'Period', type: 'number', default: 20, min: 1, max: 200 },
+                    { key: 'priceType', label: 'Price Type', type: 'select', default: 'close', 
+                    options: [
+                        { value: 'close', label: 'Close' },
+                        { value: 'hlc3', label: 'HLC/3' },
+                        { value: 'ohlc4', label: 'OHLC/4' }
+                    ]
+                    }
+                ]
+            },
+            { 
+                name: 'EMA', 
+                id: 'ema',
+                settings: [
+                    { key: 'period', label: 'Period', type: 'number', default: 20, min: 1, max: 200 },
+                    { key: 'priceType', label: 'Price Type', type: 'select', default: 'close', 
+                    options: [
+                        { value: 'close', label: 'Close' },
+                        { value: 'hlc3', label: 'HLC/3' },
+                        { value: 'ohlc4', label: 'OHLC/4' }
+                    ]
+                    }
+                ]
+            },
+            { 
+                name: 'RSI', 
+                id: 'rsi',
+                settings: [
+                    { key: 'period', label: 'Period', type: 'number', default: 14, min: 2, max: 100 },
+                    { key: 'priceType', label: 'Price Type', type: 'select', default: 'close', 
+                    options: [
+                        { value: 'close', label: 'Close' },
+                        { value: 'hlc3', label: 'HLC/3' },
+                        { value: 'ohlc4', label: 'OHLC/4' }
+                    ]
+                    },
+                    { key: 'overbought', label: 'Overbought Level', type: 'number', default: 70, min: 50, max: 90 },
+                    { key: 'oversold', label: 'Oversold Level', type: 'number', default: 30, min: 10, max: 50 }
+                ]
+            },
+            { 
+                name: 'MACD', 
+                id: 'macd',
+                settings: [
+                    { key: 'fastPeriod', label: 'Fast Period', type: 'number', default: 12, min: 1, max: 50 },
+                    { key: 'slowPeriod', label: 'Slow Period', type: 'number', default: 26, min: 1, max: 100 },
+                    { key: 'signalPeriod', label: 'Signal Period', type: 'number', default: 9, min: 1, max: 50 },
+                    { key: 'priceType', label: 'Price Type', type: 'select', default: 'close', 
+                    options: [
+                        { value: 'close', label: 'Close' },
+                        { value: 'hlc3', label: 'HLC/3' },
+                        { value: 'ohlc4', label: 'OHLC/4' }
+                    ]
+                    }
+                ]
+            },
+            { 
+                name: 'Bollinger Bands', 
+                id: 'bollinger',
+                settings: [
+                    { key: 'period', label: 'Period', type: 'number', default: 20, min: 2, max: 100 },
+                    { key: 'stdDev', label: 'Standard Deviation', type: 'number', default: 2, min: 0.1, max: 5, step: 0.1 },
+                    { key: 'priceType', label: 'Price Type', type: 'select', default: 'close', 
+                    options: [
+                        { value: 'close', label: 'Close' },
+                        { value: 'hlc3', label: 'HLC/3' },
+                        { value: 'ohlc4', label: 'OHLC/4' }
+                    ]
+                    }
+                ]
+            },
+            { 
+                name: 'DeMarker', 
+                id: 'demarker',
+                settings: [
+                    { key: 'period', label: 'Period', type: 'number', default: 14, min: 1, max: 100 },
+                    { key: 'overbought', label: 'Overbought Level', type: 'number', default: 0.7, min: 0.5, max: 0.9, step: 0.01 },
+                    { key: 'oversold', label: 'Oversold Level', type: 'number', default: 0.3, min: 0.1, max: 0.5, step: 0.01 }
+                ]
+            }
+        ];
+
+        // Create overlay
+        const overlay = document.createElement('div');
+        overlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        `;
+
+        // Create modal dialog
+        const dialog = document.createElement('div');
+        dialog.style.cssText = `
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+            width: 600px;
+            max-width: 90vw;
+            max-height: 80vh;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        `;
+
+        dialog.innerHTML = `
+            <div class="modal-header" style="padding: 20px; border-bottom: 1px solid #e0e0e0; background-color: #f8f9fa;">
+                <h3 style="margin: 0; color: #333; font-size: 18px;">Technical Indicators</h3>
+            </div>
+            
+            <div class="tab-container" style="display: flex; border-bottom: 1px solid #e0e0e0; background-color: #f8f9fa; overflow-x: auto;">
+                ${indicators.map((indicator, index) => `
+                    <button class="tab-btn ${index === 0 ? 'active' : ''}" data-tab="${indicator.id}" style="
+                        flex: 0 0 auto;
+                        padding: 12px 16px;
+                        border: none;
+                        background: ${index === 0 ? 'white' : 'transparent'};
+                        color: ${index === 0 ? '#333' : '#666'};
+                        cursor: pointer;
+                        border-bottom: 2px solid ${index === 0 ? '#007bff' : 'transparent'};
+                        font-weight: 500;
+                        white-space: nowrap;
+                        min-width: 80px;
+                    ">${indicator.name}</button>
+                `).join('')}
+            </div>
+            
+            <div class="tab-content" style="padding: 20px; max-height: 400px; overflow-y: auto;">
+                ${indicators.map((indicator, index) => `
+                    <div id="${indicator.id}-tab" class="tab-pane ${index === 0 ? 'active' : ''}" style="display: ${index === 0 ? 'block' : 'none'};">
+                        <div class="indicator-settings">
+                            <h4 style="margin: 0 0 20px 0; color: #333; font-size: 16px;">${indicator.name} Settings</h4>
+                            
+                            <form class="settings-form" data-indicator="${indicator.id}">
+                                ${indicator.settings.map(setting => {
+                                    if (setting.type === 'select') {
+                                        return `
+                                            <div class="form-group" style="margin-bottom: 16px;">
+                                                <label style="display: block; margin-bottom: 6px; color: #333; font-weight: 500; font-size: 14px;">${setting.label}</label>
+                                                <select name="${setting.key}" style="
+                                                    width: 100%;
+                                                    padding: 8px 12px;
+                                                    border: 1px solid #ddd;
+                                                    border-radius: 4px;
+                                                    font-size: 14px;
+                                                    background: white;
+                                                ">
+                                                    ${setting.options.map(option => `
+                                                        <option value="${option.value}" ${option.value === setting.default ? 'selected' : ''}>${option.label}</option>
+                                                    `).join('')}
+                                                </select>
+                                            </div>
+                                        `;
+                                    } else {
+                                        return `
+                                            <div class="form-group" style="margin-bottom: 16px;">
+                                                <label style="display: block; margin-bottom: 6px; color: #333; font-weight: 500; font-size: 14px;">${setting.label}</label>
+                                                <input 
+                                                    type="${setting.type}" 
+                                                    name="${setting.key}" 
+                                                    value="${setting.default}" 
+                                                    ${setting.min ? `min="${setting.min}"` : ''}
+                                                    ${setting.max ? `max="${setting.max}"` : ''}
+                                                    ${setting.step ? `step="${setting.step}"` : ''}
+                                                    style="
+                                                        width: 100%;
+                                                        padding: 8px 12px;
+                                                        border: 1px solid #ddd;
+                                                        border-radius: 4px;
+                                                        font-size: 14px;
+                                                        box-sizing: border-box;
+                                                    "
+                                                />
+                                            </div>
+                                        `;
+                                    }
+                                }).join('')}
+                                
+                                <div class="form-actions" style="margin-top: 24px; display: flex; gap: 12px;">
+                                    <button type="submit" class="add-indicator-btn" style="
+                                        background: #007bff;
+                                        color: white;
+                                        border: none;
+                                        padding: 10px 20px;
+                                        border-radius: 4px;
+                                        cursor: pointer;
+                                        font-size: 14px;
+                                        font-weight: 500;
+                                    ">Add Indicator</button>
+                                    
+                                    <button type="button" class="preview-btn" style="
+                                        background: #28a745;
+                                        color: white;
+                                        border: none;
+                                        padding: 10px 20px;
+                                        border-radius: 4px;
+                                        cursor: pointer;
+                                        font-size: 14px;
+                                        font-weight: 500;
+                                    ">Preview</button>
+                                </div>
+                            </form>
+                            
+                            <div class="active-instances" style="margin-top: 24px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
+                                <h5 style="margin: 0 0 12px 0; color: #333; font-size: 14px;">Active ${indicator.name} Instances</h5>
+                                <div id="${indicator.id}-instances" class="instances-list">
+                                    <!-- Active instances will be populated here -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+            
+            <div class="modal-footer" style="
+                padding: 16px 20px;
+                border-top: 1px solid #e0e0e0;
+                background-color: #f8f9fa;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            ">
+                <div style="color: #666; font-size: 12px;">
+                    Configure settings and click "Add Indicator" to apply
+                </div>
+                <button id="close-indicator-settings" style="
+                    background: #6c757d;
+                    color: white;
+                    border: none;
+                    padding: 8px 20px;
+                    border-radius: 4px;
+                    cursor: pointer;
+                    font-size: 14px;
+                ">Close</button>
+            </div>
+        `;
+
+        overlay.appendChild(dialog);
+        document.body.appendChild(overlay);
+
+        // Initialize the dialog
+        this.initializeIndicatorDialog(overlay, indicators);
+    }
+
+    initializeIndicatorDialog(overlay, indicators) {
+        const dialog = overlay.querySelector('div');
+        
+        // Tab switching functionality
+        const tabBtns = dialog.querySelectorAll('.tab-btn');
+        const tabPanes = dialog.querySelectorAll('.tab-pane');
+
+        tabBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                // Remove active class from all tabs
+                tabBtns.forEach(b => {
+                    b.classList.remove('active');
+                    b.style.background = 'transparent';
+                    b.style.color = '#666';
+                    b.style.borderBottomColor = 'transparent';
+                });
+                tabPanes.forEach(pane => {
+                    pane.classList.remove('active');
+                    pane.style.display = 'none';
+                });
+
+                // Add active class to clicked tab
+                btn.classList.add('active');
+                btn.style.background = 'white';
+                btn.style.color = '#333';
+                btn.style.borderBottomColor = '#007bff';
+                
+                const targetTab = dialog.querySelector(`#${btn.dataset.tab}-tab`);
+                targetTab.classList.add('active');
+                targetTab.style.display = 'block';
+
+                // Update instances list for the active tab
+                this.updateInstancesList(btn.dataset.tab);
+            });
+        });
+
+        // Form submission for adding indicators
+        dialog.addEventListener('submit', (event) => {
+            event.preventDefault();
+            
+            const form = event.target;
+            const indicatorId = form.dataset.indicator;
+            const formData = new FormData(form);
+            const settings = {};
+            
+            for (let [key, value] of formData.entries()) {
+                // Convert numeric values
+                const indicator = indicators.find(ind => ind.id === indicatorId);
+                const setting = indicator.settings.find(s => s.key === key);
+                
+                if (setting && setting.type === 'number') {
+                    debugger;
+
+                    // @ts-ignore
+                    settings[key] = parseFloat(value);
+                } else {
+                    settings[key] = value;
+                }
+            }
+            
+            this.addIndicatorWithSettings(indicatorId, settings);
+            this.updateInstancesList(indicatorId);
+            
+            // Show success feedback
+            const submitBtn = form.querySelector('.add-indicator-btn');
+            const originalText = submitBtn.textContent;
+            submitBtn.textContent = '✓ Added Successfully';
+            submitBtn.style.background = '#28a745';
+            
+            setTimeout(() => {
+                submitBtn.textContent = originalText;
+                submitBtn.style.background = '#007bff';
+            }, 2000);
+        });
+
+        // Preview functionality
+        dialog.addEventListener('click', (event) => {
+            if (event.target.classList.contains('preview-btn')) {
+                const form = event.target.closest('form');
+                const indicatorId = form.dataset.indicator;
+                const formData = new FormData(form);
+                const settings = {};
+                
+                for (let [key, value] of formData.entries()) {
+                    const indicator = indicators.find(ind => ind.id === indicatorId);
+                    const setting = indicator.settings.find(s => s.key === key);
+                    
+                    if (setting && setting.type === 'number') {
+                        debugger;
+                        // @ts-ignore
+                        settings[key] = parseFloat(value);
+                    } else {
+                        settings[key] = value;
+                    }
+                }
+                
+                this.previewIndicator(indicatorId, settings);
+            }
+
+            // Remove instance functionality
+            if (event.target.classList.contains('remove-instance-btn')) {
+                const plotId = event.target.dataset.plotId;
+                const indicatorId = event.target.dataset.indicatorId;
+                this.removeIndicator(plotId);
+                this.updateInstancesList(indicatorId);
+            }
+
+            // Edit instance functionality
+            if (event.target.classList.contains('edit-instance-btn')) {
+                const plotId = event.target.dataset.plotId;
+                this.editIndicatorInstance(plotId);
+            }
+        });
+
+        // Close functionality
+        dialog.querySelector('#close-indicator-settings').addEventListener('click', () => {
+            document.body.removeChild(overlay);
+        });
+
+        // Close on overlay click
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) {
+                document.body.removeChild(overlay);
+            }
+        });
+
+        // Initialize instances lists for all indicators
+        indicators.forEach(indicator => {
+            this.updateInstancesList(indicator.id);
+        });
+    }
+
+    updateInstancesList(indicatorId) {
+        const instancesContainer = document.querySelector(`#${indicatorId}-instances`);
+        if (!instancesContainer) return;
+        
+        const instances = this.getIndicatorInstances(indicatorId);
+        
+        if (instances.length === 0) {
+            instancesContainer.innerHTML = `
+                <div style="color: #666; font-style: italic; padding: 12px; text-align: center; border: 1px dashed #ddd; border-radius: 4px;">
+                    No ${indicatorId.toUpperCase()} instances added yet
+                </div>
+            `;
+        } else {
+            instancesContainer.innerHTML = instances.map(instance => `
+                <div class="instance-item" style="
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    padding: 10px 12px;
+                    border: 1px solid #e0e0e0;
+                    border-radius: 4px;
+                    margin-bottom: 8px;
+                    background: #f9f9f9;
+                ">
+                    <div>
+                        <div style="font-weight: 500; color: #333; font-size: 13px;">${instance.name}</div>
+                        <div style="color: #666; font-size: 11px;">${this.formatSettings(instance.settings)}</div>
+                    </div>
+                    <div style="display: flex; gap: 6px;">
+                        <button class="edit-instance-btn" data-plot-id="${instance.plotId}" style="
+                            background: #ffc107;
+                            color: #212529;
+                            border: none;
+                            padding: 4px 8px;
+                            border-radius: 3px;
+                            cursor: pointer;
+                            font-size: 11px;
+                        ">Edit</button>
+                        <button class="remove-instance-btn" data-plot-id="${instance.plotId}" data-indicator-id="${indicatorId}" style="
+                            background: #dc3545;
+                            color: white;
+                            border: none;
+                            padding: 4px 8px;
+                            border-radius: 3px;
+                            cursor: pointer;
+                            font-size: 11px;
+                        ">Remove</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+    }
+
+    formatSettings(settings) {
+        return Object.entries(settings)
+            .map(([key, value]) => `${key}: ${value}`)
+            .join(', ');
+    }
+
+    getIndicatorInstances(indicatorId) {
+        if (!this.stockChart || !this.stockChart.options || !this.stockChart.options.plots) {
+            return [];
+        }
+        
+        return this.stockChart.options.plots
+            .filter(plot => plot.indicator && plot.indicator.id === indicatorId)
+            .map(plot => ({
+                name: plot.indicator.name,
+                plotId: plot.id,
+                settings: plot.indicator.settings || {}
+            }));
+    }
+
+    addIndicatorWithSettings(indicatorId, settings) {
+        const timestamp = Date.now();
+        const newPlotId = `${indicatorId}-${timestamp}`;
+        
+        // Create a descriptive name based on settings
+        let name = this.getIndicatorDisplayName(indicatorId);
+        if (settings.period) {
+            name += ` (${settings.period})`;
+        }
+
+        if (!this.stockChart.options.plots) {
+            this.stockChart.options.plots = [];
+        }
+
+        this.stockChart.options.plots.push({
+            id: newPlotId,
+            heightRatio: 0.3,
+            data: [],
+            type: 'line',
+            indicator: {
+                id: indicatorId,
+                name: name,
+                settings: settings
+            }
+        });
+        
+        this.stockChart.render();
+    }
+
+    previewIndicator(indicatorId, settings) {
+        // Implement preview functionality - could show a temporary overlay or highlight
+        console.log(`Previewing ${indicatorId} with settings:`, settings);
+        
+        // Example: Show an alert with the configuration
+        const settingsText = Object.entries(settings)
+            .map(([key, value]) => `${key}: ${value}`)
+            .join('\n');
+        
+        alert(`Preview ${this.getIndicatorDisplayName(indicatorId)}:\n\n${settingsText}`);
+    }
+
+    editIndicatorInstance(plotId) {
+        const plot = this.stockChart.options.plots.find(p => p.id === plotId);
+        if (!plot || !plot.indicator) return;
+        
+        // Simple implementation - you can enhance this
+        const currentSettings = plot.indicator.settings || {};
+        const newName = prompt(`Enter new name for ${plot.indicator.name}:`, plot.indicator.name);
+        
+        if (newName && newName !== plot.indicator.name) {
+            plot.indicator.name = newName;
+            this.stockChart.render();
+            this.updateInstancesList(plot.indicator.id);
+        }
+    }
+
+    removeIndicator(plotId) {
+        if (this.stockChart.options.plots) {
+            this.stockChart.options.plots = this.stockChart.options.plots.filter(
+                plot => plot.id !== plotId
+            );
+            this.stockChart.render();
+        }
+    }
+
+    getIndicatorDisplayName(indicatorId) {
+        const indicators = {
+            'bollinger': 'Bollinger Bands',
+            'demarker': 'DeMarker',
+            'ema': 'EMA',
+            'macd': 'MACD',
+            'rsi': 'RSI',
+            'sma': 'SMA'
+        };
+        return indicators[indicatorId] || indicatorId.toUpperCase();
+    }
+
 }

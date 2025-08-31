@@ -17,6 +17,7 @@ import { PlotLayoutManager } from './layout.js';
  * @property {Object} currentTheme - The current theme object
  * @property {Function} setDrawingTool - Function to set the active drawing tool
  * @property {Function} render - Function to render/redraw the chart
+ * @property {Function} loadIndicatorSettings - Function to load indicator settings
  */
 
 /**
@@ -1128,7 +1129,7 @@ _getTouchCoordinates(touch) {
                 id: 'bollinger',
                 settings: [
                     { key: 'period', label: 'Period', type: 'number', default: 20, min: 2, max: 100 },
-                    { key: 'stdDev', label: 'Standard Deviation', type: 'number', default: 2, min: 0.1, max: 5, step: 0.1 },
+                    { key: 'stdDev', label: 'Standard Deviation', type: 'number', default: 2, min: 0.1, max: 5, step: 0.001 },
                     { key: 'priceType', label: 'Price Type', type: 'select', default: 'close', 
                     options: [
                         { value: 'close', label: 'Close' },
@@ -1468,49 +1469,62 @@ _getTouchCoordinates(touch) {
                     No ${indicatorId.toUpperCase()} instances added yet
                 </div>
             `;
-        } else if (indicator && indicator.plots) {
-            // For multi-plot indicators, show one instance
-            const instance = instances; // Use the first instance for settings
-            instancesContainer.innerHTML = `
-                <div class="instance-item" style="
-                    display: flex;
-                    align-items: center;
-                    justify-content: space-between;
-                    padding: 10px 12px;
-                    border: 1px solid #e0e0e0;
-                    border-radius: 4px;
-                    margin-bottom: 8px;
-                    background: #f9f9f9;
-                ">
-                    <div>
-                        <div style="font-weight: 500; color: #333; font-size: 13px;">${indicator.name}</div>
-                        <div style="color: #666; font-size: 11px;">${this.formatSettings(instance.settings)}</div>
-                    </div>
-                    <div style="display: flex; gap: 6px;">
-                        <button class="edit-instance-btn" data-plot-id="${instance.plotId}" style="
-                            background: #ffc107;
-                            color: #212529;
-                            border: none;
-                            padding: 4px 8px;
-                            border-radius: 3px;
-                            cursor: pointer;
-                            font-size: 11px;
-                        ">Edit</button>
-                        <button class="remove-instance-btn" data-plot-id="${instance.plotId}" data-indicator-id="${indicatorId}" style="
-                            background: #dc3545;
-                            color: white;
-                            border: none;
-                            padding: 4px 8px;
-                            border-radius: 3px;
-                            cursor: pointer;
-                            font-size: 11px;
-                        ">Remove</button>
-                    </div>
-                </div>
-            `;
-        } else {
+        } 
+        // else if (indicator && indicator.plots) {
+        //     debugger
+        //     // For multi-plot indicators, show one instance
+        //     const instance = instances; // Use the first instance for settings
+        //     instancesContainer.innerHTML = `
+        //         <div class="instance-item" style="
+        //             display: flex;
+        //             align-items: center;
+        //             justify-content: space-between;
+        //             padding: 10px 12px;
+        //             border: 1px solid #e0e0e0;
+        //             border-radius: 4px;
+        //             margin-bottom: 8px;
+        //             background: #f9f9f9;
+        //         ">
+        //             <div>
+        //                 <div style="font-weight: 500; color: #333; font-size: 13px;">${indicator.name}</div>
+        //                 <div style="color: #666; font-size: 11px;">${this.formatInstances(instance)}</div>
+        //             </div>
+        //             <div style="display: flex; gap: 6px;">
+        //                 <button class="edit-instance-btn" data-plot-id="${instance.plotId}" style="
+        //                     background: #ffc107;
+        //                     color: #212529;
+        //                     border: none;
+        //                     padding: 4px 8px;
+        //                     border-radius: 3px;
+        //                     cursor: pointer;
+        //                     font-size: 11px;
+        //                 ">Edit</button>
+        //                 <button class="remove-instance-btn" data-plot-id="${instance.plotId}" data-indicator-id="${indicatorId}" style="
+        //                     background: #dc3545;
+        //                     color: white;
+        //                     border: none;
+        //                     padding: 4px 8px;
+        //                     border-radius: 3px;
+        //                     cursor: pointer;
+        //                     font-size: 11px;
+        //                 ">Remove</button>
+        //             </div>
+        //         </div>
+        //     `;
+        // } 
+        else {
+
+            const renderInstances = [];
+            // find unique name from instances
+            const uniqueNames = new Set(instances.map(instance => instance.name));
+            uniqueNames.forEach(name => {
+                const instance = instances.find(inst => inst.name === name);
+                if (instance) {
+                    renderInstances.push(instance);
+                }
+            });
             // For single-plot indicators, show all instances
-            instancesContainer.innerHTML = instances.map(instance => `
+            instancesContainer.innerHTML = renderInstances.map(instance => `
                 <div class="instance-item" style="
                     display: flex;
                     align-items: center;
@@ -1523,7 +1537,7 @@ _getTouchCoordinates(touch) {
                 ">
                     <div>
                         <div style="font-weight: 500; color: #333; font-size: 13px;">${instance.name}</div>
-                        <div style="color: #666; font-size: 11px;">${this.formatSettings(instance.settings)}</div>
+                        <div style="color: #666; font-size: 11px;">${this.formatInstances(instance)}</div>
                     </div>
                     <div style="display: flex; gap: 6px;">
                         <button class="edit-instance-btn" data-plot-id="${instance.plotId}" style="
@@ -1550,7 +1564,7 @@ _getTouchCoordinates(touch) {
         }
     }
 
-    formatSettings(settings) {
+    formatInstances({settings}) {
         return Object.entries(settings)
             .map(([key, value]) => `${key}: ${value}`)
             .join(', ');
@@ -1629,7 +1643,7 @@ _getTouchCoordinates(touch) {
 
             if (!isMainPlot) {
                 // @ts-ignore
-                this.stockChart.plotLayoutManager.updatePlotLayout(plot, 'add');
+                this.stockChart.plotLayoutManager.updatePlotIndicator(plot, 'add');
             }
         });
 
@@ -1754,9 +1768,22 @@ _getTouchCoordinates(touch) {
                     id: 'bollinger_lower',
                     type: 'line',
                     heightRatio: 0.15,
-                    targetId: 'main',
                     data: data.map(d => ({ time: d.time, value: d.lower })),
                     overlay: true,
+                    targetId: 'main',
+                    keyLabel: 'Bollinger Bands',
+                    style: {
+                        lineColor: 'rgba(0, 150, 136, 1)', // Teal
+                        lineWidth: 1.5
+                    }
+                });
+                plots.push({
+                    id: 'bollinger_middle',
+                    type: 'line',
+                    heightRatio: 0.15,
+                    data: data.map(d => ({ time: d.time, value: d.middle })),
+                    overlay: true,
+                    targetId: 'main',
                     keyLabel: 'Bollinger Bands',
                     style: {
                         lineColor: 'rgba(0, 150, 136, 1)', // Teal
@@ -1797,21 +1824,37 @@ _getTouchCoordinates(touch) {
         }
     }
 
+    /**
+     * Remove an indicator from the chart
+     * @param {string} plotId 
+     */
     removeIndicator(plotId) {
+    
         if (this.stockChart.options.plots) {
-            // this.stockChart.options.plots = this.stockChart.options.plots.filter(
-            //     plot => plot.id !== plotId
-            // );
 
             const plotToRemove = this.stockChart.options.plots.find(plot => plot.id === plotId);
+            const relatedPlots = this.stockChart.options.plots.filter(plot => plot.indicator?.id === plotId);
 
-            // @ts-ignore
-            this.stockChart.plotLayoutManager.updatePlotLayout(plotToRemove, 'remove');
-
+            
+            const removedPlotIds = [plotToRemove.id, ...relatedPlots.map(p => p.id)];
+            
             const plot = this.stockChart.options.plots.find(p => p.id === plotId);
-            this.stockChart.options.plots = this.stockChart.options.plots.filter(plot => plot.id !== plotId);
+            this.stockChart.options.plots = this.stockChart.options.plots.filter(plot => !removedPlotIds.includes(plot.id));
+            // this.stockChart.plotLayoutManager.calculateLayout();
+            // @ts-ignore
+            this.stockChart.plotLayoutManager.updatePlotIndicator(plotToRemove, 'delete');
+            
+            if (relatedPlots && relatedPlots.length) {
+                relatedPlots.forEach(p => {
+                    //@ts-ignore
+                    this.stockChart.plotLayoutManager.updatePlotIndicator(p, 'delete');
+                });
+            }
             this.stockChart.render();
-
+            this.stockChart.options.plots = this.stockChart.options.plots.filter(
+                plot => !removedPlotIds.includes(plot.id)
+            );
+            
             if (plot && plot.indicator) {
                 // Remove indicator settings from local storage
                 const savedIndicators = JSON.parse(localStorage.getItem('asv-chart-indicator-settings')) || [];

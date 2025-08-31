@@ -56,7 +56,6 @@ export class PlotLayoutManager {
 
     /**
      * Recalculates the layout of plots based on canvas dimensions and plot configurations.
-     * @private
      */
     calculateLayout() {
         let currentY = 0;
@@ -107,9 +106,15 @@ export class PlotLayoutManager {
      * @param {import("../stock-chart.js").PlotConfig} plot - The plot configuration to update.
      * @param {'add'|'delete'} addOrDelete - Whether to add or delete the plot.
      */
-    updatePlotLayout(plot, addOrDelete) {
+    updatePlotIndicator(plot, addOrDelete) {
         if (addOrDelete === 'delete') {
-            this.plots = this.plots.filter(p => p.id !== plot.id);
+            // this.plots = this.plots.filter(p => p.id !== plot.id);
+            // const removeKey = plot.id;
+            this.plotConfigs = this.plotConfigs.filter(p => {
+                if (!p.indicator) return true;
+                return p.indicator.id !== plot.id && p.targetId !== plot.targetId;
+            });
+            // delete this.plots[removeKey];
         }
         this.calculateLayout();
     }

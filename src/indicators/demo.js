@@ -38,16 +38,20 @@ export function calculateSMA(data, period, valueSelector = d => d.close) {
  */
 export function calculateBollingerBands(data, period, standardDeviationMultiplier = 2) {
     let band = initBollingerBandState(period, standardDeviationMultiplier);
+    let midLine = initSMAState(period);
     const bollingerBands = [];
 
     for (const point of data) {
         const result = updateBollingerBands(point.close, band);
+        const midResult = updateSMA(point.close, midLine);
         bollingerBands.push({
             time: point.time,
             upper: result.upper,
-            lower: result.lower
+            lower: result.lower,
+            middle: midResult.value
         });
         band = result.state;
+        midLine = midResult.state;
     }
 
     return bollingerBands;

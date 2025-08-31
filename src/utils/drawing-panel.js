@@ -1057,7 +1057,8 @@ _getTouchCoordinates(touch) {
             console.error('Failed to import drawings:', error);
         }
     }
-    showIndicatorSettings() {
+    showIndicatorSettings(options = {}) {
+        const { indicatorId: editIndicatorId, settings: editSettings, plotId: editPlotId } = options;
         this.indicators = [
             {
                 name: 'SMA',
@@ -1261,18 +1262,7 @@ _getTouchCoordinates(touch) {
                                         cursor: pointer;
                                         font-size: 14px;
                                         font-weight: 500;
-                                    ">Add Indicator</button>
-                                    
-                                    <button type="button" class="preview-btn" style="
-                                        background: #28a745;
-                                        color: white;
-                                        border: none;
-                                        padding: 10px 20px;
-                                        border-radius: 4px;
-                                        cursor: pointer;
-                                        font-size: 14px;
-                                        font-weight: 500;
-                                    ">Preview</button>
+                                    ">${editPlotId ? 'Update Indicator' : 'Add Indicator'}</button>
                                 </div>
                             </form>
                             
@@ -1314,7 +1304,7 @@ _getTouchCoordinates(touch) {
         document.body.appendChild(overlay);
 
         // Initialize the dialog
-        this.initializeIndicatorDialog(overlay, this.indicators);
+        this.initializeIndicatorDialog(overlay, this.indicators, { editIndicatorId, editSettings, editPlotId });
     }
 
     /**
@@ -1325,7 +1315,8 @@ _getTouchCoordinates(touch) {
         return this.stockChart.options.plots.find(p => p.id === 'main').data;
     }
 
-    initializeIndicatorDialog(overlay, indicators) {
+    initializeIndicatorDialog(overlay, indicators, options = {}) {
+        const { editIndicatorId, editSettings, editPlotId } = options;
         const dialog = overlay.querySelector('div');
         
         // Tab switching functionality
@@ -1384,7 +1375,7 @@ _getTouchCoordinates(touch) {
                 }
             }
             
-            this.addIndicatorWithSettings(indicatorId, settings);
+            this.addIndicatorWithSettings(indicatorId, settings, editPlotId);
             this.updateInstancesList(indicatorId);
             
             // Show success feedback
@@ -1454,6 +1445,25 @@ _getTouchCoordinates(touch) {
         indicators.forEach(indicator => {
             this.updateInstancesList(indicator.id);
         });
+
+        if (editIndicatorId && editSettings) {
+            // Activate the correct tab
+            const tabBtn = dialog.querySelector(`.tab-btn[data-tab="${editIndicatorId}"]`);
+            if (tabBtn) {
+                tabBtn.click();
+            }
+
+            // Populate the form with existing settings
+            const form = dialog.querySelector(`#${editIndicatorId}-tab .settings-form`);
+            if (form) {
+                for (const key in editSettings) {
+                    const input = form.querySelector(`[name="${key}"]`);
+                    if (input) {
+                        input.value = editSettings[key];
+                    }
+                }
+            }
+        }
     }
 
     updateInstancesList(indicatorId) {
@@ -1470,48 +1480,6 @@ _getTouchCoordinates(touch) {
                 </div>
             `;
         } 
-        // else if (indicator && indicator.plots) {
-        //     debugger
-        //     // For multi-plot indicators, show one instance
-        //     const instance = instances; // Use the first instance for settings
-        //     instancesContainer.innerHTML = `
-        //         <div class="instance-item" style="
-        //             display: flex;
-        //             align-items: center;
-        //             justify-content: space-between;
-        //             padding: 10px 12px;
-        //             border: 1px solid #e0e0e0;
-        //             border-radius: 4px;
-        //             margin-bottom: 8px;
-        //             background: #f9f9f9;
-        //         ">
-        //             <div>
-        //                 <div style="font-weight: 500; color: #333; font-size: 13px;">${indicator.name}</div>
-        //                 <div style="color: #666; font-size: 11px;">${this.formatInstances(instance)}</div>
-        //             </div>
-        //             <div style="display: flex; gap: 6px;">
-        //                 <button class="edit-instance-btn" data-plot-id="${instance.plotId}" style="
-        //                     background: #ffc107;
-        //                     color: #212529;
-        //                     border: none;
-        //                     padding: 4px 8px;
-        //                     border-radius: 3px;
-        //                     cursor: pointer;
-        //                     font-size: 11px;
-        //                 ">Edit</button>
-        //                 <button class="remove-instance-btn" data-plot-id="${instance.plotId}" data-indicator-id="${indicatorId}" style="
-        //                     background: #dc3545;
-        //                     color: white;
-        //                     border: none;
-        //                     padding: 4px 8px;
-        //                     border-radius: 3px;
-        //                     cursor: pointer;
-        //                     font-size: 11px;
-        //                 ">Remove</button>
-        //             </div>
-        //         </div>
-        //     `;
-        // } 
         else {
 
             const renderInstances = [];
@@ -1589,7 +1557,10 @@ _getTouchCoordinates(touch) {
      * @param {string} indicatorId - The ID of the indicator to add.
      * @param {Object} settings - The settings for the indicator.
      */
-    addIndicatorWithSettings(indicatorId, settings) {
+    addIndicatorWithSettings(indicatorId, settings, editPlotId = null) {
+        if (editPlotId) {
+            this.removeIndicator(editPlotId);
+        }
         const timestamp = Date.now();
         const newPlotId = `${indicatorId}-${timestamp}`;
         
@@ -1627,7 +1598,8 @@ _getTouchCoordinates(touch) {
             // Add more cases for different indicators as needed
         }
 
-        const plots = this.getPlotsByIndicatorId(indicatorId, data);
+        const totalPlots = this.stockChart.options.plots?.length || 1;
+        const plots = this.getPlotsByIndicatorId(indicatorId, data, totalPlots);
 
         plots.forEach((plot, idx) => {
             // if (idx == 0) {                
@@ -1673,9 +1645,10 @@ _getTouchCoordinates(touch) {
      * 
      * @param {string} indicatorId 
      * @param {Array} data 
+     * @param {number} totalPlots
      * @returns {Array<import('../stock-chart.js').PlotConfig>}
      */
-    getPlotsByIndicatorId(indicatorId, data) {
+    getPlotsByIndicatorId(indicatorId, data, totalPlots) {
         const plots = [];
 
         switch (indicatorId) {
@@ -1731,7 +1704,7 @@ _getTouchCoordinates(touch) {
                 break;
             case 'sma':
                 plots.push({
-                    id: 'sma',
+                    id: 'sma' + totalPlots,
                     type: 'line',
                     data: data,
                     targetId: 'main',
@@ -1745,7 +1718,7 @@ _getTouchCoordinates(touch) {
                 break;
             case 'ema':
                 plots.push({
-                    id: 'ema',
+                    id: 'ema' + totalPlots,
                     type: 'line',
                     heightRatio: 0.15,
                     targetId: 'main',
@@ -1820,16 +1793,10 @@ _getTouchCoordinates(touch) {
     editIndicatorInstance(plotId) {
         const plot = this.stockChart.options.plots.find(p => p.id === plotId);
         if (!plot || !plot.indicator) return;
-        
-        // Simple implementation - you can enhance this
-        const currentSettings = plot.indicator.settings || {};
-        const newName = prompt(`Enter new name for ${plot.indicator.name}:`, plot.indicator.name);
-        
-        if (newName && newName !== plot.indicator.name) {
-            plot.indicator.name = newName;
-            this.stockChart.render();
-            this.updateInstancesList(plot.indicator.id);
-        }
+
+        const { id: indicatorId, settings } = plot.indicator;
+
+        this.showIndicatorSettings({ indicatorId, settings, plotId });
     }
 
     /**

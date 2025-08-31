@@ -1057,13 +1057,13 @@ _getTouchCoordinates(touch) {
         }
     }
     showIndicatorSettings() {
-        const indicators = [
-            { 
-                name: 'SMA', 
+        this.indicators = [
+            {
+                name: 'SMA',
                 id: 'sma',
                 settings: [
                     { key: 'period', label: 'Period', type: 'number', default: 20, min: 1, max: 200 },
-                    { key: 'priceType', label: 'Price Type', type: 'select', default: 'close', 
+                    { key: 'priceType', label: 'Price Type', type: 'select', default: 'close',
                     options: [
                         { value: 'close', label: 'Close' },
                         { value: 'hlc3', label: 'HLC/3' },
@@ -1102,14 +1102,19 @@ _getTouchCoordinates(touch) {
                     { key: 'oversold', label: 'Oversold Level', type: 'number', default: 30, min: 10, max: 50 }
                 ]
             },
-            { 
-                name: 'MACD', 
+            {
                 id: 'macd',
+                name: 'MACD',
+                plots: [
+                    { name: 'MACD Line', type: 'line' },
+                    { name: 'Signal Line', type: 'line' },
+                    { name: 'Histogram', type: 'histogram' }
+                ],
                 settings: [
                     { key: 'fastPeriod', label: 'Fast Period', type: 'number', default: 12, min: 1, max: 50 },
                     { key: 'slowPeriod', label: 'Slow Period', type: 'number', default: 26, min: 1, max: 100 },
                     { key: 'signalPeriod', label: 'Signal Period', type: 'number', default: 9, min: 1, max: 50 },
-                    { key: 'priceType', label: 'Price Type', type: 'select', default: 'close', 
+                    { key: 'priceType', label: 'Price Type', type: 'select', default: 'close',
                     options: [
                         { value: 'close', label: 'Close' },
                         { value: 'hlc3', label: 'HLC/3' },
@@ -1178,7 +1183,7 @@ _getTouchCoordinates(touch) {
             </div>
             
             <div class="tab-container" style="display: flex; border-bottom: 1px solid #e0e0e0; background-color: #f8f9fa; overflow-x: auto;">
-                ${indicators.map((indicator, index) => `
+                ${this.indicators.map((indicator, index) => `
                     <button class="tab-btn ${index === 0 ? 'active' : ''}" data-tab="${indicator.id}" style="
                         flex: 0 0 auto;
                         padding: 12px 16px;
@@ -1195,7 +1200,7 @@ _getTouchCoordinates(touch) {
             </div>
             
             <div class="tab-content" style="padding: 20px; max-height: 400px; overflow-y: auto;">
-                ${indicators.map((indicator, index) => `
+                ${this.indicators.map((indicator, index) => `
                     <div id="${indicator.id}-tab" class="tab-pane ${index === 0 ? 'active' : ''}" style="display: ${index === 0 ? 'block' : 'none'};">
                         <div class="indicator-settings">
                             <h4 style="margin: 0 0 20px 0; color: #333; font-size: 16px;">${indicator.name} Settings</h4>
@@ -1308,7 +1313,7 @@ _getTouchCoordinates(touch) {
         document.body.appendChild(overlay);
 
         // Initialize the dialog
-        this.initializeIndicatorDialog(overlay, indicators);
+        this.initializeIndicatorDialog(overlay, this.indicators);
     }
 
     /**
@@ -1453,16 +1458,58 @@ _getTouchCoordinates(touch) {
     updateInstancesList(indicatorId) {
         const instancesContainer = document.querySelector(`#${indicatorId}-instances`);
         if (!instancesContainer) return;
-        
+    
         const instances = this.getIndicatorInstances(indicatorId);
-        
+        const indicator = this.indicators.find(ind => ind.id === indicatorId);
+    
         if (instances.length === 0) {
             instancesContainer.innerHTML = `
                 <div style="color: #666; font-style: italic; padding: 12px; text-align: center; border: 1px dashed #ddd; border-radius: 4px;">
                     No ${indicatorId.toUpperCase()} instances added yet
                 </div>
             `;
+        } else if (indicator && indicator.plots) {
+            // For multi-plot indicators, show one instance
+            const instance = instances; // Use the first instance for settings
+            instancesContainer.innerHTML = `
+                <div class="instance-item" style="
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    padding: 10px 12px;
+                    border: 1px solid #e0e0e0;
+                    border-radius: 4px;
+                    margin-bottom: 8px;
+                    background: #f9f9f9;
+                ">
+                    <div>
+                        <div style="font-weight: 500; color: #333; font-size: 13px;">${indicator.name}</div>
+                        <div style="color: #666; font-size: 11px;">${this.formatSettings(instance.settings)}</div>
+                    </div>
+                    <div style="display: flex; gap: 6px;">
+                        <button class="edit-instance-btn" data-plot-id="${instance.plotId}" style="
+                            background: #ffc107;
+                            color: #212529;
+                            border: none;
+                            padding: 4px 8px;
+                            border-radius: 3px;
+                            cursor: pointer;
+                            font-size: 11px;
+                        ">Edit</button>
+                        <button class="remove-instance-btn" data-plot-id="${instance.plotId}" data-indicator-id="${indicatorId}" style="
+                            background: #dc3545;
+                            color: white;
+                            border: none;
+                            padding: 4px 8px;
+                            border-radius: 3px;
+                            cursor: pointer;
+                            font-size: 11px;
+                        ">Remove</button>
+                    </div>
+                </div>
+            `;
         } else {
+            // For single-plot indicators, show all instances
             instancesContainer.innerHTML = instances.map(instance => `
                 <div class="instance-item" style="
                     display: flex;

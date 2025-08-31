@@ -41,7 +41,8 @@ export class DrawingPanel {
         this.selectedPoint = null;
         this.isEditing = false;
         this._isChartFrozen = false;
-        
+        this.editPlotId = null;
+
         // We'll calculate barWidth dynamically when needed instead of storing it
         
         
@@ -1235,6 +1236,7 @@ _getTouchCoordinates(touch) {
                                                     type="${setting.type}" 
                                                     name="${setting.key}" 
                                                     value="${setting.default}" 
+                                                    id="${indicator.id}-${setting.key}"
                                                     ${setting.min ? `min="${setting.min}"` : ''}
                                                     ${setting.max ? `max="${setting.max}"` : ''}
                                                     ${setting.step ? `step="${setting.step}"` : ''}
@@ -1262,7 +1264,7 @@ _getTouchCoordinates(touch) {
                                         cursor: pointer;
                                         font-size: 14px;
                                         font-weight: 500;
-                                    ">${editPlotId ? 'Update Indicator' : 'Add Indicator'}</button>
+                                    ">${this.editPlotId ? 'Update Indicator' : 'Add Indicator'}</button>
                                 </div>
                             </form>
                             
@@ -1316,7 +1318,7 @@ _getTouchCoordinates(touch) {
     }
 
     initializeIndicatorDialog(overlay, indicators, options = {}) {
-        const { editIndicatorId, editSettings, editPlotId } = options;
+        const { editIndicatorId, editSettings } = options;
         const dialog = overlay.querySelector('div');
         
         // Tab switching functionality
@@ -1355,7 +1357,7 @@ _getTouchCoordinates(touch) {
         // Form submission for adding indicators
         dialog.addEventListener('submit', (event) => {
             event.preventDefault();
-            
+            debugger
             const form = event.target;
             const indicatorId = form.dataset.indicator;
             const formData = new FormData(form);
@@ -1375,7 +1377,7 @@ _getTouchCoordinates(touch) {
                 }
             }
             
-            this.addIndicatorWithSettings(indicatorId, settings, editPlotId);
+            this.addIndicatorWithSettings(indicatorId, settings);
             this.updateInstancesList(indicatorId);
             
             // Show success feedback
@@ -1557,9 +1559,9 @@ _getTouchCoordinates(touch) {
      * @param {string} indicatorId - The ID of the indicator to add.
      * @param {Object} settings - The settings for the indicator.
      */
-    addIndicatorWithSettings(indicatorId, settings, editPlotId = null) {
-        if (editPlotId) {
-            this.removeIndicator(editPlotId);
+    addIndicatorWithSettings(indicatorId, settings) {
+        if (this.editPlotId) {
+            this.removeIndicator(this.editPlotId);
         }
         const timestamp = Date.now();
         const newPlotId = `${indicatorId}-${timestamp}`;
@@ -1639,6 +1641,8 @@ _getTouchCoordinates(touch) {
         }
         
         localStorage.setItem('asv-chart-indicator-settings', JSON.stringify(savedIndicators));
+
+        this.editPlotId = null;
     }
 
     /**
@@ -1796,7 +1800,20 @@ _getTouchCoordinates(touch) {
 
         const { id: indicatorId, settings } = plot.indicator;
 
-        this.showIndicatorSettings({ indicatorId, settings, plotId });
+        Object.entries(settings)
+            .forEach(([key, value]) => {
+                const inputEle = document.getElementById(`${indicatorId}-${key}`);
+                if (inputEle) {
+                    // update input value
+                    (inputEle instanceof HTMLInputElement || inputEle instanceof HTMLSelectElement)
+                        ? inputEle.value = value
+                        : null;
+                }
+            });
+
+        this.editPlotId = indicatorId;
+
+        // this.showIndicatorSettings({ indicatorId, settings, plotId });
     }
 
     /**

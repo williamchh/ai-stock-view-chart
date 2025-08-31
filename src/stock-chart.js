@@ -45,6 +45,7 @@ class StockChart {
 
         const chartInstance = new StockChart(container, options);
         chartInstance.render();
+        chartInstance.loadIndicatorSettings();
         return chartInstance;
     }
 
@@ -152,6 +153,16 @@ class StockChart {
         this.resizeObserver.observe(this.container);
 
         this.applyTheme(this.options.theme);
+    }
+
+    loadIndicatorSettings() {
+        const savedIndicators = localStorage.getItem('asv-chart-indicator-settings');
+        if (savedIndicators) {
+            const indicators = JSON.parse(savedIndicators);
+            indicators.forEach(indicator => {
+                this.drawingPanel.addIndicatorWithSettings(indicator.id, indicator.settings);
+            });
+        }
     }
 
     /**

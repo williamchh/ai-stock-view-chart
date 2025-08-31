@@ -1568,7 +1568,14 @@ _getTouchCoordinates(touch) {
 
         const plots = this.getPlotsByIndicatorId(indicatorId, data);
 
-        plots.forEach(plot => {
+        plots.forEach((plot, idx) => {
+            // if (idx == 0) {                
+                plot.indicator = {
+                    id: indicatorId,
+                    settings: settings,
+                    name: name
+                };
+            // }
             // @ts-ignore
             this.stockChart.options.plots.push(plot);
             const isMainPlot = plot.id === 'main';
@@ -1581,8 +1588,24 @@ _getTouchCoordinates(touch) {
 
         
         this.stockChart.render();
+
+        // Save indicator settings to local storage
+        const savedIndicators = JSON.parse(localStorage.getItem('asv-chart-indicator-settings')) || [];
+        const existingIndicatorIndex = savedIndicators.findIndex(i => i.id === indicatorId);
+        if (existingIndicatorIndex > -1) {
+            savedIndicators[existingIndicatorIndex].settings = settings;
+        } else {
+            savedIndicators.push({ id: indicatorId, settings });
+        }
+        localStorage.setItem('asv-chart-indicator-settings', JSON.stringify(savedIndicators));
     }
 
+    /**
+     * 
+     * @param {string} indicatorId 
+     * @param {Array} data 
+     * @returns {Array<import('../stock-chart.js').PlotConfig>}
+     */
     getPlotsByIndicatorId(indicatorId, data) {
         const plots = [];
 
@@ -1650,6 +1673,7 @@ _getTouchCoordinates(touch) {
                         lineWidth: 1.5
                     }
                 });
+                break;
             case 'ema':
                 plots.push({
                     id: 'ema',
@@ -1695,6 +1719,7 @@ _getTouchCoordinates(touch) {
                 break;
         }
 
+        // @ts-ignore
         return plots;
     }   
 
@@ -1727,10 +1752,25 @@ _getTouchCoordinates(touch) {
 
     removeIndicator(plotId) {
         if (this.stockChart.options.plots) {
-            this.stockChart.options.plots = this.stockChart.options.plots.filter(
-                plot => plot.id !== plotId
-            );
+            // this.stockChart.options.plots = this.stockChart.options.plots.filter(
+            //     plot => plot.id !== plotId
+            // );
+
+            const plotToRemove = this.stockChart.options.plots.find(plot => plot.id === plotId);
+
+            // @ts-ignore
+            this.stockChart.plotLayoutManager.updatePlotLayout(plotToRemove, 'remove');
+
+            const plot = this.stockChart.options.plots.find(p => p.id === plotId);
+            this.stockChart.options.plots = this.stockChart.options.plots.filter(plot => plot.id !== plotId);
             this.stockChart.render();
+
+            if (plot && plot.indicator) {
+                // Remove indicator settings from local storage
+                const savedIndicators = JSON.parse(localStorage.getItem('asv-chart-indicator-settings')) || [];
+                const updatedIndicators = savedIndicators.filter(i => i.id !== plot.indicator.id);
+                localStorage.setItem('asv-chart-indicator-settings', JSON.stringify(updatedIndicators));
+            }
         }
     }
 

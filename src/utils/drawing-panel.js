@@ -1073,7 +1073,7 @@ _getTouchCoordinates(touch) {
                         { value: 'ohlc4', label: 'OHLC/4' }
                     ]
                     },
-                    { key: 'color', label: 'Line Color', type: 'color', default: '#2196F3' }
+                    { key: 'lineColor', label: 'Line Color', type: 'color', default: '#2196F3' }
                 ]
             },
             { 
@@ -1088,7 +1088,7 @@ _getTouchCoordinates(touch) {
                         { value: 'ohlc4', label: 'OHLC/4' }
                     ]
                     },
-                    { key: 'color', label: 'Line Color', type: 'color', default: '#FF9800' }
+                    { key: 'lineColor', label: 'Line Color', type: 'color', default: '#FF9800' }
                 ]
             },
             { 
@@ -1429,12 +1429,12 @@ _getTouchCoordinates(touch) {
         // Form submission for adding indicators
         dialog.addEventListener('submit', (event) => {
             event.preventDefault();
-            debugger
+
             const form = event.target;
             const indicatorId = form.dataset.indicator;
             const formData = new FormData(form);
             const settings = {};
-            debugger;
+
             for (let [key, value] of formData.entries()) {
                 // Skip hex inputs as they're just for display sync
                 if (key.endsWith('_hex')) continue;
@@ -1768,6 +1768,7 @@ _getTouchCoordinates(touch) {
                 settings: settings,
                 name: name
             };
+
             // @ts-ignore
             this.stockChart.options.plots.push(plot);
             const isMainPlot = plot.id === 'main';

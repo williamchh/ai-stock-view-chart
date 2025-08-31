@@ -2026,6 +2026,7 @@ class StockChart {
 
         // Render the updated chart
         // this.render();
+        this.loadIndicatorSettings();
     }
 
     /**

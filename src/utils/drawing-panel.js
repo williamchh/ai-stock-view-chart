@@ -1652,12 +1652,20 @@ _getTouchCoordinates(touch) {
 
         // Save indicator settings to local storage
         const savedIndicators = JSON.parse(localStorage.getItem('asv-chart-indicator-settings')) || [];
-        const existingIndicatorIndex = savedIndicators.findIndex(i => i.id === indicatorId);
+        let existingIndicatorIndex;
+        if (['sma', 'ema'].includes(indicatorId)) {
+            existingIndicatorIndex = savedIndicators.findIndex(i => i.id === indicatorId && i.settings.period === settings.period);
+        }
+        else {
+            existingIndicatorIndex = savedIndicators.findIndex(i => i.id === indicatorId);
+        }
+
         if (existingIndicatorIndex > -1) {
             savedIndicators[existingIndicatorIndex].settings = settings;
         } else {
             savedIndicators.push({ id: indicatorId, settings });
         }
+        
         localStorage.setItem('asv-chart-indicator-settings', JSON.stringify(savedIndicators));
     }
 

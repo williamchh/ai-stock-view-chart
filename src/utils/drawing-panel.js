@@ -17,6 +17,7 @@ import { PlotLayoutManager } from './layout.js';
  * @property {Object} currentTheme - The current theme object
  * @property {Function} setDrawingTool - Function to set the active drawing tool
  * @property {Function} render - Function to render/redraw the chart
+ * @property {Function} loadIndicatorSettings - Function to load indicator settings
  */
 
 /**
@@ -40,7 +41,8 @@ export class DrawingPanel {
         this.selectedPoint = null;
         this.isEditing = false;
         this._isChartFrozen = false;
-        
+        this.editPlotId = null;
+
         // We'll calculate barWidth dynamically when needed instead of storing it
         
         
@@ -1056,14 +1058,15 @@ _getTouchCoordinates(touch) {
             console.error('Failed to import drawings:', error);
         }
     }
-    showIndicatorSettings() {
-        const indicators = [
-            { 
-                name: 'SMA', 
+    showIndicatorSettings(options = {}) {
+        const { indicatorId: editIndicatorId, settings: editSettings, plotId: editPlotId } = options;
+        this.indicators = [
+            {
+                name: 'SMA',
                 id: 'sma',
                 settings: [
                     { key: 'period', label: 'Period', type: 'number', default: 20, min: 1, max: 200 },
-                    { key: 'priceType', label: 'Price Type', type: 'select', default: 'close', 
+                    { key: 'priceType', label: 'Price Type', type: 'select', default: 'close',
                     options: [
                         { value: 'close', label: 'Close' },
                         { value: 'hlc3', label: 'HLC/3' },
@@ -1102,14 +1105,19 @@ _getTouchCoordinates(touch) {
                     { key: 'oversold', label: 'Oversold Level', type: 'number', default: 30, min: 10, max: 50 }
                 ]
             },
-            { 
-                name: 'MACD', 
+            {
                 id: 'macd',
+                name: 'MACD',
+                plots: [
+                    { name: 'MACD Line', type: 'line' },
+                    { name: 'Signal Line', type: 'line' },
+                    { name: 'Histogram', type: 'histogram' }
+                ],
                 settings: [
                     { key: 'fastPeriod', label: 'Fast Period', type: 'number', default: 12, min: 1, max: 50 },
                     { key: 'slowPeriod', label: 'Slow Period', type: 'number', default: 26, min: 1, max: 100 },
                     { key: 'signalPeriod', label: 'Signal Period', type: 'number', default: 9, min: 1, max: 50 },
-                    { key: 'priceType', label: 'Price Type', type: 'select', default: 'close', 
+                    { key: 'priceType', label: 'Price Type', type: 'select', default: 'close',
                     options: [
                         { value: 'close', label: 'Close' },
                         { value: 'hlc3', label: 'HLC/3' },
@@ -1123,7 +1131,7 @@ _getTouchCoordinates(touch) {
                 id: 'bollinger',
                 settings: [
                     { key: 'period', label: 'Period', type: 'number', default: 20, min: 2, max: 100 },
-                    { key: 'stdDev', label: 'Standard Deviation', type: 'number', default: 2, min: 0.1, max: 5, step: 0.1 },
+                    { key: 'stdDev', label: 'Standard Deviation', type: 'number', default: 2, min: 0.1, max: 5, step: 0.001 },
                     { key: 'priceType', label: 'Price Type', type: 'select', default: 'close', 
                     options: [
                         { value: 'close', label: 'Close' },
@@ -1178,7 +1186,7 @@ _getTouchCoordinates(touch) {
             </div>
             
             <div class="tab-container" style="display: flex; border-bottom: 1px solid #e0e0e0; background-color: #f8f9fa; overflow-x: auto;">
-                ${indicators.map((indicator, index) => `
+                ${this.indicators.map((indicator, index) => `
                     <button class="tab-btn ${index === 0 ? 'active' : ''}" data-tab="${indicator.id}" style="
                         flex: 0 0 auto;
                         padding: 12px 16px;
@@ -1195,7 +1203,7 @@ _getTouchCoordinates(touch) {
             </div>
             
             <div class="tab-content" style="padding: 20px; max-height: 400px; overflow-y: auto;">
-                ${indicators.map((indicator, index) => `
+                ${this.indicators.map((indicator, index) => `
                     <div id="${indicator.id}-tab" class="tab-pane ${index === 0 ? 'active' : ''}" style="display: ${index === 0 ? 'block' : 'none'};">
                         <div class="indicator-settings">
                             <h4 style="margin: 0 0 20px 0; color: #333; font-size: 16px;">${indicator.name} Settings</h4>
@@ -1228,6 +1236,7 @@ _getTouchCoordinates(touch) {
                                                     type="${setting.type}" 
                                                     name="${setting.key}" 
                                                     value="${setting.default}" 
+                                                    id="${indicator.id}-${setting.key}"
                                                     ${setting.min ? `min="${setting.min}"` : ''}
                                                     ${setting.max ? `max="${setting.max}"` : ''}
                                                     ${setting.step ? `step="${setting.step}"` : ''}
@@ -1255,18 +1264,7 @@ _getTouchCoordinates(touch) {
                                         cursor: pointer;
                                         font-size: 14px;
                                         font-weight: 500;
-                                    ">Add Indicator</button>
-                                    
-                                    <button type="button" class="preview-btn" style="
-                                        background: #28a745;
-                                        color: white;
-                                        border: none;
-                                        padding: 10px 20px;
-                                        border-radius: 4px;
-                                        cursor: pointer;
-                                        font-size: 14px;
-                                        font-weight: 500;
-                                    ">Preview</button>
+                                    ">${this.editPlotId ? 'Update Indicator' : 'Add Indicator'}</button>
                                 </div>
                             </form>
                             
@@ -1308,7 +1306,7 @@ _getTouchCoordinates(touch) {
         document.body.appendChild(overlay);
 
         // Initialize the dialog
-        this.initializeIndicatorDialog(overlay, indicators);
+        this.initializeIndicatorDialog(overlay, this.indicators, { editIndicatorId, editSettings, editPlotId });
     }
 
     /**
@@ -1319,7 +1317,8 @@ _getTouchCoordinates(touch) {
         return this.stockChart.options.plots.find(p => p.id === 'main').data;
     }
 
-    initializeIndicatorDialog(overlay, indicators) {
+    initializeIndicatorDialog(overlay, indicators, options = {}) {
+        const { editIndicatorId, editSettings } = options;
         const dialog = overlay.querySelector('div');
         
         // Tab switching functionality
@@ -1358,7 +1357,7 @@ _getTouchCoordinates(touch) {
         // Form submission for adding indicators
         dialog.addEventListener('submit', (event) => {
             event.preventDefault();
-            
+            debugger
             const form = event.target;
             const indicatorId = form.dataset.indicator;
             const formData = new FormData(form);
@@ -1448,22 +1447,54 @@ _getTouchCoordinates(touch) {
         indicators.forEach(indicator => {
             this.updateInstancesList(indicator.id);
         });
+
+        if (editIndicatorId && editSettings) {
+            // Activate the correct tab
+            const tabBtn = dialog.querySelector(`.tab-btn[data-tab="${editIndicatorId}"]`);
+            if (tabBtn) {
+                tabBtn.click();
+            }
+
+            // Populate the form with existing settings
+            const form = dialog.querySelector(`#${editIndicatorId}-tab .settings-form`);
+            if (form) {
+                for (const key in editSettings) {
+                    const input = form.querySelector(`[name="${key}"]`);
+                    if (input) {
+                        input.value = editSettings[key];
+                    }
+                }
+            }
+        }
     }
 
     updateInstancesList(indicatorId) {
         const instancesContainer = document.querySelector(`#${indicatorId}-instances`);
         if (!instancesContainer) return;
-        
+    
         const instances = this.getIndicatorInstances(indicatorId);
-        
+        const indicator = this.indicators.find(ind => ind.id === indicatorId);
+    
         if (instances.length === 0) {
             instancesContainer.innerHTML = `
                 <div style="color: #666; font-style: italic; padding: 12px; text-align: center; border: 1px dashed #ddd; border-radius: 4px;">
                     No ${indicatorId.toUpperCase()} instances added yet
                 </div>
             `;
-        } else {
-            instancesContainer.innerHTML = instances.map(instance => `
+        } 
+        else {
+
+            const renderInstances = [];
+            // find unique name from instances
+            const uniqueNames = new Set(instances.map(instance => instance.name));
+            uniqueNames.forEach(name => {
+                const instance = instances.find(inst => inst.name === name);
+                if (instance) {
+                    renderInstances.push(instance);
+                }
+            });
+            // For single-plot indicators, show all instances
+            instancesContainer.innerHTML = renderInstances.map(instance => `
                 <div class="instance-item" style="
                     display: flex;
                     align-items: center;
@@ -1476,7 +1507,7 @@ _getTouchCoordinates(touch) {
                 ">
                     <div>
                         <div style="font-weight: 500; color: #333; font-size: 13px;">${instance.name}</div>
-                        <div style="color: #666; font-size: 11px;">${this.formatSettings(instance.settings)}</div>
+                        <div style="color: #666; font-size: 11px;">${this.formatInstances(instance)}</div>
                     </div>
                     <div style="display: flex; gap: 6px;">
                         <button class="edit-instance-btn" data-plot-id="${instance.plotId}" style="
@@ -1503,7 +1534,7 @@ _getTouchCoordinates(touch) {
         }
     }
 
-    formatSettings(settings) {
+    formatInstances({settings}) {
         return Object.entries(settings)
             .map(([key, value]) => `${key}: ${value}`)
             .join(', ');
@@ -1529,6 +1560,9 @@ _getTouchCoordinates(touch) {
      * @param {Object} settings - The settings for the indicator.
      */
     addIndicatorWithSettings(indicatorId, settings) {
+        if (this.editPlotId) {
+            this.removeIndicator(this.editPlotId);
+        }
         const timestamp = Date.now();
         const newPlotId = `${indicatorId}-${timestamp}`;
         
@@ -1566,24 +1600,59 @@ _getTouchCoordinates(touch) {
             // Add more cases for different indicators as needed
         }
 
-        const plots = this.getPlotsByIndicatorId(indicatorId, data);
+        const totalPlots = this.stockChart.options.plots?.length || 1;
+        const plots = this.getPlotsByIndicatorId(indicatorId, data, totalPlots);
 
-        plots.forEach(plot => {
+        plots.forEach((plot, idx) => {
+            // if (idx == 0) {                
+                plot.indicator = {
+                    id: indicatorId,
+                    settings: settings,
+                    name: name
+                };
+            // }
             // @ts-ignore
             this.stockChart.options.plots.push(plot);
             const isMainPlot = plot.id === 'main';
 
             if (!isMainPlot) {
                 // @ts-ignore
-                this.stockChart.plotLayoutManager.updatePlotLayout(plot, 'add');
+                this.stockChart.plotLayoutManager.updatePlotIndicator(plot, 'add');
             }
         });
 
         
         this.stockChart.render();
+
+        // Save indicator settings to local storage
+        const savedIndicators = JSON.parse(localStorage.getItem('asv-chart-indicator-settings')) || [];
+        let existingIndicatorIndex;
+        if (['sma', 'ema'].includes(indicatorId)) {
+            existingIndicatorIndex = savedIndicators.findIndex(i => i.id === indicatorId && i.settings.period === settings.period);
+        }
+        else {
+            existingIndicatorIndex = savedIndicators.findIndex(i => i.id === indicatorId);
+        }
+
+        if (existingIndicatorIndex > -1) {
+            savedIndicators[existingIndicatorIndex].settings = settings;
+        } else {
+            savedIndicators.push({ id: indicatorId, settings });
+        }
+        
+        localStorage.setItem('asv-chart-indicator-settings', JSON.stringify(savedIndicators));
+
+        this.editPlotId = null;
     }
 
-    getPlotsByIndicatorId(indicatorId, data) {
+    /**
+     * 
+     * @param {string} indicatorId 
+     * @param {Array} data 
+     * @param {number} totalPlots
+     * @returns {Array<import('../stock-chart.js').PlotConfig>}
+     */
+    getPlotsByIndicatorId(indicatorId, data, totalPlots) {
         const plots = [];
 
         switch (indicatorId) {
@@ -1639,7 +1708,7 @@ _getTouchCoordinates(touch) {
                 break;
             case 'sma':
                 plots.push({
-                    id: 'sma',
+                    id: 'sma' + totalPlots,
                     type: 'line',
                     data: data,
                     targetId: 'main',
@@ -1650,9 +1719,10 @@ _getTouchCoordinates(touch) {
                         lineWidth: 1.5
                     }
                 });
+                break;
             case 'ema':
                 plots.push({
-                    id: 'ema',
+                    id: 'ema' + totalPlots,
                     type: 'line',
                     heightRatio: 0.15,
                     targetId: 'main',
@@ -1683,9 +1753,22 @@ _getTouchCoordinates(touch) {
                     id: 'bollinger_lower',
                     type: 'line',
                     heightRatio: 0.15,
-                    targetId: 'main',
                     data: data.map(d => ({ time: d.time, value: d.lower })),
                     overlay: true,
+                    targetId: 'main',
+                    keyLabel: 'Bollinger Bands',
+                    style: {
+                        lineColor: 'rgba(0, 150, 136, 1)', // Teal
+                        lineWidth: 1.5
+                    }
+                });
+                plots.push({
+                    id: 'bollinger_middle',
+                    type: 'line',
+                    heightRatio: 0.15,
+                    data: data.map(d => ({ time: d.time, value: d.middle })),
+                    overlay: true,
+                    targetId: 'main',
                     keyLabel: 'Bollinger Bands',
                     style: {
                         lineColor: 'rgba(0, 150, 136, 1)', // Teal
@@ -1695,6 +1778,7 @@ _getTouchCoordinates(touch) {
                 break;
         }
 
+        // @ts-ignore
         return plots;
     }   
 
@@ -1713,24 +1797,62 @@ _getTouchCoordinates(touch) {
     editIndicatorInstance(plotId) {
         const plot = this.stockChart.options.plots.find(p => p.id === plotId);
         if (!plot || !plot.indicator) return;
-        
-        // Simple implementation - you can enhance this
-        const currentSettings = plot.indicator.settings || {};
-        const newName = prompt(`Enter new name for ${plot.indicator.name}:`, plot.indicator.name);
-        
-        if (newName && newName !== plot.indicator.name) {
-            plot.indicator.name = newName;
-            this.stockChart.render();
-            this.updateInstancesList(plot.indicator.id);
-        }
+
+        const { id: indicatorId, settings } = plot.indicator;
+
+        Object.entries(settings)
+            .forEach(([key, value]) => {
+                const inputEle = document.getElementById(`${indicatorId}-${key}`);
+                if (inputEle) {
+                    // update input value
+                    (inputEle instanceof HTMLInputElement || inputEle instanceof HTMLSelectElement)
+                        ? inputEle.value = value
+                        : null;
+                }
+            });
+
+        this.editPlotId = indicatorId;
+
+        // this.showIndicatorSettings({ indicatorId, settings, plotId });
     }
 
+    /**
+     * Remove an indicator from the chart
+     * @param {string} plotId 
+     */
     removeIndicator(plotId) {
+    
         if (this.stockChart.options.plots) {
-            this.stockChart.options.plots = this.stockChart.options.plots.filter(
-                plot => plot.id !== plotId
-            );
+
+            const plotToRemove = this.stockChart.options.plots.find(plot => plot.id === plotId);
+            const relatedPlots = this.stockChart.options.plots.filter(plot => plot.indicator?.id === plotId);
+
+            
+            const removedPlotIds = [plotToRemove.id, ...relatedPlots.map(p => p.id)];
+            
+            const plot = this.stockChart.options.plots.find(p => p.id === plotId);
+            this.stockChart.options.plots = this.stockChart.options.plots.filter(plot => !removedPlotIds.includes(plot.id));
+            // this.stockChart.plotLayoutManager.calculateLayout();
+            // @ts-ignore
+            this.stockChart.plotLayoutManager.updatePlotIndicator(plotToRemove, 'delete');
+            
+            if (relatedPlots && relatedPlots.length) {
+                relatedPlots.forEach(p => {
+                    //@ts-ignore
+                    this.stockChart.plotLayoutManager.updatePlotIndicator(p, 'delete');
+                });
+            }
             this.stockChart.render();
+            this.stockChart.options.plots = this.stockChart.options.plots.filter(
+                plot => !removedPlotIds.includes(plot.id)
+            );
+            
+            if (plot && plot.indicator) {
+                // Remove indicator settings from local storage
+                const savedIndicators = JSON.parse(localStorage.getItem('asv-chart-indicator-settings')) || [];
+                const updatedIndicators = savedIndicators.filter(i => i.id !== plot.indicator.id);
+                localStorage.setItem('asv-chart-indicator-settings', JSON.stringify(updatedIndicators));
+            }
         }
     }
 

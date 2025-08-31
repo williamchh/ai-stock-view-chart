@@ -1072,7 +1072,8 @@ _getTouchCoordinates(touch) {
                         { value: 'hlc3', label: 'HLC/3' },
                         { value: 'ohlc4', label: 'OHLC/4' }
                     ]
-                    }
+                    },
+                    { key: 'color', label: 'Line Color', type: 'color', default: '#2196F3' }
                 ]
             },
             { 
@@ -1086,7 +1087,8 @@ _getTouchCoordinates(touch) {
                         { value: 'hlc3', label: 'HLC/3' },
                         { value: 'ohlc4', label: 'OHLC/4' }
                     ]
-                    }
+                    },
+                    { key: 'color', label: 'Line Color', type: 'color', default: '#FF9800' }
                 ]
             },
             { 
@@ -1102,7 +1104,10 @@ _getTouchCoordinates(touch) {
                     ]
                     },
                     { key: 'overbought', label: 'Overbought Level', type: 'number', default: 70, min: 50, max: 90 },
-                    { key: 'oversold', label: 'Oversold Level', type: 'number', default: 30, min: 10, max: 50 }
+                    { key: 'oversold', label: 'Oversold Level', type: 'number', default: 30, min: 10, max: 50 },
+                    { key: 'lineColor', label: 'RSI Line Color', type: 'color', default: '#9C27B0' },
+                    { key: 'overboughtColor', label: 'Overbought Color', type: 'color', default: '#F44336' },
+                    { key: 'oversoldColor', label: 'Oversold Color', type: 'color', default: '#4CAF50' }
                 ]
             },
             {
@@ -1123,7 +1128,10 @@ _getTouchCoordinates(touch) {
                         { value: 'hlc3', label: 'HLC/3' },
                         { value: 'ohlc4', label: 'OHLC/4' }
                     ]
-                    }
+                    },
+                    { key: 'macdColor', label: 'MACD Line Color', type: 'color', default: '#2196F3' },
+                    { key: 'signalColor', label: 'Signal Line Color', type: 'color', default: '#FF5722' },
+                    { key: 'histogramColor', label: 'Histogram Color', type: 'color', default: '#795548' }
                 ]
             },
             { 
@@ -1138,7 +1146,11 @@ _getTouchCoordinates(touch) {
                         { value: 'hlc3', label: 'HLC/3' },
                         { value: 'ohlc4', label: 'OHLC/4' }
                     ]
-                    }
+                    },
+                    { key: 'upperBandColor', label: 'Upper Band Color', type: 'color', default: '#E91E63' },
+                    { key: 'middleBandColor', label: 'Middle Band Color', type: 'color', default: '#9C27B0' },
+                    { key: 'lowerBandColor', label: 'Lower Band Color', type: 'color', default: '#3F51B5' },
+                    { key: 'fillColor', label: 'Fill Color', type: 'color', default: '#E1F5FE', opacity: true }
                 ]
             },
             { 
@@ -1147,7 +1159,10 @@ _getTouchCoordinates(touch) {
                 settings: [
                     { key: 'period', label: 'Period', type: 'number', default: 14, min: 1, max: 100 },
                     { key: 'overbought', label: 'Overbought Level', type: 'number', default: 0.7, min: 0.5, max: 0.9, step: 0.01 },
-                    { key: 'oversold', label: 'Oversold Level', type: 'number', default: 0.3, min: 0.1, max: 0.5, step: 0.01 }
+                    { key: 'oversold', label: 'Oversold Level', type: 'number', default: 0.3, min: 0.1, max: 0.5, step: 0.01 },
+                    { key: 'lineColor', label: 'DeMarker Line Color', type: 'color', default: '#607D8B' },
+                    { key: 'overboughtColor', label: 'Overbought Color', type: 'color', default: '#F44336' },
+                    { key: 'oversoldColor', label: 'Oversold Color', type: 'color', default: '#4CAF50' }
                 ]
             }
         ];
@@ -1173,7 +1188,7 @@ _getTouchCoordinates(touch) {
             background-color: white;
             border-radius: 8px;
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
-            width: 600px;
+            width: 650px;
             max-width: 90vw;
             max-height: 80vh;
             overflow: hidden;
@@ -1202,7 +1217,7 @@ _getTouchCoordinates(touch) {
                 `).join('')}
             </div>
             
-            <div class="tab-content" style="padding: 20px; max-height: 400px; overflow-y: auto;">
+            <div class="tab-content" style="padding: 20px; max-height: 450px; overflow-y: auto;">
                 ${this.indicators.map((indicator, index) => `
                     <div id="${indicator.id}-tab" class="tab-pane ${index === 0 ? 'active' : ''}" style="display: ${index === 0 ? 'block' : 'none'};">
                         <div class="indicator-settings">
@@ -1226,6 +1241,60 @@ _getTouchCoordinates(touch) {
                                                         <option value="${option.value}" ${option.value === setting.default ? 'selected' : ''}>${option.label}</option>
                                                     `).join('')}
                                                 </select>
+                                            </div>
+                                        `;
+                                    } else if (setting.type === 'color') {
+                                        return `
+                                            <div class="form-group" style="margin-bottom: 16px;">
+                                                <label style="display: block; margin-bottom: 6px; color: #333; font-weight: 500; font-size: 14px;">${setting.label}</label>
+                                                <div style="display: flex; align-items: center; gap: 10px;">
+                                                    <input 
+                                                        type="color" 
+                                                        name="${setting.key}" 
+                                                        value="${setting.default}" 
+                                                        id="${indicator.id}-${setting.key}"
+                                                        style="
+                                                            width: 50px;
+                                                            height: 35px;
+                                                            border: 1px solid #ddd;
+                                                            border-radius: 4px;
+                                                            cursor: pointer;
+                                                            background: white;
+                                                            padding: 2px;
+                                                        "
+                                                    />
+                                                    <input 
+                                                        type="text" 
+                                                        name="${setting.key}_hex"
+                                                        value="${setting.default}" 
+                                                        placeholder="#RRGGBB"
+                                                        maxlength="7"
+                                                        style="
+                                                            flex: 1;
+                                                            padding: 8px 12px;
+                                                            border: 1px solid #ddd;
+                                                            border-radius: 4px;
+                                                            font-size: 14px;
+                                                            font-family: monospace;
+                                                            box-sizing: border-box;
+                                                        "
+                                                    />
+                                                    ${setting.opacity ? `
+                                                        <div style="display: flex; align-items: center; gap: 5px; min-width: 80px;">
+                                                            <label style="font-size: 12px; color: #666;">Opacity:</label>
+                                                            <input 
+                                                                type="range" 
+                                                                name="${setting.key}_opacity"
+                                                                min="0" 
+                                                                max="1" 
+                                                                step="0.1" 
+                                                                value="0.3"
+                                                                style="width: 60px;"
+                                                            />
+                                                            <span class="opacity-value" style="font-size: 11px; color: #666; min-width: 25px;">0.3</span>
+                                                        </div>
+                                                    ` : ''}
+                                                </div>
                                             </div>
                                         `;
                                     } else {
@@ -1288,7 +1357,7 @@ _getTouchCoordinates(touch) {
                 align-items: center;
             ">
                 <div style="color: #666; font-size: 12px;">
-                    Configure settings and click "Add Indicator" to apply
+                    Configure settings and colors, then click "Add Indicator" to apply
                 </div>
                 <button id="close-indicator-settings" style="
                     background: #6c757d;
@@ -1320,6 +1389,9 @@ _getTouchCoordinates(touch) {
     initializeIndicatorDialog(overlay, indicators, options = {}) {
         const { editIndicatorId, editSettings } = options;
         const dialog = overlay.querySelector('div');
+        
+        // Setup color picker synchronization
+        this.setupColorPickerSync(dialog);
         
         // Tab switching functionality
         const tabBtns = dialog.querySelectorAll('.tab-btn');
@@ -1362,14 +1434,16 @@ _getTouchCoordinates(touch) {
             const indicatorId = form.dataset.indicator;
             const formData = new FormData(form);
             const settings = {};
-            
+            debugger;
             for (let [key, value] of formData.entries()) {
+                // Skip hex inputs as they're just for display sync
+                if (key.endsWith('_hex')) continue;
+                
                 // Convert numeric values
                 const indicator = indicators.find(ind => ind.id === indicatorId);
                 const setting = indicator.settings.find(s => s.key === key);
                 
                 if (setting && setting.type === 'number') {
-
                     // @ts-ignore
                     settings[key] = parseFloat(value);
                 } else {
@@ -1401,11 +1475,13 @@ _getTouchCoordinates(touch) {
                 const settings = {};
                 
                 for (let [key, value] of formData.entries()) {
+                    // Skip hex inputs
+                    if (key.endsWith('_hex')) continue;
+                    
                     const indicator = indicators.find(ind => ind.id === indicatorId);
                     const setting = indicator.settings.find(s => s.key === key);
                     
                     if (setting && setting.type === 'number') {
-
                         // @ts-ignore
                         settings[key] = parseFloat(value);
                     } else {
@@ -1462,10 +1538,66 @@ _getTouchCoordinates(touch) {
                     const input = form.querySelector(`[name="${key}"]`);
                     if (input) {
                         input.value = editSettings[key];
+                        
+                        // Update hex input if it's a color
+                        const hexInput = form.querySelector(`[name="${key}_hex"]`);
+                        if (hexInput) {
+                            hexInput.value = editSettings[key];
+                        }
                     }
                 }
             }
         }
+    }
+
+    setupColorPickerSync(dialog) {
+        // Setup color picker and hex input synchronization
+        dialog.addEventListener('input', (event) => {
+            const target = event.target;
+            
+            if (target.type === 'color') {
+                // Update corresponding hex input
+                const hexInput = dialog.querySelector(`[name="${target.name}_hex"]`);
+                if (hexInput) {
+                    hexInput.value = target.value.toUpperCase();
+                }
+            }
+            
+            if (target.name && target.name.endsWith('_hex')) {
+                // Update corresponding color picker
+                const colorKey = target.name.replace('_hex', '');
+                const colorInput = dialog.querySelector(`[name="${colorKey}"]`);
+                if (colorInput && this.isValidHex(target.value)) {
+                    colorInput.value = target.value;
+                }
+            }
+            
+            if (target.type === 'range' && target.name.includes('opacity')) {
+                // Update opacity display
+                const opacityDisplay = target.parentElement.querySelector('.opacity-value');
+                if (opacityDisplay) {
+                    opacityDisplay.textContent = target.value;
+                }
+            }
+        });
+
+        // Validate hex input on blur
+        dialog.addEventListener('blur', (event) => {
+            const target = event.target;
+            if (target.name && target.name.endsWith('_hex')) {
+                if (!this.isValidHex(target.value)) {
+                    target.style.borderColor = '#dc3545';
+                    target.title = 'Invalid hex color format. Use #RRGGBB';
+                } else {
+                    target.style.borderColor = '#ddd';
+                    target.title = '';
+                }
+            }
+        }, true);
+    }
+
+    isValidHex(hex) {
+        return /^#[0-9A-Fa-f]{6}$/.test(hex);
     }
 
     updateInstancesList(indicatorId) {
@@ -1483,7 +1615,6 @@ _getTouchCoordinates(touch) {
             `;
         } 
         else {
-
             const renderInstances = [];
             // find unique name from instances
             const uniqueNames = new Set(instances.map(instance => instance.name));
@@ -1505,8 +1636,11 @@ _getTouchCoordinates(touch) {
                     margin-bottom: 8px;
                     background: #f9f9f9;
                 ">
-                    <div>
-                        <div style="font-weight: 500; color: #333; font-size: 13px;">${instance.name}</div>
+                    <div style="flex: 1;">
+                        <div style="font-weight: 500; color: #333; font-size: 13px; display: flex; align-items: center; gap: 8px;">
+                            ${instance.name}
+                            ${this.getColorIndicatorsForInstance(instance)}
+                        </div>
                         <div style="color: #666; font-size: 11px;">${this.formatInstances(instance)}</div>
                     </div>
                     <div style="display: flex; gap: 6px;">
@@ -1534,8 +1668,33 @@ _getTouchCoordinates(touch) {
         }
     }
 
+    getColorIndicatorsForInstance(instance) {
+        // Extract color settings from instance and display them as small color squares
+        const colorSettings = Object.entries(instance.settings).filter(([key, value]) => 
+            key.toLowerCase().includes('color') && typeof value === 'string' && value.startsWith('#')
+        );
+        
+        return colorSettings.map(([key, color]) => `
+            <div style="
+                width: 12px; 
+                height: 12px; 
+                background-color: ${color}; 
+                border: 1px solid #ccc; 
+                border-radius: 2px;
+                display: inline-block;
+                margin-right: 2px;
+                title: '${key}: ${color}'
+            "></div>
+        `).join('');
+    }
+
     formatInstances({settings}) {
-        return Object.entries(settings)
+        // Exclude color settings from the summary to keep it clean
+        const nonColorSettings = Object.entries(settings).filter(([key, value]) => 
+            !key.toLowerCase().includes('color') && !key.includes('opacity')
+        );
+        
+        return nonColorSettings
             .map(([key, value]) => `${key}: ${value}`)
             .join(', ');
     }
@@ -1601,16 +1760,14 @@ _getTouchCoordinates(touch) {
         }
 
         const totalPlots = this.stockChart.options.plots?.length || 1;
-        const plots = this.getPlotsByIndicatorId(indicatorId, data, totalPlots);
+        const plots = this.getPlotsByIndicatorId(indicatorId, data, totalPlots, settings);
 
         plots.forEach((plot, idx) => {
-            // if (idx == 0) {                
-                plot.indicator = {
-                    id: indicatorId,
-                    settings: settings,
-                    name: name
-                };
-            // }
+            plot.indicator = {
+                id: indicatorId,
+                settings: settings,
+                name: name
+            };
             // @ts-ignore
             this.stockChart.options.plots.push(plot);
             const isMainPlot = plot.id === 'main';
@@ -1650,9 +1807,10 @@ _getTouchCoordinates(touch) {
      * @param {string} indicatorId 
      * @param {Array} data 
      * @param {number} totalPlots
+     * @param {Object} settings
      * @returns {Array<import('../stock-chart.js').PlotConfig>}
      */
-    getPlotsByIndicatorId(indicatorId, data, totalPlots) {
+    getPlotsByIndicatorId(indicatorId, data, totalPlots, settings) {
         const plots = [];
 
         switch (indicatorId) {
@@ -1664,7 +1822,7 @@ _getTouchCoordinates(touch) {
                     data: data.map(d => ({ time: d.time, value: d.macd })),
                     keyLabel: 'MACD',
                     style: {
-                        lineColor: 'rgba(0, 150, 136, 0.8)', // Teal
+                        lineColor: settings.macdColor,
                         lineWidth: 3
                     }
                 });
@@ -1676,7 +1834,7 @@ _getTouchCoordinates(touch) {
                     targetId: 'macd',
                     keyLabel: 'Signal',
                     style: {
-                        lineColor: 'rgba(233, 30, 99, 0.8)', // Pink
+                        lineColor: settings.signalColor,
                         lineWidth: 1.5
                     }
                 });
@@ -1701,7 +1859,7 @@ _getTouchCoordinates(touch) {
                     data: data,
                     keyLabel: 'RSI',
                     style: {
-                        lineColor: 'rgba(0, 150, 136, 1)', // Teal
+                        lineColor: settings.lineColor,
                         lineWidth: 1.5
                     }
                 });
@@ -1715,7 +1873,7 @@ _getTouchCoordinates(touch) {
                     keyLabel: 'SMA',
                     overlay: true,
                     style: {
-                        lineColor: 'rgba(0, 150, 136, 1)', // Teal
+                        lineColor: settings.lineColor,
                         lineWidth: 1.5
                     }
                 });
@@ -1730,7 +1888,7 @@ _getTouchCoordinates(touch) {
                     keyLabel: 'EMA',
                     overlay: true,
                     style: {
-                        lineColor: 'rgba(0, 150, 136, 1)', // Teal
+                        lineColor: settings.lineColor,
                         lineWidth: 1.5
                     }
                 });
@@ -1745,7 +1903,7 @@ _getTouchCoordinates(touch) {
                     overlay: true,
                     keyLabel: 'Bollinger Bands',
                     style: {
-                        lineColor: 'rgba(0, 150, 136, 1)', // Teal
+                        lineColor: settings.upperBandColor,
                         lineWidth: 1.5
                     }
                 });
@@ -1758,7 +1916,7 @@ _getTouchCoordinates(touch) {
                     targetId: 'main',
                     keyLabel: 'Bollinger Bands',
                     style: {
-                        lineColor: 'rgba(0, 150, 136, 1)', // Teal
+                        lineColor: settings.lowerBandColor,
                         lineWidth: 1.5
                     }
                 });
@@ -1771,7 +1929,7 @@ _getTouchCoordinates(touch) {
                     targetId: 'main',
                     keyLabel: 'Bollinger Bands',
                     style: {
-                        lineColor: 'rgba(0, 150, 136, 1)', // Teal
+                        lineColor: settings.middleBandColor,
                         lineWidth: 1.5
                     }
                 });

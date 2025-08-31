@@ -207,9 +207,9 @@ class StockChart {
 
         const toolbar = document.createElement('div');
         toolbar.style.width = isMobile ? '100%' : '40px';
-        toolbar.style.height = isMobile ? '40px' : 'auto';
+        toolbar.style.height = isMobile ? '45px' : 'auto';
         toolbar.style.position = isMobile ? 'absolute' : 'relative';
-        toolbar.style.bottom = isMobile ? '0' : 'auto';
+        toolbar.style.bottom = isMobile ? '-45px' : 'auto';
         toolbar.style.backgroundColor = this.currentTheme?.background || '#ffffff';
         toolbar.style.borderRight = isMobile ? 'none' : '1px solid ' + (this.currentTheme?.gridColor || '#e0e0e0');
         toolbar.style.borderTop = isMobile ? '1px solid ' + (this.currentTheme?.gridColor || '#e0e0e0') : 'none';
@@ -2000,6 +2000,7 @@ class StockChart {
     /**
      * Updates the stock data for all plots at once
      * @param {Array<import('./stock-chart.d.ts').PlotConfig>} plots - Array of plot configurations to update
+     * @public
      */
     updateStockData(plots) {
         if (!Array.isArray(plots)) {

@@ -34,16 +34,17 @@ export function calculateSMA(data, period, valueSelector = d => d.close) {
  * @param {Array} data - Array of price data
  * @param {number} period - Bollinger Bands period
  * @param {number} standardDeviationMultiplier - Standard deviation multiplier (default: 2)
+ * @param {function} valueSelector - Function to select value from data point (default: d => d.close)
  * @returns {Array} Array of Bollinger Bands with timestamps
  */
-export function calculateBollingerBands(data, period, standardDeviationMultiplier = 2) {
+export function calculateBollingerBands(data, period, standardDeviationMultiplier = 2, valueSelector = d => d.close) {
     let band = initBollingerBandState(period, standardDeviationMultiplier);
     let midLine = initSMAState(period);
     const bollingerBands = [];
 
     for (const point of data) {
-        const result = updateBollingerBands(point.close, band);
-        const midResult = updateSMA(point.close, midLine);
+        const result = updateBollingerBands(valueSelector(point), band);
+        const midResult = updateSMA(valueSelector(point), midLine);
         bollingerBands.push({
             time: point.time,
             upper: result.upper,
@@ -61,14 +62,15 @@ export function calculateBollingerBands(data, period, standardDeviationMultiplie
  * Calculate EMA for a series of data
  * @param {Array} data - Array of price data
  * @param {number} period - EMA period
+ * @param {function} valueSelector - Function to select value from data point (default: d => d.close)
  * @returns {Array} Array of EMA values with timestamps
  */
-export function calculateEMA(data, period) {
+export function calculateEMA(data, period, valueSelector = d => d.close) {
     let ema = initEMAState(period);
     const emaData = [];
 
     for (const point of data) {
-        const result = updateEMA(point.close, ema);
+        const result = updateEMA(valueSelector(point), ema);
         emaData.push({
             time: point.time,
             value: result.value
@@ -87,7 +89,7 @@ export function calculateDeMarker(data, period = 14) {
         const result = updateDeMarker(point.high, point.low, state);
         deMarkerData.push({
             time: point.time,
-            value: result.value
+            value: result.demarker
         });
         state = result.state;
     }
@@ -101,14 +103,15 @@ export function calculateDeMarker(data, period = 14) {
  * @param {number} fastPeriod - Fast EMA period (default: 12)
  * @param {number} slowPeriod - Slow EMA period (default: 26)
  * @param {number} signalPeriod - Signal EMA period (default: 9)
+ * @param {function} valueSelector - Function to select value from data point (default: d => d.close)
  * @returns {Array} Array of MACD values with timestamps
  */
-export function calculateMACD(data, fastPeriod = 12, slowPeriod = 26, signalPeriod = 9) {
+export function calculateMACD(data, fastPeriod = 12, slowPeriod = 26, signalPeriod = 9, valueSelector = d => d.close) {
     let state = initMACDState(fastPeriod, slowPeriod, signalPeriod);
     const macdData = [];
 
     for (const point of data) {
-        const result = updateMACD(point.close, state);
+        const result = updateMACD(valueSelector(point), state);
         macdData.push({
             time: point.time,
             macd: result.macdLine,
@@ -125,14 +128,15 @@ export function calculateMACD(data, fastPeriod = 12, slowPeriod = 26, signalPeri
  * Calculate RSI for a series of data
  * @param {Array} data - Array of price data
  * @param {number} period - RSI period
+ * @param {function} valueSelector - Function to select value from data point (default: d => d.close)
  * @returns {Array} Array of RSI values with timestamps
  */
-export function calculateRSI(data, period = 14) {
+export function calculateRSI(data, period = 14, valueSelector = d => d.close) {
     let state = initRSIState(period);
     const rsiData = [];
 
     for (const point of data) {
-        const result = updateRSI(point.close, state);
+        const result = updateRSI(valueSelector(point), state);
         rsiData.push({
             time: point.time,
             value: result.value

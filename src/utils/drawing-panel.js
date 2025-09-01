@@ -1,7 +1,6 @@
 
 
-import { calculateBollingerBands, calculateDeMarker, calculateEMA, calculateMACD, calculateRSI, calculateSMA } from '../indicators/demo.js';
-import { initSMAState } from '../indicators/sma.js';
+import { calculateBollingerBands, calculateDeMarker, calculateEMA, calculateMACD, calculateRSI, calculateSMA } from '../indicators/indicator-utils.js';
 import { DataViewport } from './data.js';
 import { DrawingItem, LineDrawing, RectangleDrawing, FibonacciDrawing, FibonacciZoonDrawing } from './drawing-item.js';
 import { PlotLayoutManager } from './layout.js';
@@ -1070,7 +1069,8 @@ _getTouchCoordinates(touch) {
                     options: [
                         { value: 'close', label: 'Close' },
                         { value: 'hlc3', label: 'HLC/3' },
-                        { value: 'ohlc4', label: 'OHLC/4' }
+                        { value: 'ohlc4', label: 'OHLC/4' },
+                        { value: 'hlcc4', label: 'HLCC/4' }
                     ]
                     },
                     { key: 'lineColor', label: 'Line Color', type: 'color', default: '#2196F3' }
@@ -1324,8 +1324,8 @@ _getTouchCoordinates(touch) {
                                 }).join('')}
                                 
                                 <div class="form-actions" style="margin-top: 24px; display: flex; gap: 12px;">
-                                    <button type="submit" class="add-indicator-btn" style="
-                                        background: #007bff;
+                                    <button type="submit" class="add-indicator-btn" id="add-indicator-btn" style="
+                                        background: #00c2ff;
                                         color: white;
                                         border: none;
                                         padding: 10px 20px;
@@ -1333,7 +1333,7 @@ _getTouchCoordinates(touch) {
                                         cursor: pointer;
                                         font-size: 14px;
                                         font-weight: 500;
-                                    ">${this.editPlotId ? 'Update Indicator' : 'Add Indicator'}</button>
+                                    ">${this.editPlotId ? 'Update Indicator' : '➕ Add Indicator'}</button>
                                 </div>
                             </form>
                             
@@ -1456,41 +1456,19 @@ _getTouchCoordinates(touch) {
             
             // Show success feedback
             const submitBtn = form.querySelector('.add-indicator-btn');
-            const originalText = submitBtn.textContent;
-            submitBtn.textContent = '✓ Added Successfully';
+            // add emoji
+            const originalText = '➕ Add Indicator';
+            submitBtn.textContent = '✓ Successfully';
             submitBtn.style.background = '#28a745';
             
             setTimeout(() => {
                 submitBtn.textContent = originalText;
-                submitBtn.style.background = '#007bff';
+                submitBtn.style.background = '#00c2ff';
             }, 2000);
         });
 
         // Preview functionality
         dialog.addEventListener('click', (event) => {
-            if (event.target.classList.contains('preview-btn')) {
-                const form = event.target.closest('form');
-                const indicatorId = form.dataset.indicator;
-                const formData = new FormData(form);
-                const settings = {};
-                
-                for (let [key, value] of formData.entries()) {
-                    // Skip hex inputs
-                    if (key.endsWith('_hex')) continue;
-                    
-                    const indicator = indicators.find(ind => ind.id === indicatorId);
-                    const setting = indicator.settings.find(s => s.key === key);
-                    
-                    if (setting && setting.type === 'number') {
-                        // @ts-ignore
-                        settings[key] = parseFloat(value);
-                    } else {
-                        settings[key] = value;
-                    }
-                }
-                
-                this.previewIndicator(indicatorId, settings);
-            }
 
             // Remove instance functionality
             if (event.target.classList.contains('remove-instance-btn')) {
@@ -1504,6 +1482,12 @@ _getTouchCoordinates(touch) {
             if (event.target.classList.contains('edit-instance-btn')) {
                 const plotId = event.target.dataset.plotId;
                 this.editIndicatorInstance(plotId);
+
+                // update button label
+                const editBtn = document.getElementById(`add-indicator-btn`);
+                if (editBtn) {
+                    editBtn.textContent = `✏️ Update Indicator`;
+                }
             }
         });
 
@@ -1723,7 +1707,6 @@ _getTouchCoordinates(touch) {
             this.removeIndicator(this.editPlotId);
         }
         const timestamp = Date.now();
-        const newPlotId = `${indicatorId}-${timestamp}`;
         
         // Create a descriptive name based on settings
         let name = this.getIndicatorDisplayName(indicatorId);
@@ -1734,27 +1717,29 @@ _getTouchCoordinates(touch) {
         if (!this.stockChart.options.plots) {
             this.stockChart.options.plots = [];
         }
+debugger
+        const valueSelector = this.getValueSelector(settings.priceType || 'close');
 
         let data = [];
         const mainPlotData = this.getMainPlotStockData();
         switch (indicatorId) {
             case 'sma':
-                data = calculateSMA(mainPlotData, settings.period);
+                data = calculateSMA(mainPlotData, settings.period, valueSelector);
                 break;
             case 'bollinger':
-                data = calculateBollingerBands(mainPlotData, settings.period);
+                data = calculateBollingerBands(mainPlotData, settings.period, settings.standardDeviationMultiplier, valueSelector);
                 break;
             case 'demarker':
                 data = calculateDeMarker(mainPlotData, settings.period);
                 break;
             case 'macd':
-                data = calculateMACD(mainPlotData, settings.fastPeriod, settings.slowPeriod, settings.signalPeriod);
+                data = calculateMACD(mainPlotData, settings.fastPeriod, settings.slowPeriod, settings.signalPeriod, valueSelector);
                 break;
             case 'ema':
-                data = calculateEMA(mainPlotData, settings.period);
+                data = calculateEMA(mainPlotData, settings.period, valueSelector);
                 break;
             case 'rsi':
-                data = calculateRSI(mainPlotData, settings.period);
+                data = calculateRSI(mainPlotData, settings.period, valueSelector);
                 break;
             // Add more cases for different indicators as needed
         }
@@ -1801,6 +1786,25 @@ _getTouchCoordinates(touch) {
         localStorage.setItem('asv-chart-indicator-settings', JSON.stringify(savedIndicators));
 
         this.editPlotId = null;
+    }
+
+    /**
+     * Get the value selector function based on the price type.
+     * @param {'hlc/3' | 'ohlc/4' | 'hlcc/4' | 'close'} priceType 
+     * @returns {function} Value selector function
+     */
+    getValueSelector(priceType) {
+        switch (priceType) {
+            case 'hlc/3':
+                return d => (d.high + d.low + d.close) / 3;
+            case 'ohlc/4':
+                return d => (d.open + d.high + d.low + d.close) / 4;
+            case 'hlcc/4':
+                return d => (d.high + d.low + d.close * 2) / 4;
+            case 'close':
+            default:
+                return d => d.close;
+        }
     }
 
     /**
@@ -1935,6 +1939,20 @@ _getTouchCoordinates(touch) {
                     }
                 });
                 break;
+            case 'demarker':
+                debugger
+                plots.push({
+                    id: 'demarker',
+                    type: 'line',
+                    heightRatio: 0.15,
+                    data: data,
+                    keyLabel: 'DeMarker',
+                    style: {
+                        lineColor: settings.lineColor,
+                        lineWidth: 1.5
+                    }
+                });
+                break;
         }
 
         // @ts-ignore
@@ -1970,7 +1988,7 @@ _getTouchCoordinates(touch) {
                 }
             });
 
-        this.editPlotId = indicatorId;
+        this.editPlotId = plotId;
 
         // this.showIndicatorSettings({ indicatorId, settings, plotId });
     }

@@ -1833,6 +1833,149 @@ class StockChart {
     /**
      * Displays price and indicator information at the crosshair position.
      */
+
+    /**
+     * Draws arrow lines connecting points with the same ID
+     * @param {Array<Object>} plotVisibleData - The visible data points for the plot.
+     * @param {import('./stock-chart.d.ts').PlotLayout} plotLayout - The layout information for the plot.
+     * @param {number} barWidth - The width of each bar in the plot.
+     * @param {number} minPrice - The minimum price in the visible data range.
+     * @param {number} maxPrice - The maximum price in the visible data range.
+     */
+    drawArrowLines(plotVisibleData, plotLayout, barWidth, minPrice, maxPrice) {
+        // Group points by ID
+        const groupedPoints = new Map();
+        const flat = plotVisibleData.flat();
+        flat.filter(d => d).forEach(point => {
+            if (!point || !point.id) return;
+            if (!groupedPoints.has(point.id)) {
+                groupedPoints.set(point.id, []);
+            }
+            groupedPoints.get(point.id).push(point);
+        });
+
+        const firstVisible = flat.find(d => d);
+        const lastVisible = [...flat].reverse().find(d => d);
+
+        const visibleTimeRange = {
+            start: firstVisible ? firstVisible.time : 0,
+            end: lastVisible ? lastVisible.time : 0
+        };
+
+        // For each group, draw an arrow line from first to last point
+        groupedPoints.forEach(points => {
+            if (points.length < 2) return;
+
+            // Get first and last points
+            let firstPoint = points[0];
+            let lastPoint = points[points.length - 1];
+
+            // Find visible points if first or last is outside visible range
+            if (firstPoint.time < visibleTimeRange.start) {
+                const visiblePoint = points.find(p => p.time >= visibleTimeRange.start);
+                if (visiblePoint) firstPoint = visiblePoint;
+            }
+            if (lastPoint.time > visibleTimeRange.end) {
+                const visiblePoint = [...points].reverse().find(p => p.time <= visibleTimeRange.end);
+                if (visiblePoint) lastPoint = visiblePoint;
+            }
+
+            // Convert points to pixel coordinates
+            
+
+            const firstIndex = this.findTimeIndex(firstPoint.time, this.dataViewport.allData);
+            const x1 = plotLayout.x + getXPixel(
+                firstIndex,
+                this.dataViewport.startIndex,
+                this.dataViewport.visibleCount,
+                plotLayout.width,
+                barWidth
+            ) + barWidth / 2;
+
+            const y1 = getYPixel(firstPoint.value, minPrice, maxPrice, plotLayout.height, plotLayout.y);
+
+            const lastIndex = this.findTimeIndex(lastPoint.time, this.dataViewport.allData);
+            const x2 = plotLayout.x + getXPixel(
+                lastIndex,
+                this.dataViewport.startIndex,
+                this.dataViewport.visibleCount,
+                plotLayout.width,
+                barWidth
+            ) + barWidth / 2;
+
+            const y2 = getYPixel(lastPoint.value, minPrice, maxPrice, plotLayout.height, plotLayout.y);
+
+            const isPrediction = firstPoint.isPrediction;
+            // use dashed line for prediction
+            if (isPrediction) {
+                this.ctx.setLineDash([5, 5]);
+            }
+            // Draw arrow line
+            const headlen = 10; // arrow head length
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            const angle = Math.atan2(dy, dx);
+
+            // Draw the line
+            this.ctx.beginPath();
+            this.ctx.strokeStyle = this.currentTheme.textColor;
+            this.ctx.lineWidth = 1.5;
+            this.ctx.moveTo(x1, y1);
+            this.ctx.lineTo(x2, y2);
+            this.ctx.stroke();
+
+            // Reset line dash
+            this.ctx.setLineDash([]);
+
+            // Draw the arrow head
+            this.ctx.beginPath();
+            this.ctx.moveTo(x2, y2);
+            this.ctx.lineTo(
+                x2 - headlen * Math.cos(angle - Math.PI / 6),
+                y2 - headlen * Math.sin(angle - Math.PI / 6)
+            );
+            this.ctx.lineTo(x2, y2);
+            this.ctx.lineTo(
+                x2 - headlen * Math.cos(angle + Math.PI / 6),
+                y2 - headlen * Math.sin(angle + Math.PI / 6)
+            );
+            this.ctx.stroke();
+        });
+    }
+
+    // Find index in current data using binary search for better performance
+    /**
+     * Find the index of a specific time in the data array.
+     * @param {any} time 
+     * @param {Array} data 
+     * @returns {number}
+     */
+    findTimeIndex (time, data) {
+        let left = 0;
+        let right = data.length - 1;
+        
+        while (left <= right) {
+            const mid = Math.floor((left + right) / 2);
+            if (data[mid].time === time) {
+                return mid;
+            }
+            if (data[mid].time < time) {
+                left = mid + 1;
+            } else {
+                right = mid - 1;
+            }
+        }
+        
+        // If exact time not found, find closest matching time
+        if (right >= 0 && left < data.length) {
+            const leftDiff = Math.abs(data[left]?.time - time);
+            const rightDiff = Math.abs(data[right]?.time - time);
+            return leftDiff < rightDiff ? left : right;
+        }
+        
+        return right >= 0 ? right : 0;
+    };
+
     displayInfoOverlay() {
         const visibleData = this.dataViewport.getVisibleData();
         if (visibleData.length === 0) return;

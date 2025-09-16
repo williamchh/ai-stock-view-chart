@@ -1,5 +1,6 @@
 
 
+import { calculateBollingerBands, calculateDeMarker, calculateEMA, calculateMACD, calculateRSI, calculateSMA } from '../indicators/indicator-utils.js';
 import { DataViewport } from './data.js';
 import { DrawingItem, LineDrawing, RectangleDrawing, FibonacciDrawing, FibonacciZoonDrawing } from './drawing-item.js';
 import { PlotLayoutManager } from './layout.js';
@@ -15,6 +16,7 @@ import { PlotLayoutManager } from './layout.js';
  * @property {Object} currentTheme - The current theme object
  * @property {Function} setDrawingTool - Function to set the active drawing tool
  * @property {Function} render - Function to render/redraw the chart
+ * @property {Function} loadIndicatorSettings - Function to load indicator settings
  */
 
 /**
@@ -38,7 +40,8 @@ export class DrawingPanel {
         this.selectedPoint = null;
         this.isEditing = false;
         this._isChartFrozen = false;
-        
+        this.editPlotId = null;
+
         // We'll calculate barWidth dynamically when needed instead of storing it
         
         
@@ -135,6 +138,11 @@ _getTouchCoordinates(touch) {
      * @param {string} tool - The tool to activate (null to disable drawing)
      */
     setActiveTool(tool) {
+        console.log('setActiveTool', tool);
+        if (tool === 'settings') {
+            this.showIndicatorSettings();
+            return;
+        }
         // If clicking the same tool that's already active, deactivate it
         if (this.activeTool === tool) {
             this.activeTool = null;
@@ -1049,4 +1057,991 @@ _getTouchCoordinates(touch) {
             console.error('Failed to import drawings:', error);
         }
     }
+    showIndicatorSettings(options = {}) {
+        const { indicatorId: editIndicatorId, settings: editSettings, plotId: editPlotId } = options;
+        this.indicators = [
+            {
+                name: 'SMA',
+                id: 'sma',
+                settings: [
+                    { key: 'period', label: 'Period', type: 'number', default: 20, min: 1, max: 200 },
+                    { key: 'priceType', label: 'Price Type', type: 'select', default: 'close',
+                    options: [
+                        { value: 'close', label: 'Close' },
+                        { value: 'hlc3', label: 'HLC/3' },
+                        { value: 'ohlc4', label: 'OHLC/4' },
+                        { value: 'hlcc4', label: 'HLCC/4' }
+                    ]
+                    },
+                    { key: 'lineColor', label: 'Line Color', type: 'color', default: '#2196F3' }
+                ]
+            },
+            { 
+                name: 'EMA', 
+                id: 'ema',
+                settings: [
+                    { key: 'period', label: 'Period', type: 'number', default: 20, min: 1, max: 200 },
+                    { key: 'priceType', label: 'Price Type', type: 'select', default: 'close', 
+                    options: [
+                        { value: 'close', label: 'Close' },
+                        { value: 'hlc3', label: 'HLC/3' },
+                        { value: 'ohlc4', label: 'OHLC/4' }
+                    ]
+                    },
+                    { key: 'lineColor', label: 'Line Color', type: 'color', default: '#FF9800' }
+                ]
+            },
+            { 
+                name: 'RSI', 
+                id: 'rsi',
+                settings: [
+                    { key: 'period', label: 'Period', type: 'number', default: 14, min: 2, max: 100 },
+                    { key: 'priceType', label: 'Price Type', type: 'select', default: 'close', 
+                    options: [
+                        { value: 'close', label: 'Close' },
+                        { value: 'hlc3', label: 'HLC/3' },
+                        { value: 'ohlc4', label: 'OHLC/4' }
+                    ]
+                    },
+                    { key: 'overbought', label: 'Overbought Level', type: 'number', default: 70, min: 50, max: 90 },
+                    { key: 'oversold', label: 'Oversold Level', type: 'number', default: 30, min: 10, max: 50 },
+                    { key: 'lineColor', label: 'RSI Line Color', type: 'color', default: '#9C27B0' },
+                    { key: 'overboughtColor', label: 'Overbought Color', type: 'color', default: '#F44336' },
+                    { key: 'oversoldColor', label: 'Oversold Color', type: 'color', default: '#4CAF50' }
+                ]
+            },
+            {
+                id: 'macd',
+                name: 'MACD',
+                plots: [
+                    { name: 'MACD Line', type: 'line' },
+                    { name: 'Signal Line', type: 'line' },
+                    { name: 'Histogram', type: 'histogram' }
+                ],
+                settings: [
+                    { key: 'fastPeriod', label: 'Fast Period', type: 'number', default: 12, min: 1, max: 50 },
+                    { key: 'slowPeriod', label: 'Slow Period', type: 'number', default: 26, min: 1, max: 100 },
+                    { key: 'signalPeriod', label: 'Signal Period', type: 'number', default: 9, min: 1, max: 50 },
+                    { key: 'priceType', label: 'Price Type', type: 'select', default: 'close',
+                    options: [
+                        { value: 'close', label: 'Close' },
+                        { value: 'hlc3', label: 'HLC/3' },
+                        { value: 'ohlc4', label: 'OHLC/4' }
+                    ]
+                    },
+                    { key: 'macdColor', label: 'MACD Line Color', type: 'color', default: '#2196F3' },
+                    { key: 'signalColor', label: 'Signal Line Color', type: 'color', default: '#FF5722' },
+                    { key: 'histogramColor', label: 'Histogram Color', type: 'color', default: '#795548' }
+                ]
+            },
+            { 
+                name: 'Bollinger Bands', 
+                id: 'bollinger',
+                settings: [
+                    { key: 'period', label: 'Period', type: 'number', default: 20, min: 2, max: 100 },
+                    { key: 'stdDev', label: 'Standard Deviation', type: 'number', default: 2, min: 0.1, max: 5, step: 0.001 },
+                    { key: 'priceType', label: 'Price Type', type: 'select', default: 'close', 
+                    options: [
+                        { value: 'close', label: 'Close' },
+                        { value: 'hlc3', label: 'HLC/3' },
+                        { value: 'ohlc4', label: 'OHLC/4' }
+                    ]
+                    },
+                    { key: 'upperBandColor', label: 'Upper Band Color', type: 'color', default: '#E91E63' },
+                    { key: 'middleBandColor', label: 'Middle Band Color', type: 'color', default: '#9C27B0' },
+                    { key: 'lowerBandColor', label: 'Lower Band Color', type: 'color', default: '#3F51B5' },
+                    { key: 'fillColor', label: 'Fill Color', type: 'color', default: '#E1F5FE', opacity: true }
+                ]
+            },
+            { 
+                name: 'DeMarker', 
+                id: 'demarker',
+                settings: [
+                    { key: 'period', label: 'Period', type: 'number', default: 14, min: 1, max: 100 },
+                    { key: 'overbought', label: 'Overbought Level', type: 'number', default: 0.7, min: 0.5, max: 0.9, step: 0.01 },
+                    { key: 'oversold', label: 'Oversold Level', type: 'number', default: 0.3, min: 0.1, max: 0.5, step: 0.01 },
+                    { key: 'lineColor', label: 'DeMarker Line Color', type: 'color', default: '#607D8B' },
+                    { key: 'overboughtColor', label: 'Overbought Color', type: 'color', default: '#F44336' },
+                    { key: 'oversoldColor', label: 'Oversold Color', type: 'color', default: '#4CAF50' }
+                ]
+            }
+        ];
+
+        // Create overlay
+        const overlay = document.createElement('div');
+        overlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        `;
+
+        // Create modal dialog
+        const dialog = document.createElement('div');
+        dialog.style.cssText = `
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+            width: 650px;
+            max-width: 90vw;
+            max-height: 80vh;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        `;
+
+        dialog.innerHTML = `
+            <div class="modal-header" style="padding: 20px; border-bottom: 1px solid #e0e0e0; background-color: #f8f9fa;">
+                <h3 style="margin: 0; color: #333; font-size: 18px;">Technical Indicators</h3>
+            </div>
+            
+            <div class="tab-container" style="display: flex; border-bottom: 1px solid #e0e0e0; background-color: #f8f9fa; overflow-x: auto;">
+                ${this.indicators.map((indicator, index) => `
+                    <button class="tab-btn ${index === 0 ? 'active' : ''}" data-tab="${indicator.id}" style="
+                        flex: 0 0 auto;
+                        padding: 12px 16px;
+                        border: none;
+                        background: ${index === 0 ? 'white' : 'transparent'};
+                        color: ${index === 0 ? '#333' : '#666'};
+                        cursor: pointer;
+                        border-bottom: 2px solid ${index === 0 ? '#007bff' : 'transparent'};
+                        font-weight: 500;
+                        white-space: nowrap;
+                        min-width: 80px;
+                    ">${indicator.name}</button>
+                `).join('')}
+            </div>
+            
+            <div class="tab-content" style="padding: 20px; max-height: 450px; overflow-y: auto;">
+                ${this.indicators.map((indicator, index) => `
+                    <div id="${indicator.id}-tab" class="tab-pane ${index === 0 ? 'active' : ''}" style="display: ${index === 0 ? 'block' : 'none'};">
+                        <div class="indicator-settings">
+                            <h4 style="margin: 0 0 20px 0; color: #333; font-size: 16px;">${indicator.name} Settings</h4>
+                            
+                            <form class="settings-form" data-indicator="${indicator.id}">
+                                ${indicator.settings.map(setting => {
+                                    if (setting.type === 'select') {
+                                        return `
+                                            <div class="form-group" style="margin-bottom: 16px;">
+                                                <label style="display: block; margin-bottom: 6px; color: #333; font-weight: 500; font-size: 14px;">${setting.label}</label>
+                                                <select name="${setting.key}" style="
+                                                    width: 100%;
+                                                    padding: 8px 12px;
+                                                    border: 1px solid #ddd;
+                                                    border-radius: 4px;
+                                                    font-size: 14px;
+                                                    background: white;
+                                                ">
+                                                    ${setting.options.map(option => `
+                                                        <option value="${option.value}" ${option.value === setting.default ? 'selected' : ''}>${option.label}</option>
+                                                    `).join('')}
+                                                </select>
+                                            </div>
+                                        `;
+                                    } else if (setting.type === 'color') {
+                                        return `
+                                            <div class="form-group" style="margin-bottom: 16px;">
+                                                <label style="display: block; margin-bottom: 6px; color: #333; font-weight: 500; font-size: 14px;">${setting.label}</label>
+                                                <div style="display: flex; align-items: center; gap: 10px;">
+                                                    <input 
+                                                        type="color" 
+                                                        name="${setting.key}" 
+                                                        value="${setting.default}" 
+                                                        id="${indicator.id}-${setting.key}"
+                                                        style="
+                                                            width: 50px;
+                                                            height: 35px;
+                                                            border: 1px solid #ddd;
+                                                            border-radius: 4px;
+                                                            cursor: pointer;
+                                                            background: white;
+                                                            padding: 2px;
+                                                        "
+                                                    />
+                                                    <input 
+                                                        type="text" 
+                                                        name="${setting.key}_hex"
+                                                        value="${setting.default}" 
+                                                        placeholder="#RRGGBB"
+                                                        maxlength="7"
+                                                        style="
+                                                            flex: 1;
+                                                            padding: 8px 12px;
+                                                            border: 1px solid #ddd;
+                                                            border-radius: 4px;
+                                                            font-size: 14px;
+                                                            font-family: monospace;
+                                                            box-sizing: border-box;
+                                                        "
+                                                    />
+                                                    ${setting.opacity ? `
+                                                        <div style="display: flex; align-items: center; gap: 5px; min-width: 80px;">
+                                                            <label style="font-size: 12px; color: #666;">Opacity:</label>
+                                                            <input 
+                                                                type="range" 
+                                                                name="${setting.key}_opacity"
+                                                                min="0" 
+                                                                max="1" 
+                                                                step="0.1" 
+                                                                value="0.3"
+                                                                style="width: 60px;"
+                                                            />
+                                                            <span class="opacity-value" style="font-size: 11px; color: #666; min-width: 25px;">0.3</span>
+                                                        </div>
+                                                    ` : ''}
+                                                </div>
+                                            </div>
+                                        `;
+                                    } else {
+                                        return `
+                                            <div class="form-group" style="margin-bottom: 16px;">
+                                                <label style="display: block; margin-bottom: 6px; color: #333; font-weight: 500; font-size: 14px;">${setting.label}</label>
+                                                <input 
+                                                    type="${setting.type}" 
+                                                    name="${setting.key}" 
+                                                    value="${setting.default}" 
+                                                    id="${indicator.id}-${setting.key}"
+                                                    ${setting.min ? `min="${setting.min}"` : ''}
+                                                    ${setting.max ? `max="${setting.max}"` : ''}
+                                                    ${setting.step ? `step="${setting.step}"` : ''}
+                                                    style="
+                                                        width: 100%;
+                                                        padding: 8px 12px;
+                                                        border: 1px solid #ddd;
+                                                        border-radius: 4px;
+                                                        font-size: 14px;
+                                                        box-sizing: border-box;
+                                                    "
+                                                />
+                                            </div>
+                                        `;
+                                    }
+                                }).join('')}
+                                
+                                <div class="form-actions" style="margin-top: 24px; display: flex; gap: 12px;">
+                                    <button type="submit" class="add-indicator-btn" id="add-indicator-btn" style="
+                                        background: #00c2ff;
+                                        color: white;
+                                        border: none;
+                                        padding: 10px 20px;
+                                        border-radius: 4px;
+                                        cursor: pointer;
+                                        font-size: 14px;
+                                        font-weight: 500;
+                                    ">${this.editPlotId ? 'Update Indicator' : '➕ Add Indicator'}</button>
+                                </div>
+                            </form>
+                            
+                            <div class="active-instances" style="margin-top: 24px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
+                                <h5 style="margin: 0 0 12px 0; color: #333; font-size: 14px;">Active ${indicator.name} Instances</h5>
+                                <div id="${indicator.id}-instances" class="instances-list">
+                                    <!-- Active instances will be populated here -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+            
+            <div class="modal-footer" style="
+                padding: 16px 20px;
+                border-top: 1px solid #e0e0e0;
+                background-color: #f8f9fa;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            ">
+                <div style="color: #666; font-size: 12px;">
+                    Configure settings and colors, then click "Add Indicator" to apply
+                </div>
+                <button id="close-indicator-settings" style="
+                    background: #6c757d;
+                    color: white;
+                    border: none;
+                    padding: 8px 20px;
+                    border-radius: 4px;
+                    cursor: pointer;
+                    font-size: 14px;
+                ">Close</button>
+            </div>
+        `;
+
+        overlay.appendChild(dialog);
+        document.body.appendChild(overlay);
+
+        // Initialize the dialog
+        this.initializeIndicatorDialog(overlay, this.indicators, { editIndicatorId, editSettings, editPlotId });
+    }
+
+    /**
+     * Get the stock data for the main plot.
+     * @returns {Array<import('../stock-chart.js').StockData>}
+     */
+    getMainPlotStockData() {
+        return this.stockChart.options.plots.find(p => p.id === 'main').data;
+    }
+
+    initializeIndicatorDialog(overlay, indicators, options = {}) {
+        const { editIndicatorId, editSettings } = options;
+        const dialog = overlay.querySelector('div');
+        
+        // Setup color picker synchronization
+        this.setupColorPickerSync(dialog);
+        
+        // Tab switching functionality
+        const tabBtns = dialog.querySelectorAll('.tab-btn');
+        const tabPanes = dialog.querySelectorAll('.tab-pane');
+
+        tabBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                // Remove active class from all tabs
+                tabBtns.forEach(b => {
+                    b.classList.remove('active');
+                    b.style.background = 'transparent';
+                    b.style.color = '#666';
+                    b.style.borderBottomColor = 'transparent';
+                });
+                tabPanes.forEach(pane => {
+                    pane.classList.remove('active');
+                    pane.style.display = 'none';
+                });
+
+                // Add active class to clicked tab
+                btn.classList.add('active');
+                btn.style.background = 'white';
+                btn.style.color = '#333';
+                btn.style.borderBottomColor = '#007bff';
+                
+                const targetTab = dialog.querySelector(`#${btn.dataset.tab}-tab`);
+                targetTab.classList.add('active');
+                targetTab.style.display = 'block';
+
+                // Update instances list for the active tab
+                this.updateInstancesList(btn.dataset.tab);
+            });
+        });
+
+        // Form submission for adding indicators
+        dialog.addEventListener('submit', (event) => {
+            event.preventDefault();
+
+            const form = event.target;
+            const indicatorId = form.dataset.indicator;
+            const formData = new FormData(form);
+            const settings = {};
+
+            for (let [key, value] of formData.entries()) {
+                // Skip hex inputs as they're just for display sync
+                if (key.endsWith('_hex')) continue;
+                
+                // Convert numeric values
+                const indicator = indicators.find(ind => ind.id === indicatorId);
+                const setting = indicator.settings.find(s => s.key === key);
+                
+                if (setting && setting.type === 'number') {
+                    // @ts-ignore
+                    settings[key] = parseFloat(value);
+                } else {
+                    settings[key] = value;
+                }
+            }
+            
+            this.addIndicatorWithSettings(indicatorId, settings);
+            this.updateInstancesList(indicatorId);
+            
+            // Show success feedback
+            const submitBtn = form.querySelector('.add-indicator-btn');
+            // add emoji
+            const originalText = '➕ Add Indicator';
+            submitBtn.textContent = '✓ Successfully';
+            submitBtn.style.background = '#28a745';
+            
+            setTimeout(() => {
+                submitBtn.textContent = originalText;
+                submitBtn.style.background = '#00c2ff';
+            }, 2000);
+        });
+
+        // Preview functionality
+        dialog.addEventListener('click', (event) => {
+
+            // Remove instance functionality
+            if (event.target.classList.contains('remove-instance-btn')) {
+                const plotId = event.target.dataset.plotId;
+                const indicatorId = event.target.dataset.indicatorId;
+                this.removeIndicator(plotId);
+                this.updateInstancesList(indicatorId);
+            }
+
+            // Edit instance functionality
+            if (event.target.classList.contains('edit-instance-btn')) {
+                const plotId = event.target.dataset.plotId;
+                this.editIndicatorInstance(plotId);
+
+                // update button label
+                const editBtn = document.getElementById(`add-indicator-btn`);
+                if (editBtn) {
+                    editBtn.textContent = `✏️ Update Indicator`;
+                }
+            }
+        });
+
+        // Close functionality
+        dialog.querySelector('#close-indicator-settings').addEventListener('click', () => {
+            document.body.removeChild(overlay);
+        });
+
+        // Close on overlay click
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) {
+                document.body.removeChild(overlay);
+            }
+        });
+
+        // Initialize instances lists for all indicators
+        indicators.forEach(indicator => {
+            this.updateInstancesList(indicator.id);
+        });
+
+        if (editIndicatorId && editSettings) {
+            // Activate the correct tab
+            const tabBtn = dialog.querySelector(`.tab-btn[data-tab="${editIndicatorId}"]`);
+            if (tabBtn) {
+                tabBtn.click();
+            }
+
+            // Populate the form with existing settings
+            const form = dialog.querySelector(`#${editIndicatorId}-tab .settings-form`);
+            if (form) {
+                for (const key in editSettings) {
+                    const input = form.querySelector(`[name="${key}"]`);
+                    if (input) {
+                        input.value = editSettings[key];
+                        
+                        // Update hex input if it's a color
+                        const hexInput = form.querySelector(`[name="${key}_hex"]`);
+                        if (hexInput) {
+                            hexInput.value = editSettings[key];
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    setupColorPickerSync(dialog) {
+        // Setup color picker and hex input synchronization
+        dialog.addEventListener('input', (event) => {
+            const target = event.target;
+            
+            if (target.type === 'color') {
+                // Update corresponding hex input
+                const hexInput = dialog.querySelector(`[name="${target.name}_hex"]`);
+                if (hexInput) {
+                    hexInput.value = target.value.toUpperCase();
+                }
+            }
+            
+            if (target.name && target.name.endsWith('_hex')) {
+                // Update corresponding color picker
+                const colorKey = target.name.replace('_hex', '');
+                const colorInput = dialog.querySelector(`[name="${colorKey}"]`);
+                if (colorInput && this.isValidHex(target.value)) {
+                    colorInput.value = target.value;
+                }
+            }
+            
+            if (target.type === 'range' && target.name.includes('opacity')) {
+                // Update opacity display
+                const opacityDisplay = target.parentElement.querySelector('.opacity-value');
+                if (opacityDisplay) {
+                    opacityDisplay.textContent = target.value;
+                }
+            }
+        });
+
+        // Validate hex input on blur
+        dialog.addEventListener('blur', (event) => {
+            const target = event.target;
+            if (target.name && target.name.endsWith('_hex')) {
+                if (!this.isValidHex(target.value)) {
+                    target.style.borderColor = '#dc3545';
+                    target.title = 'Invalid hex color format. Use #RRGGBB';
+                } else {
+                    target.style.borderColor = '#ddd';
+                    target.title = '';
+                }
+            }
+        }, true);
+    }
+
+    isValidHex(hex) {
+        return /^#[0-9A-Fa-f]{6}$/.test(hex);
+    }
+
+    updateInstancesList(indicatorId) {
+        const instancesContainer = document.querySelector(`#${indicatorId}-instances`);
+        if (!instancesContainer) return;
+    
+        const instances = this.getIndicatorInstances(indicatorId);
+        const indicator = this.indicators.find(ind => ind.id === indicatorId);
+    
+        if (instances.length === 0) {
+            instancesContainer.innerHTML = `
+                <div style="color: #666; font-style: italic; padding: 12px; text-align: center; border: 1px dashed #ddd; border-radius: 4px;">
+                    No ${indicatorId.toUpperCase()} instances added yet
+                </div>
+            `;
+        } 
+        else {
+            const renderInstances = [];
+            // find unique name from instances
+            const uniqueNames = new Set(instances.map(instance => instance.name));
+            uniqueNames.forEach(name => {
+                const instance = instances.find(inst => inst.name === name);
+                if (instance) {
+                    renderInstances.push(instance);
+                }
+            });
+            // For single-plot indicators, show all instances
+            instancesContainer.innerHTML = renderInstances.map(instance => `
+                <div class="instance-item" style="
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    padding: 10px 12px;
+                    border: 1px solid #e0e0e0;
+                    border-radius: 4px;
+                    margin-bottom: 8px;
+                    background: #f9f9f9;
+                ">
+                    <div style="flex: 1;">
+                        <div style="font-weight: 500; color: #333; font-size: 13px; display: flex; align-items: center; gap: 8px;">
+                            ${instance.name}
+                            ${this.getColorIndicatorsForInstance(instance)}
+                        </div>
+                        <div style="color: #666; font-size: 11px;">${this.formatInstances(instance)}</div>
+                    </div>
+                    <div style="display: flex; gap: 6px;">
+                        <button class="edit-instance-btn" data-plot-id="${instance.plotId}" style="
+                            background: #ffc107;
+                            color: #212529;
+                            border: none;
+                            padding: 4px 8px;
+                            border-radius: 3px;
+                            cursor: pointer;
+                            font-size: 11px;
+                        ">Edit</button>
+                        <button class="remove-instance-btn" data-plot-id="${instance.plotId}" data-indicator-id="${indicatorId}" style="
+                            background: #dc3545;
+                            color: white;
+                            border: none;
+                            padding: 4px 8px;
+                            border-radius: 3px;
+                            cursor: pointer;
+                            font-size: 11px;
+                        ">Remove</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+    }
+
+    getColorIndicatorsForInstance(instance) {
+        // Extract color settings from instance and display them as small color squares
+        const colorSettings = Object.entries(instance.settings).filter(([key, value]) => 
+            key.toLowerCase().includes('color') && typeof value === 'string' && value.startsWith('#')
+        );
+        
+        return colorSettings.map(([key, color]) => `
+            <div style="
+                width: 12px; 
+                height: 12px; 
+                background-color: ${color}; 
+                border: 1px solid #ccc; 
+                border-radius: 2px;
+                display: inline-block;
+                margin-right: 2px;
+                title: '${key}: ${color}'
+            "></div>
+        `).join('');
+    }
+
+    formatInstances({settings}) {
+        // Exclude color settings from the summary to keep it clean
+        const nonColorSettings = Object.entries(settings).filter(([key, value]) => 
+            !key.toLowerCase().includes('color') && !key.includes('opacity')
+        );
+        
+        return nonColorSettings
+            .map(([key, value]) => `${key}: ${value}`)
+            .join(', ');
+    }
+
+    getIndicatorInstances(indicatorId) {
+        if (!this.stockChart || !this.stockChart.options || !this.stockChart.options.plots) {
+            return [];
+        }
+        
+        return this.stockChart.options.plots
+            .filter(plot => plot.indicator && plot.indicator.id === indicatorId)
+            .map(plot => ({
+                name: plot.indicator.name,
+                plotId: plot.id,
+                settings: plot.indicator.settings || {}
+            }));
+    }
+
+    /**
+     * Add a new indicator with the specified settings.
+     * @param {string} indicatorId - The ID of the indicator to add.
+     * @param {Object} settings - The settings for the indicator.
+     */
+    addIndicatorWithSettings(indicatorId, settings) {
+        if (this.editPlotId) {
+            this.removeIndicator(this.editPlotId);
+        }
+        const timestamp = Date.now();
+        
+        // Create a descriptive name based on settings
+        let name = this.getIndicatorDisplayName(indicatorId);
+        if (settings.period) {
+            name += ` (${settings.period})`;
+        }
+
+        if (!this.stockChart.options.plots) {
+            this.stockChart.options.plots = [];
+        }
+
+        const valueSelector = this.getValueSelector(settings.priceType || 'close');
+
+        let data = [];
+        const mainPlotData = this.getMainPlotStockData();
+        switch (indicatorId) {
+            case 'sma':
+                data = calculateSMA(mainPlotData, settings.period, valueSelector);
+                break;
+            case 'bollinger':
+                data = calculateBollingerBands(mainPlotData, settings.period, settings.standardDeviationMultiplier, valueSelector);
+                break;
+            case 'demarker':
+                data = calculateDeMarker(mainPlotData, settings.period);
+                break;
+            case 'macd':
+                data = calculateMACD(mainPlotData, settings.fastPeriod, settings.slowPeriod, settings.signalPeriod, valueSelector);
+                break;
+            case 'ema':
+                data = calculateEMA(mainPlotData, settings.period, valueSelector);
+                break;
+            case 'rsi':
+                data = calculateRSI(mainPlotData, settings.period, valueSelector);
+                break;
+            // Add more cases for different indicators as needed
+        }
+
+        const totalPlots = this.stockChart.options.plots?.length || 1;
+        const plots = this.getPlotsByIndicatorId(indicatorId, data, totalPlots, settings);
+
+        plots.forEach((plot, idx) => {
+            plot.indicator = {
+                id: indicatorId,
+                settings: settings,
+                name: name
+            };
+
+            // @ts-ignore
+            this.stockChart.options.plots.push(plot);
+            const isMainPlot = plot.id === 'main';
+
+            if (!isMainPlot) {
+                // @ts-ignore
+                this.stockChart.plotLayoutManager.updatePlotIndicator(plot, 'add');
+            }
+        });
+
+        
+        this.stockChart.render();
+
+        // Save indicator settings to local storage
+        const savedIndicators = JSON.parse(localStorage.getItem('asv-chart-indicator-settings')) || [];
+        let existingIndicatorIndex;
+        if (['sma', 'ema'].includes(indicatorId)) {
+            existingIndicatorIndex = savedIndicators.findIndex(i => i.id === indicatorId && i.settings.period === settings.period);
+        }
+        else {
+            existingIndicatorIndex = savedIndicators.findIndex(i => i.id === indicatorId);
+        }
+
+        if (existingIndicatorIndex > -1) {
+            savedIndicators[existingIndicatorIndex].settings = settings;
+        } else {
+            savedIndicators.push({ id: indicatorId, settings });
+        }
+        
+        localStorage.setItem('asv-chart-indicator-settings', JSON.stringify(savedIndicators));
+
+        this.editPlotId = null;
+    }
+
+    /**
+     * Get the value selector function based on the price type.
+     * @param {'hlc/3' | 'ohlc/4' | 'hlcc/4' | 'close'} priceType 
+     * @returns {function} Value selector function
+     */
+    getValueSelector(priceType) {
+        switch (priceType) {
+            case 'hlc/3':
+                return d => (d.high + d.low + d.close) / 3;
+            case 'ohlc/4':
+                return d => (d.open + d.high + d.low + d.close) / 4;
+            case 'hlcc/4':
+                return d => (d.high + d.low + d.close * 2) / 4;
+            case 'close':
+            default:
+                return d => d.close;
+        }
+    }
+
+    /**
+     * 
+     * @param {string} indicatorId 
+     * @param {Array} data 
+     * @param {number} totalPlots
+     * @param {Object} settings
+     * @returns {Array<import('../stock-chart.js').PlotConfig>}
+     */
+    getPlotsByIndicatorId(indicatorId, data, totalPlots, settings) {
+        const plots = [];
+
+        switch (indicatorId) {
+            case 'macd':
+                plots.push({
+                    id: 'macd',
+                    type: 'line',
+                    heightRatio: 0.15,
+                    data: data.map(d => ({ time: d.time, value: d.macd })),
+                    keyLabel: 'MACD',
+                    style: {
+                        lineColor: settings.macdColor,
+                        lineWidth: 3
+                    }
+                });
+                plots.push({
+                    id: 'signal',
+                    type: 'line',
+                    data: data.map(d => ({ time: d.time, value: d.signal })),
+                    overlay: true,
+                    targetId: 'macd',
+                    keyLabel: 'Signal',
+                    style: {
+                        lineColor: settings.signalColor,
+                        lineWidth: 1.5
+                    }
+                });
+                plots.push({
+                    id: 'histogram',
+                    type: 'histogram',
+                    data: data.map(d => ({ time: d.time, value: d.histogram })),
+                    overlay: true,
+                    targetId: 'macd',
+                    keyLabel: 'Histogram',
+                    style: {
+                        positiveColor: 'rgba(0, 150, 136, 0.5)',
+                        negativeColor: 'rgba(233, 30, 99, 0.5)'
+                    }
+                });
+                break;
+            case 'rsi':
+                plots.push({
+                    id: 'rsi',
+                    type: 'line',
+                    heightRatio: 0.15,
+                    data: data,
+                    keyLabel: 'RSI',
+                    style: {
+                        lineColor: settings.lineColor,
+                        lineWidth: 1.5
+                    }
+                });
+                break;
+            case 'sma':
+                plots.push({
+                    id: 'sma' + totalPlots,
+                    type: 'line',
+                    data: data,
+                    targetId: 'main',
+                    keyLabel: 'SMA',
+                    overlay: true,
+                    style: {
+                        lineColor: settings.lineColor,
+                        lineWidth: 1.5
+                    }
+                });
+                break;
+            case 'ema':
+                plots.push({
+                    id: 'ema' + totalPlots,
+                    type: 'line',
+                    heightRatio: 0.15,
+                    targetId: 'main',
+                    data: data,
+                    keyLabel: 'EMA',
+                    overlay: true,
+                    style: {
+                        lineColor: settings.lineColor,
+                        lineWidth: 1.5
+                    }
+                });
+                break;
+            case 'bollinger':
+                plots.push({
+                    id: 'bollinger',
+                    type: 'line',
+                    heightRatio: 0.15,
+                    targetId: 'main',
+                    data: data.map(d => ({ time: d.time, value: d.upper })),
+                    overlay: true,
+                    keyLabel: 'Bollinger Bands',
+                    style: {
+                        lineColor: settings.upperBandColor,
+                        lineWidth: 1.5
+                    }
+                });
+                plots.push({
+                    id: 'bollinger_lower',
+                    type: 'line',
+                    heightRatio: 0.15,
+                    data: data.map(d => ({ time: d.time, value: d.lower })),
+                    overlay: true,
+                    targetId: 'main',
+                    keyLabel: 'Bollinger Bands',
+                    style: {
+                        lineColor: settings.lowerBandColor,
+                        lineWidth: 1.5
+                    }
+                });
+                plots.push({
+                    id: 'bollinger_middle',
+                    type: 'line',
+                    heightRatio: 0.15,
+                    data: data.map(d => ({ time: d.time, value: d.middle })),
+                    overlay: true,
+                    targetId: 'main',
+                    keyLabel: 'Bollinger Bands',
+                    style: {
+                        lineColor: settings.middleBandColor,
+                        lineWidth: 1.5
+                    }
+                });
+                break;
+            case 'demarker':
+                plots.push({
+                    id: 'demarker',
+                    type: 'line',
+                    heightRatio: 0.15,
+                    data: data,
+                    keyLabel: 'DeMarker',
+                    style: {
+                        lineColor: settings.lineColor,
+                        lineWidth: 1.5
+                    }
+                });
+                break;
+        }
+
+        // @ts-ignore
+        return plots;
+    }   
+
+    previewIndicator(indicatorId, settings) {
+        // Implement preview functionality - could show a temporary overlay or highlight
+        console.log(`Previewing ${indicatorId} with settings:`, settings);
+        
+        // Example: Show an alert with the configuration
+        const settingsText = Object.entries(settings)
+            .map(([key, value]) => `${key}: ${value}`)
+            .join('\n');
+        
+        alert(`Preview ${this.getIndicatorDisplayName(indicatorId)}:\n\n${settingsText}`);
+    }
+
+    editIndicatorInstance(plotId) {
+        const plot = this.stockChart.options.plots.find(p => p.id === plotId);
+        if (!plot || !plot.indicator) return;
+
+        const { id: indicatorId, settings } = plot.indicator;
+
+        Object.entries(settings)
+            .forEach(([key, value]) => {
+                const inputEle = document.getElementById(`${indicatorId}-${key}`);
+                if (inputEle) {
+                    // update input value
+                    (inputEle instanceof HTMLInputElement || inputEle instanceof HTMLSelectElement)
+                        ? inputEle.value = value
+                        : null;
+                }
+            });
+
+        this.editPlotId = plotId;
+
+        // this.showIndicatorSettings({ indicatorId, settings, plotId });
+    }
+
+    /**
+     * Remove an indicator from the chart
+     * @param {string} plotId 
+     */
+    removeIndicator(plotId) {
+    
+        if (this.stockChart.options.plots) {
+
+            const plotToRemove = this.stockChart.options.plots.find(plot => plot.id === plotId);
+            const relatedPlots = this.stockChart.options.plots.filter(plot => plot.indicator?.id === plotId);
+
+            
+            const removedPlotIds = [plotToRemove.id, ...relatedPlots.map(p => p.id)];
+            
+            const plot = this.stockChart.options.plots.find(p => p.id === plotId);
+            this.stockChart.options.plots = this.stockChart.options.plots.filter(plot => !removedPlotIds.includes(plot.id));
+            // this.stockChart.plotLayoutManager.calculateLayout();
+            // @ts-ignore
+            this.stockChart.plotLayoutManager.updatePlotIndicator(plotToRemove, 'delete');
+            
+            if (relatedPlots && relatedPlots.length) {
+                relatedPlots.forEach(p => {
+                    //@ts-ignore
+                    this.stockChart.plotLayoutManager.updatePlotIndicator(p, 'delete');
+                });
+            }
+            this.stockChart.render();
+            this.stockChart.options.plots = this.stockChart.options.plots.filter(
+                plot => !removedPlotIds.includes(plot.id)
+            );
+            
+            if (plot && plot.indicator) {
+                // Remove indicator settings from local storage
+                const savedIndicators = JSON.parse(localStorage.getItem('asv-chart-indicator-settings')) || [];
+                const updatedIndicators = savedIndicators.filter(i => i.id !== plot.indicator.id);
+                localStorage.setItem('asv-chart-indicator-settings', JSON.stringify(updatedIndicators));
+            }
+        }
+    }
+
+    getIndicatorDisplayName(indicatorId) {
+        const indicators = {
+            'bollinger': 'Bollinger Bands',
+            'demarker': 'DeMarker',
+            'ema': 'EMA',
+            'macd': 'MACD',
+            'rsi': 'RSI',
+            'sma': 'SMA'
+        };
+        return indicators[indicatorId] || indicatorId.toUpperCase();
+    }
+
 }

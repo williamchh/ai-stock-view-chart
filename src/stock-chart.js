@@ -45,6 +45,7 @@ class StockChart {
 
         const chartInstance = new StockChart(container, options);
         chartInstance.render();
+        chartInstance.loadIndicatorSettings();
         return chartInstance;
     }
 
@@ -116,7 +117,7 @@ class StockChart {
         // Initialize drawing panel
         this.drawingPanel = new DrawingPanel(this);
         this.activeDrawingTool = null;
-        this.eligibleMainPlotKeys = ['open', 'high', 'low', 'close'];
+        this.eligibleMainPlotKeys = ['time', 'open', 'high', 'low', 'close'];
 
         this.canvas.addEventListener('mousedown', this.handleMouseDown.bind(this));
         this.canvas.addEventListener('mousemove', this.handleMouseMove.bind(this));
@@ -152,6 +153,16 @@ class StockChart {
         this.resizeObserver.observe(this.container);
 
         this.applyTheme(this.options.theme);
+    }
+
+    loadIndicatorSettings() {
+        const savedIndicators = localStorage.getItem('asv-chart-indicator-settings');
+        if (savedIndicators) {
+            const indicators = JSON.parse(savedIndicators);
+            indicators.forEach(indicator => {
+                this.drawingPanel.addIndicatorWithSettings(indicator.id, indicator.settings);
+            });
+        }
     }
 
     /**
@@ -196,8 +207,9 @@ class StockChart {
 
         const toolbar = document.createElement('div');
         toolbar.style.width = isMobile ? '100%' : '40px';
-        toolbar.style.height = isMobile ? '40px' : 'auto';
+        toolbar.style.height = isMobile ? '45px' : 'auto';
         toolbar.style.position = isMobile ? 'absolute' : 'relative';
+        toolbar.style.bottom = isMobile ? '-45px' : 'auto';
         toolbar.style.bottom = isMobile ? '-45px' : 'auto';
         toolbar.style.backgroundColor = this.currentTheme?.background || '#ffffff';
         toolbar.style.borderRight = isMobile ? 'none' : '1px solid ' + (this.currentTheme?.gridColor || '#e0e0e0');
@@ -216,9 +228,10 @@ class StockChart {
             { name: 'vertical-line', icon: `<svg viewBox="0 0 24 24" width="${iconSize}" height="${iconSize}"> <path fill="currentColor" d="M12 3h2v18h-2V3"/></svg>`, tooltip: 'Vertical Line Tool' },
             { name: 'horizontal-line', icon: `<svg viewBox="0 0 24 24" width="${iconSize}" height="${iconSize}"><path fill="currentColor" d="M3 12h18v2H3v-2"/></svg>`, tooltip: 'Horizontal Line Tool' },
             { name: 'rectangle', icon: `<svg viewBox="0 0 24 24" width="${iconSize}" height="${iconSize}"><path fill="currentColor" d="M2 4H22V20H2V4M4 6V18H20V6H4Z"/></svg>`, tooltip: 'Rectangle Tool' },
-            { name: 'fibonacci', icon: `<svg viewBox="0 0 24 24" width="${iconSize}" height="${iconSize}"><path fill="currentColor" d="M 3 3 v 18 h 18 v -2 H 5 V 3 H 3 M 7 5 L 7 7 L 19 7 L 19 5 L 7 5 M 7 10 L 7 12 L 19 12 L 19 10 L 7 10 M 7 15 L 7 17 L 19 17 L 19 15 L 7 15"/></svg>`, tooltip: 'Fibonacci Tool' },
+            { name: 'fibonacci', icon: `<svg viewBox="0 0 24 24" width="${iconSize}" height="${iconSize}"><path fill="currentColor" d="M 3 4 L 3 4 v 17 h 18 v -2 H 5 V 4 H 3 M 7 4 L 21 4 L 21 6 L 7 6 L 7 4 L 7 4 M 7 9 L 21 9 L 21 11 L 7 11 L 7 9 M 7 14 L 21 14 L 21 16 L 7 16 L 7 14"/></svg>`, tooltip: 'Fibonacci Tool' },
             { name: 'fibonacci-zoon', icon: `<svg viewBox="0 0 24 24" width="${iconSize}" height="${iconSize}"><path fill="currentColor" d="M3 3v18h18v-2H5V3H3m5 0v14h2V3H8m5 0v14h2V3h-2m5 0v14h2V3h-2"/></svg>`, tooltip: 'Fibonacci Zoon Tool' },
-            { name: 'clear', icon: `<svg viewBox="0 0 24 24" width="${iconSize}" height="${iconSize}"><path fill="currentColor" d="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z"/></svg>`, tooltip: 'Clear All Drawings' }
+            { name: 'clear', icon: `<svg viewBox="0 0 24 24" width="${iconSize}" height="${iconSize}"><path fill="currentColor" d="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z"/></svg>`, tooltip: 'Clear All Drawings' },
+            { name: 'settings', icon: `<svg viewBox="0 0 24 24" width="${iconSize}" height="${iconSize}"><path fill="currentColor" d="M12 8.666c-1.838 0-3.333 1.496-3.333 3.334s1.495 3.333 3.333 3.333 3.333-1.495 3.333-3.333-1.495-3.334-3.333-3.334m0 7.667c-2.39 0-4.333-1.943-4.333-4.333s1.943-4.334 4.333-4.334 4.333 1.944 4.333 4.334c0 2.39-1.943 4.333-4.333 4.333m-1.193 6.667h2.386c.379-1.104.668-2.451 2.107-3.05 1.496-.617 2.666.196 3.635.672l1.686-1.688c-.508-1.047-1.266-2.199-.669-3.641.567-1.369 1.739-1.663 3.048-2.099v-2.388c-1.235-.421-2.471-.708-3.047-2.098-.572-1.38.057-2.395.669-3.643l-1.687-1.686c-1.117.547-2.221 1.257-3.642.668-1.374-.571-1.656-1.734-2.1-3.047h-2.386c-.424 1.231-.704 2.468-2.099 3.046-.365.153-.718.226-1.077.226-.843 0-1.539-.392-2.566-.893l-1.687 1.686c.574 1.175 1.251 2.237.669 3.643-.571 1.375-1.734 1.654-3.047 2.098v2.388c1.226.418 2.468.705 3.047 2.098.581 1.403-.075 2.432-.669 3.643l1.687 1.687c1.45-.725 2.355-1.204 3.642-.669 1.378.572 1.655 1.738 2.1 3.047m3.094 1h-3.803c-.681-1.918-.785-2.713-1.773-3.123-1.005-.419-1.731.132-3.466.952l-2.689-2.689c.873-1.837 1.367-2.465.953-3.465-.412-.991-1.192-1.087-3.123-1.773v-3.804c1.906-.678 2.712-.782 3.123-1.773.411-.991-.071-1.613-.953-3.466l2.689-2.688c1.741.828 2.466 1.365 3.465.953.992-.412 1.082-1.185 1.775-3.124h3.802c.682 1.918.788 2.714 1.774 3.123 1.001.416 1.709-.119 3.467-.952l2.687 2.688c-.878 1.847-1.361 2.477-.952 3.465.411.992 1.192 1.087 3.123 1.774v3.805c-1.906.677-2.713.782-3.124 1.773-.403.975.044 1.561.954 3.464l-2.688 2.689c-1.728-.82-2.467-1.37-3.456-.955-.988.41-1.08 1.146-1.785 3.126"/></svg>`, tooltip: 'Settings' }
         ];
 
         tools.forEach(tool => {
@@ -237,6 +250,7 @@ class StockChart {
             button.style.display = 'flex';
             button.style.alignItems = 'center';
             button.style.justifyContent = 'center';
+
             button.style.padding = isMobile ? '8px' : '6px';
             button.style.color = this.currentTheme?.textColor || '#000000';
             button.style.touchAction = 'manipulation'; // Improve touch response
@@ -715,9 +729,9 @@ class StockChart {
             });
             this.ctx.setLineDash([]); // Reset line dash
 
-            // Display price and indicator info overlay
-            this.displayInfoOverlay();
         }
+        // Display price and indicator info overlay
+        this.displayInfoOverlay();
     }
 
     /**
@@ -927,10 +941,10 @@ class StockChart {
             // Calculate which candlestick the mouse is closest to
             const relativeX = mouseX - mainPlotLayout.x;  // Adjust for plot area x-offset
             const dataIndex = Math.round(relativeX / barWidth - 0.5);
-            
+
             // Ensure dataIndex stays within valid bounds
             const clampedIndex = Math.max(0, Math.min(this.dataViewport.visibleCount - 1, dataIndex));
-            
+
             // Calculate exact center of the candlestick using getXPixel and adding half candle width
             const candleX = mainPlotLayout.x + getXPixel(this.dataViewport.startIndex + clampedIndex, this.dataViewport.startIndex, this.dataViewport.visibleCount, mainPlotLayout.width, barWidth);
             this.crosshairX = candleX + (barWidth / 2);
@@ -1002,8 +1016,10 @@ class StockChart {
                 this.render();
             }
         } else {
-            // Check if mouse is over a resize handle or Y-axis
+            // Check if mouse is over a resize handle or Y-axis (price area)
             let specialCursor = false;
+            // Use dynamic Y-axis width
+            const yAxisWidth = this.plotLayoutManager.yAxisWidth || this.calculateYAxisWidth();
             for (const plot of this.options.plots) {
                 if (plot.overlay) continue;
                 const layout = this.plotLayoutManager.getPlotLayout(plot.id);
@@ -1016,15 +1032,19 @@ class StockChart {
                         break;
                     }
 
-                    // Check Y-axis area
+                    // Check Y-axis area (right of main plot, price area)
+                    // Use dynamic width, not hardcoded 50
                     const yAxisArea = {
                         x: layout.x + layout.width,
                         y: layout.y,
-                        width: 50,
+                        width: yAxisWidth,
                         height: layout.height
                     };
-                    if (this.crosshairX >= yAxisArea.x && this.crosshairX <= yAxisArea.x + yAxisArea.width &&
-                        this.crosshairY >= yAxisArea.y && this.crosshairY <= yAxisArea.y + yAxisArea.height) {
+                    if (
+                        mouseX >= yAxisArea.x && mouseX <= yAxisArea.x + yAxisArea.width &&
+                        mouseY >= yAxisArea.y && mouseY <= yAxisArea.y + yAxisArea.height &&
+                        plot.id === 'main' // Only main plot price area
+                    ) {
                         this.canvas.style.cursor = 'ns-resize';
                         specialCursor = true;
                         break;
@@ -1660,16 +1680,16 @@ class StockChart {
         const xAxisY = this.canvas.height - fontSize;
 
         // Get date range for format selection
-        const firstDate = new Date(visibleData[0].time * 1000);
-        const lastDate = new Date(visibleData[visibleData.length - 1].time * 1000);
+        const lastDate = new Date(visibleData[0].time * 1000);
+        const firstDate = new Date(visibleData[visibleData.length - 1].time * 1000);
         const daysDiff = (lastDate.getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24);
 
         // Helper function to format date based on range and available space
         const formatDate = (date) => {
-            if (daysDiff > 365) {
+            if (Math.abs(daysDiff) > 365) {
                 // For ranges over a year
                 return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short' });
-            } else if (daysDiff > 30) {
+            } else if (Math.abs(daysDiff) > 30) {
                 // For ranges over a month
                 return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
             } else {
@@ -1680,7 +1700,9 @@ class StockChart {
 
         // Draw the labels
         const barWidth = mainPlotLayout.width / this.dataViewport.visibleCount;
-        for (let i = 0; i < visibleData.length; i += labelInterval) {
+        
+        // Iterate in reverse order to match the reversed x-axis
+        for (let i = visibleData.length - 1; i >= 0; i -= labelInterval) {
             const dataPoint = visibleData[i];
             if (!dataPoint || !dataPoint.time) continue;
 
@@ -1693,7 +1715,6 @@ class StockChart {
             );
 
             const date = new Date(dataPoint.time * 1000);
-            // const label = formatDate(date);
             const label = date.toLocaleDateString(undefined, { year: 'numeric', month: 'numeric', day: 'numeric' });
             
             const labelX = mainPlotLayout.x + x + barWidth / 2;
@@ -1814,6 +1835,149 @@ class StockChart {
     /**
      * Displays price and indicator information at the crosshair position.
      */
+
+    /**
+     * Draws arrow lines connecting points with the same ID
+     * @param {Array<Object>} plotVisibleData - The visible data points for the plot.
+     * @param {import('./stock-chart.d.ts').PlotLayout} plotLayout - The layout information for the plot.
+     * @param {number} barWidth - The width of each bar in the plot.
+     * @param {number} minPrice - The minimum price in the visible data range.
+     * @param {number} maxPrice - The maximum price in the visible data range.
+     */
+    drawArrowLines(plotVisibleData, plotLayout, barWidth, minPrice, maxPrice) {
+        // Group points by ID
+        const groupedPoints = new Map();
+        const flat = plotVisibleData.flat();
+        flat.filter(d => d).forEach(point => {
+            if (!point || !point.id) return;
+            if (!groupedPoints.has(point.id)) {
+                groupedPoints.set(point.id, []);
+            }
+            groupedPoints.get(point.id).push(point);
+        });
+
+        const firstVisible = flat.find(d => d);
+        const lastVisible = [...flat].reverse().find(d => d);
+
+        const visibleTimeRange = {
+            start: firstVisible ? firstVisible.time : 0,
+            end: lastVisible ? lastVisible.time : 0
+        };
+
+        // For each group, draw an arrow line from first to last point
+        groupedPoints.forEach(points => {
+            if (points.length < 2) return;
+
+            // Get first and last points
+            let firstPoint = points[0];
+            let lastPoint = points[points.length - 1];
+
+            // Find visible points if first or last is outside visible range
+            if (firstPoint.time < visibleTimeRange.start) {
+                const visiblePoint = points.find(p => p.time >= visibleTimeRange.start);
+                if (visiblePoint) firstPoint = visiblePoint;
+            }
+            if (lastPoint.time > visibleTimeRange.end) {
+                const visiblePoint = [...points].reverse().find(p => p.time <= visibleTimeRange.end);
+                if (visiblePoint) lastPoint = visiblePoint;
+            }
+
+            // Convert points to pixel coordinates
+            
+
+            const firstIndex = this.findTimeIndex(firstPoint.time, this.dataViewport.allData);
+            const x1 = plotLayout.x + getXPixel(
+                firstIndex,
+                this.dataViewport.startIndex,
+                this.dataViewport.visibleCount,
+                plotLayout.width,
+                barWidth
+            ) + barWidth / 2;
+
+            const y1 = getYPixel(firstPoint.value, minPrice, maxPrice, plotLayout.height, plotLayout.y);
+
+            const lastIndex = this.findTimeIndex(lastPoint.time, this.dataViewport.allData);
+            const x2 = plotLayout.x + getXPixel(
+                lastIndex,
+                this.dataViewport.startIndex,
+                this.dataViewport.visibleCount,
+                plotLayout.width,
+                barWidth
+            ) + barWidth / 2;
+
+            const y2 = getYPixel(lastPoint.value, minPrice, maxPrice, plotLayout.height, plotLayout.y);
+
+            const isPrediction = firstPoint.isPrediction;
+            // use dashed line for prediction
+            if (isPrediction) {
+                this.ctx.setLineDash([5, 5]);
+            }
+            // Draw arrow line
+            const headlen = 10; // arrow head length
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            const angle = Math.atan2(dy, dx);
+
+            // Draw the line
+            this.ctx.beginPath();
+            this.ctx.strokeStyle = this.currentTheme.textColor;
+            this.ctx.lineWidth = 1.5;
+            this.ctx.moveTo(x1, y1);
+            this.ctx.lineTo(x2, y2);
+            this.ctx.stroke();
+
+            // Reset line dash
+            this.ctx.setLineDash([]);
+
+            // Draw the arrow head
+            this.ctx.beginPath();
+            this.ctx.moveTo(x2, y2);
+            this.ctx.lineTo(
+                x2 - headlen * Math.cos(angle - Math.PI / 6),
+                y2 - headlen * Math.sin(angle - Math.PI / 6)
+            );
+            this.ctx.lineTo(x2, y2);
+            this.ctx.lineTo(
+                x2 - headlen * Math.cos(angle + Math.PI / 6),
+                y2 - headlen * Math.sin(angle + Math.PI / 6)
+            );
+            this.ctx.stroke();
+        });
+    }
+
+    // Find index in current data using binary search for better performance
+    /**
+     * Find the index of a specific time in the data array.
+     * @param {any} time 
+     * @param {Array} data 
+     * @returns {number}
+     */
+    findTimeIndex (time, data) {
+        let left = 0;
+        let right = data.length - 1;
+        
+        while (left <= right) {
+            const mid = Math.floor((left + right) / 2);
+            if (data[mid].time === time) {
+                return mid;
+            }
+            if (data[mid].time < time) {
+                left = mid + 1;
+            } else {
+                right = mid - 1;
+            }
+        }
+        
+        // If exact time not found, find closest matching time
+        if (right >= 0 && left < data.length) {
+            const leftDiff = Math.abs(data[left]?.time - time);
+            const rightDiff = Math.abs(data[right]?.time - time);
+            return leftDiff < rightDiff ? left : right;
+        }
+        
+        return right >= 0 ? right : 0;
+    };
+
     displayInfoOverlay() {
         const visibleData = this.dataViewport.getVisibleData();
         if (visibleData.length === 0) return;
@@ -1824,7 +1988,7 @@ class StockChart {
         const barWidth = mainPlotLayout.width / this.dataViewport.visibleCount;
         const relativeX = this.crosshairX - mainPlotLayout.x;
         const dataIndexAtCrosshair = Math.max(0, Math.floor(relativeX / barWidth));
-        const actualDataIndex = this.dataViewport.startIndex + dataIndexAtCrosshair;
+        let actualDataIndex = this.dataViewport.startIndex + dataIndexAtCrosshair;
 
         this.options.plots.forEach(plotConfig => {
             const plotLayout = this.plotLayoutManager.getPlotLayout(plotConfig.id);
@@ -1833,6 +1997,9 @@ class StockChart {
             const plotData = plotConfig.data && plotConfig.data.length > 0 ? plotConfig.data : visibleData;
 
             if (actualDataIndex >= 0 && actualDataIndex < plotData.length) {
+                if (this.crosshairY < 0) 
+                    actualDataIndex = plotData.length - 1;
+                
                 const dataPoint = plotData[actualDataIndex];
 
                 this.ctx.fillStyle = this.currentTheme.overlayTextColor;
@@ -1897,47 +2064,95 @@ class StockChart {
                 // Show summary in top-right corner with each plot on a new line
                 const infoPlots = this.options.plots.filter(p => p.targetId === plotConfig.id || p.id === plotConfig.id)
                     //.filter(p => !p.ignoreRenderInfo);
+                
+                // Group plots by their base id (removing any suffix like '_upper', '_lower')
+                const groupedPlots = infoPlots.reduce((acc, plot) => {
+                    if (plot.id === 'main') {
+                        const keyLabel = plot.keyLabel || '';
+                        if (!acc[keyLabel]) {
+                            acc[keyLabel] = [];
+                        }
+                        acc[keyLabel].push(plot);
+                    } 
+                    else if (plot.targetId && plot.targetId === 'main') {
+                        const keyLabel = plot.keyLabel || '';
+                        if (!acc[keyLabel]) {
+                            acc[keyLabel] = [];
+                        }
+                        acc[keyLabel].push(plot);
+                    }
+                    else {
+                        const mainPlotId = plot.targetId || plot.id; // Use targetId if available, otherwise use id as main
+                        if (!acc[mainPlotId]) {
+                            acc[mainPlotId] = [];
+                        }
+                        acc[mainPlotId].push(plot);
+                    }
+                    return acc;
+                }, {});
+
                 const infoTexts = [];
 
-                infoPlots.forEach(infoPlot => {
-                    const isMainPlot = infoPlot.id === 'main';
+                Object.entries(groupedPlots).forEach(([baseId, plots]) => {
+                    const combinedTexts = [];
 
-                    const infoPlotData = infoPlot.data && infoPlot.data.length > 0 ? infoPlot.data : visibleData;
-                    if (actualDataIndex >= 0 && actualDataIndex < infoPlotData.length) {
-                        const infoDataPoint = infoPlotData[actualDataIndex];
-                        const newText = Object.entries(infoDataPoint)
-                            .map(([key, value]) => {
-                                if (key === 'time' || key === 'date' || key === 'keyLabel') return null;
+                    plots.forEach(infoPlot => {
+                        const isMainPlot = infoPlot.id === 'main';
+                        const infoPlotData = infoPlot.data && infoPlot.data.length > 0 ? infoPlot.data : visibleData;
 
-                                if (isMainPlot) {
-                                    const eligibleKeys = this.eligibleMainPlotKeys;
-                                    if (!eligibleKeys.includes(key)) return null;
-                                }
+                        if (actualDataIndex >= 0 && actualDataIndex < infoPlotData.length) {
+                            const infoDataPoint = infoPlotData[actualDataIndex];
+                            const plotTexts = Object.entries(infoDataPoint)
+                                .map(([key, value]) => {
+                                    if (!isMainPlot && (key === 'time' || key === 'date' || key === 'keyLabel')) return null;
+
+                                    if (isMainPlot) {
+                                        const eligibleKeys = this.eligibleMainPlotKeys;
+                                        if (!eligibleKeys.includes(key)) return null;
+                                    }
 
                                     let formattedValue = '';
+
+                                    if (key === 'time' && isMainPlot) {
+                                        const date = new Date(value * 1000);
+                                        formattedValue = date.toLocaleDateString(undefined, { 
+                                            year: 'numeric', 
+                                            month: 'numeric', 
+                                            day: 'numeric' 
+                                        });
+                                        return `${formattedValue}`;
+                                    }
+
                                     if (typeof value === 'number') {
                                         formattedValue = value.toFixed(2);
                                     } 
                                     else if (typeof value === 'object') {
-
                                         if (!value.value) return null;
                                         formattedValue = value.value?.toFixed(2);
                                     }
                                     else {
                                         formattedValue = value;
                                     }
+                                    
                                     const keyLabel = infoPlot.keyLabel?.trim().length > 0 
                                         ? infoPlot.keyLabel 
                                         : key.charAt(0).toUpperCase() + key.slice(1);
 
-                                return `${keyLabel}: ${formattedValue}`;
-                            })
-                            .filter(Boolean)
-                            .join(' | ');
+                                    // return `${keyLabel}: ${formattedValue}`;
+                                    return `${formattedValue}`;
+                                })
+                                .filter(Boolean);
 
-                        if (newText) {
-                            infoTexts.push(newText);
+                            if (plotTexts.length > 0) {
+                                combinedTexts.push(...plotTexts);
+                            }
                         }
+                    });
+
+                    if (combinedTexts.length > 0) {
+                        let plotLabel = baseId !== 'main' ? `${baseId.toUpperCase()}: ` : '';
+                        plotLabel = plotLabel.trim() === ':' ? '' : plotLabel; // Avoid showing just ':'
+                        infoTexts.push(`${plotLabel}${combinedTexts.join(' | ')}`);
                     }
                 });
 
@@ -1947,12 +2162,6 @@ class StockChart {
                 const textX = plotLayout.x + plotLayout.width - padding; // padding from right edge
                 
                 this.ctx.textAlign = 'right';
-
-                if (!infoPlots.some(p => p.id === 'main' || p.targetId === 'main')) {
-                    const nonMainInfo = infoTexts.join(' | ');
-                    infoTexts.length = 0;
-                    infoTexts.push(nonMainInfo);
-                }
 
                 // Draw each info text on a new line
                 infoTexts.forEach((text, index) => {
@@ -1981,6 +2190,7 @@ class StockChart {
     /**
      * Updates the stock data for all plots at once
      * @param {Array<import('./stock-chart.d.ts').PlotConfig>} plots - Array of plot configurations to update
+     * @public
      */
     updateStockData(plots) {
         if (!Array.isArray(plots)) {
@@ -2007,6 +2217,7 @@ class StockChart {
 
         // Render the updated chart
         // this.render();
+        this.loadIndicatorSettings();
     }
 
     /**

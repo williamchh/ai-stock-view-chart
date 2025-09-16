@@ -14,7 +14,7 @@ export function updateDeMarker(
     state: DeMarkerState,
     isSamePeriod?: boolean
 ): {
-    value: number | null;
+    demarker: number | null;
     state: DeMarkerState;
 };
 

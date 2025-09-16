@@ -38,9 +38,10 @@ class DrawingItem {
      * @param {object} viewport - The data viewport
      * @param {number} minPrice - The minimum price in the current view
      * @param {number} maxPrice - The maximum price in the current view
+     * @param {boolean} ignorePriceLimit - Whether to ignore price limits
      * @returns {{x: number, y: number}} The pixel coordinates
      */
-    getPixelCoordinates(time, price, plotLayout, viewport, minPrice, maxPrice) {
+    getPixelCoordinates(time, price, plotLayout, viewport, minPrice, maxPrice, ignorePriceLimit = false) {
         if (!viewport?.allData || !viewport.getVisibleData) return null;
         
         const allData = viewport.allData;
@@ -69,7 +70,7 @@ class DrawingItem {
         const x = plotLayout.x + (nearestVisibleIndex * barWidth) + barWidth / 2;
 
         // Check if price is within visible range
-        if (price < minPrice || price > maxPrice) {
+        if ((price < minPrice || price > maxPrice) && !ignorePriceLimit) {
             return null;
         }
 
@@ -230,13 +231,16 @@ class FibonacciDrawing extends DrawingItem {
     draw(ctx, plotLayout, viewport, minPrice, maxPrice, currentTheme, startEndTimes) {
         if (this.points.length < 2) return;
 
+        const ignorePriceLimit = true;
+
         const start = this.getPixelCoordinates(
             this.points[0].time,
             this.points[0].price,
             plotLayout,
             viewport,
             minPrice,
-            maxPrice
+            maxPrice,
+            ignorePriceLimit
         );
 
         const end = this.getPixelCoordinates(
@@ -245,7 +249,8 @@ class FibonacciDrawing extends DrawingItem {
             plotLayout,
             viewport,
             minPrice,
-            maxPrice
+            maxPrice,
+            ignorePriceLimit
         );
 
         if (!start || !end) return;
@@ -378,8 +383,18 @@ class FibonacciZoonDrawing extends DrawingItem {
         const timeZones = fibNumbers.map(step => {
             const targetIndex = startIndex + direction * step * baseBarCount;
             // Ensure we don't go beyond array bounds
-            const safeIndex = Math.min(Math.max(0, targetIndex), allData.length - 1);
-            return allData[safeIndex].time;
+            // const safeIndex = Math.min(Math.max(0, targetIndex), allData.length - 1);
+            // return allData[safeIndex].time;
+            const totalLength = allData.length - 1;
+            if (targetIndex > 0 && targetIndex <= totalLength) {
+                return allData[targetIndex].time;
+            }
+            else if (targetIndex < 0) {
+                return allData[0].time - 1;
+            }
+            else {
+                return allData[totalLength].time + 1;
+            }
         });
 
         const color = currentTheme.textColor;// this.theme === 'dark' ? '#FFFFFF' : '#000000';
@@ -417,7 +432,7 @@ class FibonacciZoonDrawing extends DrawingItem {
             // Draw vertical line
             ctx.beginPath();
             ctx.moveTo(coord.x, plotLayout.y);
-            ctx.lineTo(coord.x, plotLayout.y + plotLayout.height);
+            ctx.lineTo(coord.x, plotLayout.y + plotLayout.height - 20);
             ctx.stroke();
 
             // Draw Fibonacci number label at the top
@@ -430,7 +445,10 @@ class FibonacciZoonDrawing extends DrawingItem {
             const bars = fibNumbers[index] * baseBarCount;
             if (bars > 0) {
                 const periodLabel = `(${bars})`;
-                ctx.fillText(periodLabel, coord.x + labelWidth, plotLayout.height - 15);
+                const periodLabelWidth = ctx.measureText(periodLabel).width;
+                ctx.fillText(periodLabel, 
+                    coord.x + periodLabelWidth, 
+                    plotLayout.height - 15);
             }
         });
 

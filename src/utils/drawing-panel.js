@@ -1717,7 +1717,7 @@ _getTouchCoordinates(touch) {
         if (!this.stockChart.options.plots) {
             this.stockChart.options.plots = [];
         }
-debugger
+
         const valueSelector = this.getValueSelector(settings.priceType || 'close');
 
         let data = [];
@@ -1940,7 +1940,6 @@ debugger
                 });
                 break;
             case 'demarker':
-                debugger
                 plots.push({
                     id: 'demarker',
                     type: 'line',

@@ -117,7 +117,7 @@ class StockChart {
         // Initialize drawing panel
         this.drawingPanel = new DrawingPanel(this);
         this.activeDrawingTool = null;
-        this.eligibleMainPlotKeys = ['open', 'high', 'low', 'close'];
+        this.eligibleMainPlotKeys = ['time', 'open', 'high', 'low', 'close'];
 
         this.canvas.addEventListener('mousedown', this.handleMouseDown.bind(this));
         this.canvas.addEventListener('mousemove', this.handleMouseMove.bind(this));
@@ -728,9 +728,9 @@ class StockChart {
             });
             this.ctx.setLineDash([]); // Reset line dash
 
-            // Display price and indicator info overlay
-            this.displayInfoOverlay();
         }
+        // Display price and indicator info overlay
+        this.displayInfoOverlay();
     }
 
     /**
@@ -1679,16 +1679,16 @@ class StockChart {
         const xAxisY = this.canvas.height - fontSize;
 
         // Get date range for format selection
-        const firstDate = new Date(visibleData[0].time * 1000);
-        const lastDate = new Date(visibleData[visibleData.length - 1].time * 1000);
+        const lastDate = new Date(visibleData[0].time * 1000);
+        const firstDate = new Date(visibleData[visibleData.length - 1].time * 1000);
         const daysDiff = (lastDate.getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24);
 
         // Helper function to format date based on range and available space
         const formatDate = (date) => {
-            if (daysDiff > 365) {
+            if (Math.abs(daysDiff) > 365) {
                 // For ranges over a year
                 return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short' });
-            } else if (daysDiff > 30) {
+            } else if (Math.abs(daysDiff) > 30) {
                 // For ranges over a month
                 return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
             } else {
@@ -1699,7 +1699,9 @@ class StockChart {
 
         // Draw the labels
         const barWidth = mainPlotLayout.width / this.dataViewport.visibleCount;
-        for (let i = 0; i < visibleData.length; i += labelInterval) {
+        
+        // Iterate in reverse order to match the reversed x-axis
+        for (let i = visibleData.length - 1; i >= 0; i -= labelInterval) {
             const dataPoint = visibleData[i];
             if (!dataPoint || !dataPoint.time) continue;
 
@@ -1712,7 +1714,6 @@ class StockChart {
             );
 
             const date = new Date(dataPoint.time * 1000);
-            // const label = formatDate(date);
             const label = date.toLocaleDateString(undefined, { year: 'numeric', month: 'numeric', day: 'numeric' });
             
             const labelX = mainPlotLayout.x + x + barWidth / 2;
@@ -1986,7 +1987,7 @@ class StockChart {
         const barWidth = mainPlotLayout.width / this.dataViewport.visibleCount;
         const relativeX = this.crosshairX - mainPlotLayout.x;
         const dataIndexAtCrosshair = Math.max(0, Math.floor(relativeX / barWidth));
-        const actualDataIndex = this.dataViewport.startIndex + dataIndexAtCrosshair;
+        let actualDataIndex = this.dataViewport.startIndex + dataIndexAtCrosshair;
 
         this.options.plots.forEach(plotConfig => {
             const plotLayout = this.plotLayoutManager.getPlotLayout(plotConfig.id);
@@ -1995,6 +1996,9 @@ class StockChart {
             const plotData = plotConfig.data && plotConfig.data.length > 0 ? plotConfig.data : visibleData;
 
             if (actualDataIndex >= 0 && actualDataIndex < plotData.length) {
+                if (this.crosshairY < 0) 
+                    actualDataIndex = plotData.length - 1;
+                
                 const dataPoint = plotData[actualDataIndex];
 
                 this.ctx.fillStyle = this.currentTheme.overlayTextColor;
@@ -2059,47 +2063,95 @@ class StockChart {
                 // Show summary in top-right corner with each plot on a new line
                 const infoPlots = this.options.plots.filter(p => p.targetId === plotConfig.id || p.id === plotConfig.id)
                     //.filter(p => !p.ignoreRenderInfo);
+                
+                // Group plots by their base id (removing any suffix like '_upper', '_lower')
+                const groupedPlots = infoPlots.reduce((acc, plot) => {
+                    if (plot.id === 'main') {
+                        const keyLabel = plot.keyLabel || '';
+                        if (!acc[keyLabel]) {
+                            acc[keyLabel] = [];
+                        }
+                        acc[keyLabel].push(plot);
+                    } 
+                    else if (plot.targetId && plot.targetId === 'main') {
+                        const keyLabel = plot.keyLabel || '';
+                        if (!acc[keyLabel]) {
+                            acc[keyLabel] = [];
+                        }
+                        acc[keyLabel].push(plot);
+                    }
+                    else {
+                        const mainPlotId = plot.targetId || plot.id; // Use targetId if available, otherwise use id as main
+                        if (!acc[mainPlotId]) {
+                            acc[mainPlotId] = [];
+                        }
+                        acc[mainPlotId].push(plot);
+                    }
+                    return acc;
+                }, {});
+
                 const infoTexts = [];
 
-                infoPlots.forEach(infoPlot => {
-                    const isMainPlot = infoPlot.id === 'main';
+                Object.entries(groupedPlots).forEach(([baseId, plots]) => {
+                    const combinedTexts = [];
 
-                    const infoPlotData = infoPlot.data && infoPlot.data.length > 0 ? infoPlot.data : visibleData;
-                    if (actualDataIndex >= 0 && actualDataIndex < infoPlotData.length) {
-                        const infoDataPoint = infoPlotData[actualDataIndex];
-                        const newText = Object.entries(infoDataPoint)
-                            .map(([key, value]) => {
-                                if (key === 'time' || key === 'date' || key === 'keyLabel') return null;
+                    plots.forEach(infoPlot => {
+                        const isMainPlot = infoPlot.id === 'main';
+                        const infoPlotData = infoPlot.data && infoPlot.data.length > 0 ? infoPlot.data : visibleData;
 
-                                if (isMainPlot) {
-                                    const eligibleKeys = this.eligibleMainPlotKeys;
-                                    if (!eligibleKeys.includes(key)) return null;
-                                }
+                        if (actualDataIndex >= 0 && actualDataIndex < infoPlotData.length) {
+                            const infoDataPoint = infoPlotData[actualDataIndex];
+                            const plotTexts = Object.entries(infoDataPoint)
+                                .map(([key, value]) => {
+                                    if (!isMainPlot && (key === 'time' || key === 'date' || key === 'keyLabel')) return null;
+
+                                    if (isMainPlot) {
+                                        const eligibleKeys = this.eligibleMainPlotKeys;
+                                        if (!eligibleKeys.includes(key)) return null;
+                                    }
 
                                     let formattedValue = '';
+
+                                    if (key === 'time' && isMainPlot) {
+                                        const date = new Date(value * 1000);
+                                        formattedValue = date.toLocaleDateString(undefined, { 
+                                            year: 'numeric', 
+                                            month: 'numeric', 
+                                            day: 'numeric' 
+                                        });
+                                        return `${formattedValue}`;
+                                    }
+
                                     if (typeof value === 'number') {
                                         formattedValue = value.toFixed(2);
                                     } 
                                     else if (typeof value === 'object') {
-
                                         if (!value.value) return null;
                                         formattedValue = value.value?.toFixed(2);
                                     }
                                     else {
                                         formattedValue = value;
                                     }
+                                    
                                     const keyLabel = infoPlot.keyLabel?.trim().length > 0 
                                         ? infoPlot.keyLabel 
                                         : key.charAt(0).toUpperCase() + key.slice(1);
 
-                                return `${keyLabel}: ${formattedValue}`;
-                            })
-                            .filter(Boolean)
-                            .join(' | ');
+                                    // return `${keyLabel}: ${formattedValue}`;
+                                    return `${formattedValue}`;
+                                })
+                                .filter(Boolean);
 
-                        if (newText) {
-                            infoTexts.push(newText);
+                            if (plotTexts.length > 0) {
+                                combinedTexts.push(...plotTexts);
+                            }
                         }
+                    });
+
+                    if (combinedTexts.length > 0) {
+                        let plotLabel = baseId !== 'main' ? `${baseId.toUpperCase()}: ` : '';
+                        plotLabel = plotLabel.trim() === ':' ? '' : plotLabel; // Avoid showing just ':'
+                        infoTexts.push(`${plotLabel}${combinedTexts.join(' | ')}`);
                     }
                 });
 
@@ -2109,12 +2161,6 @@ class StockChart {
                 const textX = plotLayout.x + plotLayout.width - padding; // padding from right edge
                 
                 this.ctx.textAlign = 'right';
-
-                if (!infoPlots.some(p => p.id === 'main' || p.targetId === 'main')) {
-                    const nonMainInfo = infoTexts.join(' | ');
-                    infoTexts.length = 0;
-                    infoTexts.push(nonMainInfo);
-                }
 
                 // Draw each info text on a new line
                 infoTexts.forEach((text, index) => {

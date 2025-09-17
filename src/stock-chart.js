@@ -583,6 +583,17 @@ class StockChart {
         const mainVisibleData = mainPlot.data.slice(this.dataViewport.startIndex, this.dataViewport.startIndex + this.dataViewport.visibleCount);
         priceRanges.set('main', this.calculatePriceRange(mainPlot, mainVisibleData, this.dataViewport));
 
+        // iterate plots check if overlay is before main plot, if yes then put overlay after main plot
+        this.options.plots.sort((a, b) => {
+            if (a.overlay && !b.overlay) {
+                return 1;
+            }
+            if (!a.overlay && b.overlay) {
+                return -1;
+            }
+            return 0;
+        });
+
         this.options.plots.forEach(plotConfig => {
 
             const isOverlay = plotConfig.overlay || false;

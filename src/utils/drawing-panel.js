@@ -1754,8 +1754,17 @@ _getTouchCoordinates(touch) {
                 name: name
             };
 
-            // @ts-ignore
-            this.stockChart.options.plots.push(plot);
+            const targetPlotIndex = this.stockChart.options.plots.findIndex(p => p.id === plot.id);
+
+            if (targetPlotIndex > -1) {
+                // Update existing plot
+                this.stockChart.options.plots[targetPlotIndex] = plot;
+            }
+            else {
+                // @ts-ignore
+                this.stockChart.options.plots.push(plot);
+            }
+
             const isMainPlot = plot.id === 'main';
 
             if (!isMainPlot) {

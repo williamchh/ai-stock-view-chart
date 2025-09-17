@@ -45,6 +45,10 @@ export interface StockData {
     close: number;
     volume?: number;
     signals?: Signal[];
+    timeframe?: any; // e.g., 'daily', 'weekly', 'monthly'
+    timestamp?: any; // Deprecated, use 'time' instead
+    ID?: string; // Deprecated, use 'id' instead
+    date?: string; // Deprecated, use 'time' instead
 }
 
 export interface PlotConfig {

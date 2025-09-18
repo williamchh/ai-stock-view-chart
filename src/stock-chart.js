@@ -2470,6 +2470,10 @@ class StockChart {
                 aggregatedData = [...this.originalData];
         }
 
+        this.options.plots = this.options.plots.filter(p => {
+            return !(['sma', 'ema'].includes(p.indicator?.id));
+        })
+
         mainPlot.data = aggregatedData;
         this.updateStockData(this.options.plots);
         this.render();

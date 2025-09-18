@@ -1747,11 +1747,6 @@ _getTouchCoordinates(touch) {
         const totalPlots = this.stockChart.options.plots?.length || 1;
         const plots = this.getPlotsByIndicatorId(indicatorId, data, totalPlots, settings);
 
-        // clear and remove sma or ema plots if exists
-        if (['sma', 'ema'].includes(indicatorId)) {
-            this.stockChart.options.plots = this.stockChart.options.plots.filter(p => !(p.indicator && p.indicator.id === indicatorId));
-        }
-
         plots.forEach((plot, idx) => {
             plot.indicator = {
                 id: indicatorId,

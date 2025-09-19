@@ -14,6 +14,7 @@ import { DataViewport, getXPixel, getYPixel, getValueBasedOnY } from './utils/da
 import { getSignalTypeColor } from './utils/helpers.js';
 import { DrawingPanel } from './utils/drawing-panel.js';
 import { aggregateToWeekly, aggregateToMonthly } from './utils/stock-aggregate.js';
+import { makeCurlyBracePath } from './utils/drawings/curly-bracket.js';
 
 /**
  * @typedef {import('./stock-chart.d.ts').StockChartOptions} StockChartOptions
@@ -1887,6 +1888,10 @@ class StockChart {
             end: lastVisible ? lastVisible.time : 0
         };
 
+        const predictionX = new Set();
+        const predictionY = new Set();
+        let predictionHit = 0;
+
         // For each group, draw an arrow line from first to last point
         groupedPoints.forEach(points => {
             if (points.length < 2) return;
@@ -1934,38 +1939,62 @@ class StockChart {
             // use dashed line for prediction
             if (isPrediction) {
                 this.ctx.setLineDash([5, 5]);
+                console.log('Drawing dashed arrow line for prediction');
+                predictionX.add(x1);
+                predictionX.add(x2);
+                predictionY.add(y1);
+                predictionY.add(y2);
+                predictionHit++;
+                if (predictionHit === 2) {
+                    const px = [...predictionX].sort((a, b) => a - b);
+                    const py = [...predictionY].sort((a, b) => a - b);
+                    const maxY = Math.max(...py);
+                    const minY = Math.min(...py);
+                    const maxX = Math.max(...px);
+                    const svgPath = makeCurlyBracePath(px[0], py[1], maxX, minY, maxX, maxY, maxX - px[0], 0.55);
+                    const path = new Path2D(svgPath);
+
+                    this.ctx.lineWidth = 2;
+                    this.ctx.stroke(path);
+                }
             }
-            // Draw arrow line
-            const headlen = 10; // arrow head length
-            const dx = x2 - x1;
-            const dy = y2 - y1;
-            const angle = Math.atan2(dy, dx);
-
-            // Draw the line
-            this.ctx.beginPath();
-            this.ctx.strokeStyle = this.currentTheme.textColor;
-            this.ctx.lineWidth = 1.5;
-            this.ctx.moveTo(x1, y1);
-            this.ctx.lineTo(x2, y2);
-            this.ctx.stroke();
-
-            // Reset line dash
-            this.ctx.setLineDash([]);
-
-            // Draw the arrow head
-            this.ctx.beginPath();
-            this.ctx.moveTo(x2, y2);
-            this.ctx.lineTo(
-                x2 - headlen * Math.cos(angle - Math.PI / 6),
-                y2 - headlen * Math.sin(angle - Math.PI / 6)
-            );
-            this.ctx.lineTo(x2, y2);
-            this.ctx.lineTo(
-                x2 - headlen * Math.cos(angle + Math.PI / 6),
-                y2 - headlen * Math.sin(angle + Math.PI / 6)
-            );
-            this.ctx.stroke();
+            else {
+                // Draw arrow line
+                this.drawArrowLine(x2, x1, y2, y1);
+            }
         });
+    }
+
+    drawArrowLine(x2, x1, y2, y1) {
+        const headlen = 10; // arrow head length
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        const angle = Math.atan2(dy, dx);
+
+        // Draw the line
+        this.ctx.beginPath();
+        this.ctx.strokeStyle = this.currentTheme.textColor;
+        this.ctx.lineWidth = 1.5;
+        this.ctx.moveTo(x1, y1);
+        this.ctx.lineTo(x2, y2);
+        this.ctx.stroke();
+
+        // Reset line dash
+        this.ctx.setLineDash([]);
+
+        // Draw the arrow head
+        this.ctx.beginPath();
+        this.ctx.moveTo(x2, y2);
+        this.ctx.lineTo(
+            x2 - headlen * Math.cos(angle - Math.PI / 6),
+            y2 - headlen * Math.sin(angle - Math.PI / 6)
+        );
+        this.ctx.lineTo(x2, y2);
+        this.ctx.lineTo(
+            x2 - headlen * Math.cos(angle + Math.PI / 6),
+            y2 - headlen * Math.sin(angle + Math.PI / 6)
+        );
+        this.ctx.stroke();
     }
 
     // Find index in current data using binary search for better performance

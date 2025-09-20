@@ -102,6 +102,12 @@ export default class StockChart {
   updateChartName(chartName: ChartName): void;
 
   /**
+   * 
+   * @param data 
+   */
+  updateMainPlotOriginalData(data: Array<StockData>): void;
+
+  /**
    * Centers the chart on a specific date and draws a vertical line
    * @param timestamp - Unix timestamp (in seconds) to center on
    * @param options - Configuration options

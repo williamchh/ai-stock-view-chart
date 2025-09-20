@@ -22,6 +22,7 @@ export interface StockChartOptions {
   plots?: Array<PlotConfig>;
   initialVisibleCandles?: number;
   showDrawingToolbar?: boolean;
+  showTimeframeButtons?: boolean;
 }
 
 export interface ChartName {

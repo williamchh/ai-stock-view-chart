@@ -17,6 +17,7 @@ import { PlotLayoutManager } from './layout.js';
  * @property {Function} setDrawingTool - Function to set the active drawing tool
  * @property {Function} render - Function to render/redraw the chart
  * @property {Function} loadIndicatorSettings - Function to load indicator settings
+ * @property {Function} applyTheme - Function to apply the current theme
  */
 
 /**
@@ -1201,29 +1202,158 @@ _getTouchCoordinates(touch) {
 
         dialog.innerHTML = `
             <div class="modal-header" style="padding: 20px; border-bottom: 1px solid #e0e0e0; background-color: #f8f9fa;">
-                <h3 style="margin: 0; color: #333; font-size: 18px;">Technical Indicators</h3>
+                <h3 style="margin: 0; color: #333; font-size: 18px;">Chart Settings</h3>
             </div>
             
-            <div class="tab-container" style="display: flex; border-bottom: 1px solid #e0e0e0; background-color: #f8f9fa; overflow-x: auto;">
-                ${this.indicators.map((indicator, index) => `
-                    <button class="tab-btn ${index === 0 ? 'active' : ''}" data-tab="${indicator.id}" style="
+            <div class="main-tab-container" style="display: flex; border-bottom: 1px solid #e0e0e0; background-color: #f8f9fa;">
+                <button class="main-tab-btn active" data-group="settings" style="
+                    flex: 1;
+                    padding: 12px 16px;
+                    border: none;
+                    background: white;
+                    color: #333;
+                    cursor: pointer;
+                    border-bottom: 2px solid #007bff;
+                    font-weight: 500;
+                    font-size: 15px;
+                ">Settings</button>
+                <button class="main-tab-btn" data-group="indicators" style="
+                    flex: 1;
+                    padding: 12px 16px;
+                    border: none;
+                    background: transparent;
+                    color: #666;
+                    cursor: pointer;
+                    border-bottom: 2px solid transparent;
+                    font-weight: 500;
+                    font-size: 15px;
+                ">Indicators</button>
+            </div>
+
+            <div id="settings-group" class="tab-group active" style="display: block;">
+                <div class="sub-tab-container" style="display: flex; border-bottom: 1px solid #e0e0e0; background-color: #f8f9fa; overflow-x: auto;">
+                    <button class="tab-btn active" data-tab="theme" style="
                         flex: 0 0 auto;
                         padding: 12px 16px;
                         border: none;
-                        background: ${index === 0 ? 'white' : 'transparent'};
-                        color: ${index === 0 ? '#333' : '#666'};
+                        background: white;
+                        color: #333;
                         cursor: pointer;
-                        border-bottom: 2px solid ${index === 0 ? '#007bff' : 'transparent'};
+                        border-bottom: 2px solid #007bff;
                         font-weight: 500;
                         white-space: nowrap;
                         min-width: 80px;
-                    ">${indicator.name}</button>
-                `).join('')}
+                    ">Theme</button>
+                </div>
+            </div>
+
+            <div id="indicators-group" class="tab-group" style="display: none;">
+                <div class="sub-tab-container" style="display: flex; border-bottom: 1px solid #e0e0e0; background-color: #f8f9fa; overflow-x: auto;">
+                    ${this.indicators.map((indicator, index) => `
+                        <button class="tab-btn ${index === 0 ? 'active' : ''}" data-tab="${indicator.id}" style="
+                            flex: 0 0 auto;
+                            padding: 12px 16px;
+                            border: none;
+                            background: ${index === 0 ? 'white' : 'transparent'};
+                            color: ${index === 0 ? '#333' : '#666'};
+                            cursor: pointer;
+                            border-bottom: 2px solid ${index === 0 ? '#007bff' : 'transparent'};
+                            font-weight: 500;
+                            white-space: nowrap;
+                            min-width: 80px;
+                        ">${indicator.name}</button>
+                    `).join('')}
+                </div>
             </div>
             
             <div class="tab-content" style="padding: 20px; max-height: 450px; overflow-y: auto;">
+                <div id="theme-tab" class="tab-pane active" style="display: block;">
+                    <div class="theme-settings">
+                        <h4 style="margin: 0 0 20px 0; color: #333; font-size: 16px;">Theme Settings</h4>
+                        <form class="settings-form" id="theme-form">
+                            <div class="form-group" style="margin-bottom: 16px;">
+                                <label style="display: block; margin-bottom: 6px; color: #333; font-weight: 500; font-size: 14px;">Theme Type</label>
+                                <select name="themeType" style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; background: white;">
+                                    <option value="dark">Dark Theme</option>
+                                    <option value="light">Light Theme</option>
+                                    <option value="custom">Custom Theme</option>
+                                </select>
+                            </div>
+                            <div id="custom-theme-controls" style="display: none;">
+                                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px;">
+                                    <div class="form-group">
+                                        <label for="background" style="display: block; margin-bottom: 6px; color: #333; font-weight: 500; font-size: 14px;">Background:</label>
+                                        <div style="display: flex; align-items: center; gap: 10px;">
+                                            <input type="color" name="background" value="#1A1A1D" style="width: 50px; height: 35px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; background: white; padding: 2px;">
+                                            <input type="text" name="background_hex" value="#1A1A1D" maxlength="7" style="flex: 1; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; font-family: monospace;">
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="chartAreaBackground" style="display: block; margin-bottom: 6px; color: #333; font-weight: 500; font-size: 14px;">Chart Area:</label>
+                                        <div style="display: flex; align-items: center; gap: 10px;">
+                                            <input type="color" name="chartAreaBackground" value="#292930" style="width: 50px; height: 35px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; background: white; padding: 2px;">
+                                            <input type="text" name="chartAreaBackground_hex" value="#292930" maxlength="7" style="flex: 1; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; font-family: monospace;">
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="textColor" style="display: block; margin-bottom: 6px; color: #333; font-weight: 500; font-size: 14px;">Text:</label>
+                                        <div style="display: flex; align-items: center; gap: 10px;">
+                                            <input type="color" name="textColor" value="#C5C6C7" style="width: 50px; height: 35px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; background: white; padding: 2px;">
+                                            <input type="text" name="textColor_hex" value="#C5C6C7" maxlength="7" style="flex: 1; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; font-family: monospace;">
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="gridColor" style="display: block; margin-bottom: 6px; color: #333; font-weight: 500; font-size: 14px;">Grid:</label>
+                                        <div style="display: flex; align-items: center; gap: 10px;">
+                                            <input type="color" name="gridColor" value="#4E4E50" style="width: 50px; height: 35px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; background: white; padding: 2px;">
+                                            <input type="text" name="gridColor_hex" value="#4E4E50" maxlength="7" style="flex: 1; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; font-family: monospace;">
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="lineColor" style="display: block; margin-bottom: 6px; color: #333; font-weight: 500; font-size: 14px;">Line:</label>
+                                        <div style="display: flex; align-items: center; gap: 10px;">
+                                            <input type="color" name="lineColor" value="#66FCF1" style="width: 50px; height: 35px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; background: white; padding: 2px;">
+                                            <input type="text" name="lineColor_hex" value="#66FCF1" maxlength="7" style="flex: 1; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; font-family: monospace;">
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="positiveColor" style="display: block; margin-bottom: 6px; color: #333; font-weight: 500; font-size: 14px;">Positive:</label>
+                                        <div style="display: flex; align-items: center; gap: 10px;">
+                                            <input type="color" name="positiveColor" value="#45A29E" style="width: 50px; height: 35px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; background: white; padding: 2px;">
+                                            <input type="text" name="positiveColor_hex" value="#45A29E" maxlength="7" style="flex: 1; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; font-family: monospace;">
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="negativeColor" style="display: block; margin-bottom: 6px; color: #333; font-weight: 500; font-size: 14px;">Negative:</label>
+                                        <div style="display: flex; align-items: center; gap: 10px;">
+                                            <input type="color" name="negativeColor" value="#C5433D" style="width: 50px; height: 35px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; background: white; padding: 2px;">
+                                            <input type="text" name="negativeColor_hex" value="#C5433D" maxlength="7" style="flex: 1; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; font-family: monospace;">
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="candleUp" style="display: block; margin-bottom: 6px; color: #333; font-weight: 500; font-size: 14px;">Candle Up:</label>
+                                        <div style="display: flex; align-items: center; gap: 10px;">
+                                            <input type="color" name="candleUp" value="#45A29E" style="width: 50px; height: 35px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; background: white; padding: 2px;">
+                                            <input type="text" name="candleUp_hex" value="#45A29E" maxlength="7" style="flex: 1; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; font-family: monospace;">
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="candleDown" style="display: block; margin-bottom: 6px; color: #333; font-weight: 500; font-size: 14px;">Candle Down:</label>
+                                        <div style="display: flex; align-items: center; gap: 10px;">
+                                            <input type="color" name="candleDown" value="#C5433D" style="width: 50px; height: 35px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; background: white; padding: 2px;">
+                                            <input type="text" name="candleDown_hex" value="#C5433D" maxlength="7" style="flex: 1; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; font-family: monospace;">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-actions" style="margin-top: 24px; display: flex; gap: 12px;">
+                                <button type="submit" class="apply-theme-btn" style="background: #00c2ff; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: 500;">Apply Theme</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
                 ${this.indicators.map((indicator, index) => `
-                    <div id="${indicator.id}-tab" class="tab-pane ${index === 0 ? 'active' : ''}" style="display: ${index === 0 ? 'block' : 'none'};">
+                    <div id="${indicator.id}-tab" class="tab-pane" style="display: none;">
                         <div class="indicator-settings">
                             <h4 style="margin: 0 0 20px 0; color: #333; font-size: 16px;">${indicator.name} Settings</h4>
                             
@@ -1395,20 +1525,151 @@ _getTouchCoordinates(touch) {
         // Setup color picker synchronization
         this.setupColorPickerSync(dialog);
         
-        // Tab switching functionality
-        const tabBtns = dialog.querySelectorAll('.tab-btn');
-        const tabPanes = dialog.querySelectorAll('.tab-pane');
-
-        tabBtns.forEach(btn => {
+        // Setup theme controls
+        const themeTypeSelect = dialog.querySelector('select[name="themeType"]');
+        const customThemeControls = dialog.querySelector('#custom-theme-controls');
+        
+        // Set initial theme type based on current theme
+        themeTypeSelect.value = this.stockChart.options.theme || 'dark';
+        if (themeTypeSelect.value === 'custom') {
+            customThemeControls.style.display = 'block';
+            // Set custom theme color values
+            Object.entries(this.stockChart.currentTheme).forEach(([key, value]) => {
+                const colorInput = dialog.querySelector(`input[name="${key}"]`);
+                const hexInput = dialog.querySelector(`input[name="${key}_hex"]`);
+                if (colorInput && hexInput) {
+                    colorInput.value = value;
+                    hexInput.value = value;
+                }
+            });
+        }
+        
+        // Handle theme type changes
+        themeTypeSelect.addEventListener('change', (event) => {
+            const selectedTheme = event.target.value;
+            customThemeControls.style.display = selectedTheme === 'custom' ? 'block' : 'none';
+        });
+        
+        // Handle theme form submission
+        const themeForm = dialog.querySelector('#theme-form');
+        themeForm.addEventListener('submit', (event) => {
+            event.preventDefault();
+            const formData = new FormData(themeForm);
+            const themeType = formData.get('themeType');
+            
+            if (themeType === 'custom') {
+                // Build custom theme object
+                const customTheme = {};
+                formData.forEach((value, key) => {
+                    if (!key.endsWith('_hex')) {
+                        customTheme[key] = value;
+                    }
+                });
+                this.stockChart.applyTheme(customTheme);
+            } else {
+                this.stockChart.applyTheme(themeType);
+            }
+            
+            // Show success message
+            const submitBtn = themeForm.querySelector('.apply-theme-btn');
+            submitBtn.textContent = '✓ Theme Applied';
+            submitBtn.style.background = '#28a745';
+            setTimeout(() => {
+                submitBtn.textContent = 'Apply Theme';
+                submitBtn.style.background = '#00c2ff';
+            }, 2000);
+        });
+        
+        // Main group switching functionality
+        const mainTabBtns = dialog.querySelectorAll('.main-tab-btn');
+        const tabGroups = dialog.querySelectorAll('.tab-group');
+        
+        mainTabBtns.forEach(btn => {
             btn.addEventListener('click', () => {
-                // Remove active class from all tabs
-                tabBtns.forEach(b => {
+                // Remove active class from all main tabs and groups
+                mainTabBtns.forEach(b => {
                     b.classList.remove('active');
                     b.style.background = 'transparent';
                     b.style.color = '#666';
                     b.style.borderBottomColor = 'transparent';
                 });
-                tabPanes.forEach(pane => {
+                tabGroups.forEach(group => {
+                    group.classList.remove('active');
+                    group.style.display = 'none';
+                });
+
+                // Hide all tab panes first
+                dialog.querySelectorAll('.tab-pane').forEach(pane => {
+                    pane.classList.remove('active');
+                    pane.style.display = 'none';
+                });
+                // Reset all tab buttons
+                dialog.querySelectorAll('.tab-btn').forEach(tabBtn => {
+                    tabBtn.classList.remove('active');
+                    tabBtn.style.background = 'transparent';
+                    tabBtn.style.color = '#666';
+                    tabBtn.style.borderBottomColor = 'transparent';
+                });
+
+                // Add active class to clicked main tab
+                btn.classList.add('active');
+                btn.style.background = 'white';
+                btn.style.color = '#333';
+                btn.style.borderBottomColor = '#007bff';
+
+                // Show corresponding group and activate its first tab
+                const groupId = btn.dataset.group + '-group';
+                const targetGroup = dialog.querySelector(`#${groupId}`);
+                if (targetGroup) {
+                    targetGroup.classList.add('active');
+                    targetGroup.style.display = 'block';
+
+                    // Find and activate first tab in this group
+                    const firstTabBtn = targetGroup.querySelector('.tab-btn');
+                    const firstTabId = firstTabBtn?.dataset.tab;
+                    if (firstTabBtn && firstTabId) {
+                        firstTabBtn.classList.add('active');
+                        firstTabBtn.style.background = 'white';
+                        firstTabBtn.style.color = '#333';
+                        firstTabBtn.style.borderBottomColor = '#007bff';
+
+                        const firstTabPane = dialog.querySelector(`#${firstTabId}-tab`);
+                        if (firstTabPane) {
+                            firstTabPane.classList.add('active');
+                            firstTabPane.style.display = 'block';
+                        }
+
+                        // Update instances list if switching to indicators
+                        if (btn.dataset.group === 'indicators' && firstTabId) {
+                            this.updateInstancesList(firstTabId);
+                        }
+                    }
+                }
+            });
+        });
+
+        // Sub-tab switching functionality
+        const tabBtns = dialog.querySelectorAll('.tab-btn');
+        const tabPanes = dialog.querySelectorAll('.tab-pane');
+
+        tabBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                // Find the parent group
+                const parentGroup = btn.closest('.tab-group');
+                if (!parentGroup) return;
+
+                // Only affect tabs within the same group
+                const groupTabBtns = parentGroup.querySelectorAll('.tab-btn');
+                const groupTabPanes = parentGroup.querySelectorAll('.tab-pane');
+
+                // Remove active class from all tabs in this group
+                groupTabBtns.forEach(b => {
+                    b.classList.remove('active');
+                    b.style.background = 'transparent';
+                    b.style.color = '#666';
+                    b.style.borderBottomColor = 'transparent';
+                });
+                groupTabPanes.forEach(pane => {
                     pane.classList.remove('active');
                     pane.style.display = 'none';
                 });
@@ -1420,11 +1681,15 @@ _getTouchCoordinates(touch) {
                 btn.style.borderBottomColor = '#007bff';
                 
                 const targetTab = dialog.querySelector(`#${btn.dataset.tab}-tab`);
-                targetTab.classList.add('active');
-                targetTab.style.display = 'block';
+                if (targetTab) {
+                    targetTab.classList.add('active');
+                    targetTab.style.display = 'block';
+                }
 
-                // Update instances list for the active tab
-                this.updateInstancesList(btn.dataset.tab);
+                // Update instances list for indicators
+                if (btn.dataset.tab !== 'theme') {
+                    this.updateInstancesList(btn.dataset.tab);
+                }
             });
         });
 

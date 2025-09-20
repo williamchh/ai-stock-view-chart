@@ -1660,7 +1660,12 @@ _getTouchCoordinates(touch) {
 
                 // Only affect tabs within the same group
                 const groupTabBtns = parentGroup.querySelectorAll('.tab-btn');
-                const groupTabPanes = parentGroup.querySelectorAll('.tab-pane');
+                
+                // Hide all tab panes in dialog first
+                dialog.querySelectorAll('.tab-pane').forEach(pane => {
+                    pane.classList.remove('active');
+                    pane.style.display = 'none';
+                });
 
                 // Remove active class from all tabs in this group
                 groupTabBtns.forEach(b => {
@@ -1669,10 +1674,6 @@ _getTouchCoordinates(touch) {
                     b.style.color = '#666';
                     b.style.borderBottomColor = 'transparent';
                 });
-                groupTabPanes.forEach(pane => {
-                    pane.classList.remove('active');
-                    pane.style.display = 'none';
-                });
 
                 // Add active class to clicked tab
                 btn.classList.add('active');
@@ -1680,6 +1681,7 @@ _getTouchCoordinates(touch) {
                 btn.style.color = '#333';
                 btn.style.borderBottomColor = '#007bff';
                 
+                // Show only the target pane
                 const targetTab = dialog.querySelector(`#${btn.dataset.tab}-tab`);
                 if (targetTab) {
                     targetTab.classList.add('active');
@@ -1689,6 +1691,19 @@ _getTouchCoordinates(touch) {
                 // Update instances list for indicators
                 if (btn.dataset.tab !== 'theme') {
                     this.updateInstancesList(btn.dataset.tab);
+                }
+
+                // Reset form for this indicator
+                if (btn.dataset.tab !== 'theme') {
+                    const form = targetTab.querySelector('form');
+                    if (form) {
+                        form.reset();
+                        const editBtn = form.querySelector('.add-indicator-btn');
+                        if (editBtn) {
+                            editBtn.textContent = '➕ Add Indicator';
+                            editBtn.style.background = '#00c2ff';
+                        }
+                    }
                 }
             });
         });

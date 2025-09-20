@@ -1068,9 +1068,9 @@ _getTouchCoordinates(touch) {
                     { key: 'priceType', label: 'Price Type', type: 'select', default: 'close',
                     options: [
                         { value: 'close', label: 'Close' },
-                        { value: 'hlc3', label: 'HLC/3' },
-                        { value: 'ohlc4', label: 'OHLC/4' },
-                        { value: 'hlcc4', label: 'HLCC/4' }
+                        { value: 'hlc/3', label: 'HLC/3' },
+                        { value: 'ohlc/4', label: 'OHLC/4' },
+                        { value: 'hlcc/4', label: 'HLCC/4' }
                     ]
                     },
                     { key: 'lineColor', label: 'Line Color', type: 'color', default: '#2196F3' }
@@ -1084,8 +1084,9 @@ _getTouchCoordinates(touch) {
                     { key: 'priceType', label: 'Price Type', type: 'select', default: 'close', 
                     options: [
                         { value: 'close', label: 'Close' },
-                        { value: 'hlc3', label: 'HLC/3' },
-                        { value: 'ohlc4', label: 'OHLC/4' }
+                        { value: 'hlc/3', label: 'HLC/3' },
+                        { value: 'ohlc/4', label: 'OHLC/4' },
+                        { value: 'hlcc/4', label: 'HLCC/4' }
                     ]
                     },
                     { key: 'lineColor', label: 'Line Color', type: 'color', default: '#FF9800' }
@@ -1099,15 +1100,16 @@ _getTouchCoordinates(touch) {
                     { key: 'priceType', label: 'Price Type', type: 'select', default: 'close', 
                     options: [
                         { value: 'close', label: 'Close' },
-                        { value: 'hlc3', label: 'HLC/3' },
-                        { value: 'ohlc4', label: 'OHLC/4' }
+                        { value: 'hlc/3', label: 'HLC/3' },
+                        { value: 'ohlc/4', label: 'OHLC/4' },
+                        { value: 'hlcc/4', label: 'HLCC/4' }
                     ]
                     },
-                    { key: 'overbought', label: 'Overbought Level', type: 'number', default: 70, min: 50, max: 90 },
-                    { key: 'oversold', label: 'Oversold Level', type: 'number', default: 30, min: 10, max: 50 },
+                    // { key: 'overbought', label: 'Overbought Level', type: 'number', default: 70, min: 50, max: 90 },
+                    // { key: 'oversold', label: 'Oversold Level', type: 'number', default: 30, min: 10, max: 50 },
                     { key: 'lineColor', label: 'RSI Line Color', type: 'color', default: '#9C27B0' },
-                    { key: 'overboughtColor', label: 'Overbought Color', type: 'color', default: '#F44336' },
-                    { key: 'oversoldColor', label: 'Oversold Color', type: 'color', default: '#4CAF50' }
+                    // { key: 'overboughtColor', label: 'Overbought Color', type: 'color', default: '#F44336' },
+                    // { key: 'oversoldColor', label: 'Oversold Color', type: 'color', default: '#4CAF50' }
                 ]
             },
             {
@@ -1125,13 +1127,14 @@ _getTouchCoordinates(touch) {
                     { key: 'priceType', label: 'Price Type', type: 'select', default: 'close',
                     options: [
                         { value: 'close', label: 'Close' },
-                        { value: 'hlc3', label: 'HLC/3' },
-                        { value: 'ohlc4', label: 'OHLC/4' }
+                        { value: 'hlc/3', label: 'HLC/3' },
+                        { value: 'ohlc/4', label: 'OHLC/4' },
+                        { value: 'hlcc/4', label: 'HLCC/4' }
                     ]
                     },
                     { key: 'macdColor', label: 'MACD Line Color', type: 'color', default: '#2196F3' },
-                    { key: 'signalColor', label: 'Signal Line Color', type: 'color', default: '#FF5722' },
-                    { key: 'histogramColor', label: 'Histogram Color', type: 'color', default: '#795548' }
+                    { key: 'signalColor', label: 'Signal Line Color', type: 'color', default: '#FF9800' },
+                    { key: 'histogramColor', label: 'Histogram Color', type: 'color', default: '#4CAF50' }
                 ]
             },
             { 
@@ -1143,14 +1146,15 @@ _getTouchCoordinates(touch) {
                     { key: 'priceType', label: 'Price Type', type: 'select', default: 'close', 
                     options: [
                         { value: 'close', label: 'Close' },
-                        { value: 'hlc3', label: 'HLC/3' },
-                        { value: 'ohlc4', label: 'OHLC/4' }
+                        { value: 'hlc/3', label: 'HLC/3' },
+                        { value: 'ohlc/4', label: 'OHLC/4' },
+                        { value: 'hlcc/4', label: 'HLCC/4' }
                     ]
                     },
-                    { key: 'upperBandColor', label: 'Upper Band Color', type: 'color', default: '#E91E63' },
-                    { key: 'middleBandColor', label: 'Middle Band Color', type: 'color', default: '#9C27B0' },
+                    { key: 'upperBandColor', label: 'Upper Band Color', type: 'color', default: '#3F51B5' },
+                    { key: 'middleBandColor', label: 'Middle Band Color', type: 'color', default: '#2196F3' },
                     { key: 'lowerBandColor', label: 'Lower Band Color', type: 'color', default: '#3F51B5' },
-                    { key: 'fillColor', label: 'Fill Color', type: 'color', default: '#E1F5FE', opacity: true }
+                    // { key: 'fillColor', label: 'Fill Color', type: 'color', default: '#E1F5FE', opacity: true }
                 ]
             },
             { 
@@ -1158,11 +1162,11 @@ _getTouchCoordinates(touch) {
                 id: 'demarker',
                 settings: [
                     { key: 'period', label: 'Period', type: 'number', default: 14, min: 1, max: 100 },
-                    { key: 'overbought', label: 'Overbought Level', type: 'number', default: 0.7, min: 0.5, max: 0.9, step: 0.01 },
-                    { key: 'oversold', label: 'Oversold Level', type: 'number', default: 0.3, min: 0.1, max: 0.5, step: 0.01 },
+                    // { key: 'overbought', label: 'Overbought Level', type: 'number', default: 0.7, min: 0.5, max: 0.9, step: 0.01 },
+                    // { key: 'oversold', label: 'Oversold Level', type: 'number', default: 0.3, min: 0.1, max: 0.5, step: 0.01 },
                     { key: 'lineColor', label: 'DeMarker Line Color', type: 'color', default: '#607D8B' },
-                    { key: 'overboughtColor', label: 'Overbought Color', type: 'color', default: '#F44336' },
-                    { key: 'oversoldColor', label: 'Oversold Color', type: 'color', default: '#4CAF50' }
+                    // { key: 'overboughtColor', label: 'Overbought Color', type: 'color', default: '#F44336' },
+                    // { key: 'oversoldColor', label: 'Oversold Color', type: 'color', default: '#4CAF50' }
                 ]
             }
         ];
@@ -1353,12 +1357,10 @@ _getTouchCoordinates(touch) {
                 border-top: 1px solid #e0e0e0;
                 background-color: #f8f9fa;
                 display: flex;
-                justify-content: space-between;
+                justify-content: center;
                 align-items: center;
             ">
-                <div style="color: #666; font-size: 12px;">
-                    Configure settings and colors, then click "Add Indicator" to apply
-                </div>
+
                 <button id="close-indicator-settings" style="
                     background: #6c757d;
                     color: white;
@@ -1429,7 +1431,7 @@ _getTouchCoordinates(touch) {
         // Form submission for adding indicators
         dialog.addEventListener('submit', (event) => {
             event.preventDefault();
-
+debugger
             const form = event.target;
             const indicatorId = form.dataset.indicator;
             const formData = new FormData(form);

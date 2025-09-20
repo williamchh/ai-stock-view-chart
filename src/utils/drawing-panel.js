@@ -1754,7 +1754,8 @@ _getTouchCoordinates(touch) {
                 name: name
             };
 
-            const targetPlotIndex = this.stockChart.options.plots.findIndex(p => p.id === plot.id);
+            const targetPlotIndex = this.stockChart.options.plots
+                .findIndex(p => p.id === plot.id && p.targetId === plot.targetId);
 
             if (targetPlotIndex > -1) {
                 // Update existing plot

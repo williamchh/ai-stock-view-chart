@@ -117,6 +117,7 @@ class StockChart {
         this.priceScale = 1.0; // vertical zoom/scale factor
         this.priceOffset = 0; // vertical offset for panning
         this.plotScales = new Map(); // Store scales for each plot
+        this.mobileSize = 768;
         // Initialize drawing panel
         this.drawingPanel = new DrawingPanel(this);
         this.activeDrawingTool = null;
@@ -2216,6 +2217,8 @@ class StockChart {
                 const textX = plotLayout.x + plotLayout.width - padding; // padding from right edge
                 
                 this.ctx.textAlign = 'right';
+                const isMobile = window.innerWidth <= this.mobileSize;
+                this.ctx.font = isMobile ? '10px Arial' : '12px Arial';
 
                 // Draw each info text on a new line
                 infoTexts.forEach((text, index) => {

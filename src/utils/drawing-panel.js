@@ -1711,7 +1711,7 @@ _getTouchCoordinates(touch) {
         // Form submission for adding indicators
         dialog.addEventListener('submit', (event) => {
             event.preventDefault();
-debugger
+
             const form = event.target;
             const indicatorId = form.dataset.indicator;
             const formData = new FormData(form);

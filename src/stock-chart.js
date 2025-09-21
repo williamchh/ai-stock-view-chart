@@ -877,73 +877,8 @@ class StockChart {
             this.ctx.fill(pathsByColor[color]);
         });
 
-        if (this.options.showDrawingToolbar) {
-            // Draw labels for each price level
-            labelPrice.forEach(({ label, x, y }) => {
-                this.ctx.fillStyle = this.currentTheme.textColor;
-                this.ctx.fillText(label, x - 7, y + 5);
-            });
-        }
     }
 
-    /**
-     * Renders the legend buttons on the chart
-     * @private
-     */
-    drawLegend() {
-        const isMobile = window.innerWidth <= this.mobileSize;
-        // make button legend to right of screen
-        const startX = isMobile ? this.canvas.width - 200 : this.canvas.width - 330;
-        const startY = 10;
-
-        drawButtonLegend(this.ctx, 
-            isMobile, 
-            startX, startY, this.currentTheme.textColor,
-            '  Buy                             Sell   ');
-    }
-
-    /**
-     * Draws the trading signals on the chart.
-     * @param {Array<Object>} plotVisibleData 
-     * @param {import('./stock-chart.d.ts').PlotLayout} plotLayout 
-     * @param {number} barWidth 
-     * @param {number} minPrice 
-     * @param {number} maxPrice 
-     */
-    drawSignalsLines(plotVisibleData, plotLayout, barWidth, minPrice, maxPrice) {
-        this.ctx.imageSmoothingEnabled = false;
-
-        const data = this.groupByIdAndValue(plotVisibleData);
-
-        Object.keys(data).forEach(key => {
-            const group = data[key];
-            const color = this.currentTheme.textColor;
-            const price = group[0].value.value.toFixed(2);
-            const v = group[0].value.value;
-            const startIndex = this.dataViewport.allData.findIndex(d => d.time === group[0].value.time);
-            const endIndex = this.dataViewport.allData.findIndex(d => d.time === group[group.length - 1].value.time);
-            const startX = Math.floor(plotLayout.x + getXPixel(startIndex, 
-                this.dataViewport.startIndex, this.dataViewport.visibleCount, plotLayout.width, barWidth));
-            const endX = Math.floor(plotLayout.x + getXPixel(endIndex,
-                this.dataViewport.startIndex, this.dataViewport.visibleCount, plotLayout.width, barWidth));
-            const y = Math.floor(getYPixel(v, minPrice, maxPrice, plotLayout.height, plotLayout.y));
-
-            // Draw dashed line
-            this.ctx.beginPath();
-            this.ctx.setLineDash([5, 3]); // Create dashed line pattern [dash length, gap length]
-            this.ctx.strokeStyle = color;
-            this.ctx.lineWidth = 1;
-            this.ctx.moveTo(startX, y);
-            this.ctx.lineTo(endX, y);
-            this.ctx.stroke();
-            this.ctx.setLineDash([]); // Reset line dash pattern
-
-            // measure price width and add to left side of line
-            const priceWidth = this.ctx.measureText(price).width;
-            this.ctx.fillStyle = color;
-            this.ctx.fillText(price, startX - priceWidth - 5, y);
-        });
-    }
 
     /**
      * Handles mouse down events for dragging.
@@ -1723,7 +1658,7 @@ class StockChart {
     /**
      * Draws the chart name, code, and meta string on the top-left corner of the chart.
      */
-    drawChartName() {debugger
+    drawChartName() {
         const { chartName } = this.options;
         if (!chartName) {
             return;

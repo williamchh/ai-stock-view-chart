@@ -215,7 +215,7 @@ class StockChart {
         toolbar.style.position = isMobile ? 'absolute' : 'relative';
         toolbar.style.bottom = isMobile ? '-45px' : 'auto';
         toolbar.style.bottom = isMobile ? '-45px' : 'auto';
-        toolbar.style.overflowX = isMobile ? 'scroll' : 'visible';
+        toolbar.style.overflowX = isMobile ? 'scroll' : 'hidden';
         toolbar.style.overflowY = isMobile ? 'hidden' : 'auto';
         toolbar.style.backgroundColor = this.currentTheme?.background || '#ffffff';
         toolbar.style.borderRight = isMobile ? 'none' : '1px solid ' + (this.currentTheme?.gridColor || '#e0e0e0');
@@ -1723,7 +1723,7 @@ class StockChart {
     /**
      * Draws the chart name, code, and meta string on the top-left corner of the chart.
      */
-    drawChartName() {
+    drawChartName() {debugger
         const { chartName } = this.options;
         if (!chartName) {
             return;

@@ -11,10 +11,23 @@ An interactive stock charting library supporting candlestick and line charts, mu
 - 📊 Overlay layer for price details and technical indicators
 - 📐 Responsive design with automatic resizing
 - 📦 Lightweight and optimized main chart bundle
+- 📆 Daily, Weekly, and Monthly timeframe selection
+- ✏️ Drawing tools: line, vertical line, horizontal line, rectangle, Fibonacci retracement, and Fibonacci zone
+- 🗑️ Ability to clear all drawings
+- ⚙️ Settings panel for technical indicators
+- 💾 Indicator settings are saved to local storage
 
 ## Demo
 
 [Live](https://williamchh.github.io/ai-stock-view-chart/demo/)
+
+## Screenshots
+
+### Dark Mode
+![Dark Mode](./imgs/dark-mode.png)
+
+### Light Mode
+![Light Mode](./imgs/light-mode.png)
 
 ## Installation
 
@@ -110,6 +123,8 @@ Initializes a new chart instance.
 | `chartName`             | `ChartName`                         | `undefined`                           | An object to display the name, code, and other metadata on the chart.                                                                                |
 | `initialVisibleCandles` | `number`                            | `100`                                 | The number of data points (e.g., candlesticks) to display when the chart is first loaded.                                                            |
 | `plots`                 | `Array<PlotConfig>`                 | `[{ id: 'main', ... }]`               | An array of plot configurations that define the different sections of the chart (e.g., price, volume, indicators).                                   |
+| `showDrawingToolbar`    | `boolean`                           | `true`                                | Controls the visibility of the drawing toolbar.                                                                                                      |
+| `showTimeframeButtons`  | `boolean`                           | `true`                                | Controls the visibility of the timeframe selection buttons.                                                                                          |
 
 #### ChartName
 

@@ -2193,7 +2193,7 @@ class StockChart {
                                         formattedValue = value.toFixed(2);
                                     } 
                                     else if (typeof value === 'object') {
-                                        if (!value.value) return null;
+                                        if (!value || !value.value) return null;
                                         formattedValue = value.value?.toFixed(2);
                                     }
                                     else {
@@ -2532,6 +2532,8 @@ class StockChart {
                 aggregatedData = [...this.originalData];
         }
 
+        this.updateMetaStringWithTimeframe(timeframe);
+
         this.options.plots = this.options.plots.filter(p => {
             return !(['sma', 'ema'].includes(p.indicator?.id));
         })
@@ -2541,6 +2543,39 @@ class StockChart {
         this.updateStockData(this.options.plots, updateOriginalData);
         this.render();
     }
+
+    updateMetaStringWithTimeframe(timeframe) {
+        const timeframeMap = {
+            intraday: 'Intraday',
+            daily: 'Daily',
+            weekly: 'Weekly',
+            monthly: 'Monthly'
+        };
+        const timeframeText = timeframeMap[timeframe] || '';
+
+        if (!this.options.chartName) {
+            this.options.chartName = {};
+        }
+        if (!this.options.chartName.metaString) {
+            this.options.chartName.metaString  = '';
+        }
+
+        // Remove existing timeframe from meta
+        let meta = this.options.chartName.metaString;
+        meta = meta.replace(/(Intraday|Daily|Weekly|Monthly)/i, '').trim();
+
+        // Append new timeframe if available
+        if (timeframeText) {
+            if (meta.length > 0) {
+                meta = meta.trim();
+            }
+            meta = timeframeText + ' ' + meta;
+            meta = meta.trim();
+        }
+
+        this.options.chartName.metaString = meta;
+    }
+
 }
 export default StockChart;
 

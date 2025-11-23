@@ -123,6 +123,12 @@ class StockChart {
         this.activeDrawingTool = null;
         this.eligibleMainPlotKeys = ['time', 'open', 'high', 'low', 'close'];
 
+        /** 
+         * @type { 'daily' | 'weekly' | 'monthly'}
+         * @private
+         */
+        this.timeframeOnScreen = 'daily'; // default timeframe
+
         this.canvas.addEventListener('mousedown', this.handleMouseDown.bind(this));
         this.canvas.addEventListener('mousemove', this.handleMouseMove.bind(this));
         // Custom event listener for external cursor sync
@@ -295,7 +301,7 @@ class StockChart {
                 } else if (tool.name === 'cursor') {
                     this.setDrawingTool(null);
                     button.style.backgroundColor = this.currentTheme?.gridColor || '#e0e0e0';
-                } else if (['daily', 'weekly', 'monthly'].includes(tool.name)) {
+                } else if (this.isTimeframe(tool.name)) {
                     this.handleTimeframeChange(tool.name);
                 } else {
                     this.setDrawingTool(tool.name);
@@ -313,6 +319,14 @@ class StockChart {
 
         this.wrapper.insertBefore(toolbar, this.canvas);
         this.toolbar = toolbar;
+    }
+
+    /**
+     * @param {string} v
+     * @returns {v is 'daily' | 'weekly' | 'monthly'}
+     */
+    isTimeframe(v) {
+        return v === 'daily' || v === 'weekly' || v === 'monthly';
     }
 
     /**
@@ -694,6 +708,11 @@ class StockChart {
                     case 'signal':
                         if (!plotVisibleData || plotVisibleData.length === 0) {
                             // Handle empty or undefined plotVisibleData
+                            return;
+                        }
+
+                        // get current timeframe
+                        if (this.timeframeOnScreen !== 'daily') {
                             return;
                         }
 
@@ -2509,7 +2528,7 @@ class StockChart {
     }
     /**
      * Handles timeframe change
-     * @param {string} timeframe - The timeframe to change to
+     * @param { 'daily' | 'weekly' | 'monthly' } timeframe The selected timeframe ('daily', 'weekly', 'monthly')
      * @private
      */
     handleTimeframeChange(timeframe) {
@@ -2517,6 +2536,7 @@ class StockChart {
         if (!mainPlot) return;
 
         let aggregatedData;
+        this.timeframeOnScreen = timeframe;
 
         switch (timeframe) {
             case 'daily':

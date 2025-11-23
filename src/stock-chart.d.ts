@@ -22,6 +22,7 @@ export interface StockChartOptions {
   plots?: Array<PlotConfig>;
   initialVisibleCandles?: number;
   showDrawingToolbar?: boolean;
+  showTimeframeButtons?: boolean;
 }
 
 export interface ChartName {
@@ -45,6 +46,10 @@ export interface StockData {
     close: number;
     volume?: number;
     signals?: Signal[];
+    timeframe?: any; // e.g., 'daily', 'weekly', 'monthly'
+    timestamp?: any; // Deprecated, use 'time' instead
+    ID?: string; // Deprecated, use 'id' instead
+    date?: string; // Deprecated, use 'time' instead
 }
 
 export interface PlotConfig {
@@ -96,6 +101,12 @@ export default class StockChart {
    * @param chartName - The new chart name information
    */
   updateChartName(chartName: ChartName): void;
+
+  /**
+   * 
+   * @param data 
+   */
+  updateMainPlotOriginalData(data: Array<StockData>): void;
 
   /**
    * Centers the chart on a specific date and draws a vertical line

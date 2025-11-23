@@ -13,6 +13,8 @@ import { PlotLayoutManager } from './utils/layout.js';
 import { DataViewport, getXPixel, getYPixel, getValueBasedOnY } from './utils/data.js';
 import { getSignalTypeColor } from './utils/helpers.js';
 import { DrawingPanel } from './utils/drawing-panel.js';
+import { aggregateToWeekly, aggregateToMonthly } from './utils/stock-aggregate.js';
+import { makeCurlyBracePath } from './utils/drawings/curly-bracket.js';
 
 /**
  * @typedef {import('./stock-chart.d.ts').StockChartOptions} StockChartOptions
@@ -87,7 +89,8 @@ class StockChart {
         if (!mainPlot) {
             throw new Error("StockChart options must include a plot with id 'main'.");
         }
-        this.dataViewport = new DataViewport(mainPlot.data || [], this.options.initialVisibleCandles, 5);
+        this.originalData = mainPlot.data || []; // Store original data
+        this.dataViewport = new DataViewport(this.originalData, this.options.initialVisibleCandles, 5);
 
         // Then initialize plot layout with calculated Y-axis width
         this.plotLayoutManager = new PlotLayoutManager(
@@ -114,10 +117,17 @@ class StockChart {
         this.priceScale = 1.0; // vertical zoom/scale factor
         this.priceOffset = 0; // vertical offset for panning
         this.plotScales = new Map(); // Store scales for each plot
+        this.mobileSize = 768;
         // Initialize drawing panel
         this.drawingPanel = new DrawingPanel(this);
         this.activeDrawingTool = null;
         this.eligibleMainPlotKeys = ['time', 'open', 'high', 'low', 'close'];
+
+        /** 
+         * @type { 'daily' | 'weekly' | 'monthly'}
+         * @private
+         */
+        this.timeframeOnScreen = 'daily'; // default timeframe
 
         this.canvas.addEventListener('mousedown', this.handleMouseDown.bind(this));
         this.canvas.addEventListener('mousemove', this.handleMouseMove.bind(this));
@@ -210,6 +220,9 @@ class StockChart {
         toolbar.style.height = isMobile ? '45px' : 'auto';
         toolbar.style.position = isMobile ? 'absolute' : 'relative';
         toolbar.style.bottom = isMobile ? '-45px' : 'auto';
+        toolbar.style.bottom = isMobile ? '-45px' : 'auto';
+        toolbar.style.overflowX = isMobile ? 'scroll' : 'hidden';
+        toolbar.style.overflowY = isMobile ? 'hidden' : 'auto';
         toolbar.style.backgroundColor = this.currentTheme?.background || '#ffffff';
         toolbar.style.borderRight = isMobile ? 'none' : '1px solid ' + (this.currentTheme?.gridColor || '#e0e0e0');
         toolbar.style.borderTop = isMobile ? '1px solid ' + (this.currentTheme?.gridColor || '#e0e0e0') : 'none';
@@ -223,6 +236,9 @@ class StockChart {
         const iconSize = isMobile ? 24 : 18;
         const tools = [
             { name: 'cursor', icon: `<svg viewBox="0 0 24 24" width="${iconSize}" height="${iconSize}"><path fill="currentColor" d="M13.64,21.97C13.14,22.21 12.54,22 12.31,21.5L10.13,16.76L7.62,18.78C7.45,18.92 7.24,19 7,19A1,1 0 0,1 6,18V3A1,1 0 0,1 7,2C7.24,2 7.47,2.09 7.64,2.23L7.65,2.22L19.14,11.86C19.57,12.22 19.62,12.85 19.27,13.27C19.12,13.45 18.91,13.57 18.7,13.61L15.54,14.23L17.74,18.96C18,19.46 17.76,20.05 17.26,20.28L13.64,21.97Z"/></svg>`, tooltip: 'Select Tool' },
+            { name: 'daily', icon: 'D', tooltip: 'Daily' },
+            { name: 'weekly', icon: 'W', tooltip: 'Weekly' },
+            { name: 'monthly', icon: 'M', tooltip: 'Monthly' },
             { name: 'line', icon: `<svg viewBox="0 0 24 24" width="${iconSize}" height="${iconSize}"><path fill="currentColor" d="M7 21L17 3h2L9 21H7"/></svg>`, tooltip: 'Line Tool' },
             { name: 'vertical-line', icon: `<svg viewBox="0 0 24 24" width="${iconSize}" height="${iconSize}"> <path fill="currentColor" d="M12 3h2v18h-2V3"/></svg>`, tooltip: 'Vertical Line Tool' },
             { name: 'horizontal-line', icon: `<svg viewBox="0 0 24 24" width="${iconSize}" height="${iconSize}"><path fill="currentColor" d="M3 12h18v2H3v-2"/></svg>`, tooltip: 'Horizontal Line Tool' },
@@ -230,10 +246,18 @@ class StockChart {
             { name: 'fibonacci', icon: `<svg viewBox="0 0 24 24" width="${iconSize}" height="${iconSize}"><path fill="currentColor" d="M 3 4 L 3 4 v 17 h 18 v -2 H 5 V 4 H 3 M 7 4 L 21 4 L 21 6 L 7 6 L 7 4 L 7 4 M 7 9 L 21 9 L 21 11 L 7 11 L 7 9 M 7 14 L 21 14 L 21 16 L 7 16 L 7 14"/></svg>`, tooltip: 'Fibonacci Tool' },
             { name: 'fibonacci-zoon', icon: `<svg viewBox="0 0 24 24" width="${iconSize}" height="${iconSize}"><path fill="currentColor" d="M3 3v18h18v-2H5V3H3m5 0v14h2V3H8m5 0v14h2V3h-2m5 0v14h2V3h-2"/></svg>`, tooltip: 'Fibonacci Zoon Tool' },
             { name: 'clear', icon: `<svg viewBox="0 0 24 24" width="${iconSize}" height="${iconSize}"><path fill="currentColor" d="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z"/></svg>`, tooltip: 'Clear All Drawings' },
-            { name: 'settings', icon: `<svg viewBox="0 0 24 24" width="${iconSize}" height="${iconSize}"><path fill="currentColor" d="M12 8.666c-1.838 0-3.333 1.496-3.333 3.334s1.495 3.333 3.333 3.333 3.333-1.495 3.333-3.333-1.495-3.334-3.333-3.334m0 7.667c-2.39 0-4.333-1.943-4.333-4.333s1.943-4.334 4.333-4.334 4.333 1.944 4.333 4.334c0 2.39-1.943 4.333-4.333 4.333m-1.193 6.667h2.386c.379-1.104.668-2.451 2.107-3.05 1.496-.617 2.666.196 3.635.672l1.686-1.688c-.508-1.047-1.266-2.199-.669-3.641.567-1.369 1.739-1.663 3.048-2.099v-2.388c-1.235-.421-2.471-.708-3.047-2.098-.572-1.38.057-2.395.669-3.643l-1.687-1.686c-1.117.547-2.221 1.257-3.642.668-1.374-.571-1.656-1.734-2.1-3.047h-2.386c-.424 1.231-.704 2.468-2.099 3.046-.365.153-.718.226-1.077.226-.843 0-1.539-.392-2.566-.893l-1.687 1.686c.574 1.175 1.251 2.237.669 3.643-.571 1.375-1.734 1.654-3.047 2.098v2.388c1.226.418 2.468.705 3.047 2.098.581 1.403-.075 2.432-.669 3.643l1.687 1.687c1.45-.725 2.355-1.204 3.642-.669 1.378.572 1.655 1.738 2.1 3.047m3.094 1h-3.803c-.681-1.918-.785-2.713-1.773-3.123-1.005-.419-1.731.132-3.466.952l-2.689-2.689c.873-1.837 1.367-2.465.953-3.465-.412-.991-1.192-1.087-3.123-1.773v-3.804c1.906-.678 2.712-.782 3.123-1.773.411-.991-.071-1.613-.953-3.466l2.689-2.688c1.741.828 2.466 1.365 3.465.953.992-.412 1.082-1.185 1.775-3.124h3.802c.682 1.918.788 2.714 1.774 3.123 1.001.416 1.709-.119 3.467-.952l2.687 2.688c-.878 1.847-1.361 2.477-.952 3.465.411.992 1.192 1.087 3.123 1.774v3.805c-1.906.677-2.713.782-3.124 1.773-.403.975.044 1.561.954 3.464l-2.688 2.689c-1.728-.82-2.467-1.37-3.456-.955-.988.41-1.08 1.146-1.785 3.126"/></svg>`, tooltip: 'Settings' }
+            { name: 'settings', icon: `<svg viewBox="0 0 24 24" width="${iconSize}" height="${iconSize}"><path fill="currentColor" d="M12 8.666c-1.838 0-3.333 1.496-3.333 3.334s1.495 3.333 3.333 3.333 3.333-1.495 3.333-3.333-1.495-3.334-3.333-3.334m0 7.667c-2.39 0-4.333-1.943-4.333-4.333s1.943-4.334 4.333-4.334 4.333 1.944 4.333 4.334c0 2.39-1.943 4.333-4.333 4.333m-1.193 6.667h2.386c.379-1.104.668-2.451 2.107-3.05 1.496-.617 2.666.196 3.635.672l1.686-1.688c-.508-1.047-1.266-2.199-.669-3.641.567-1.369 1.739-1.663 3.048-2.099v-2.388c-1.235-.421-2.471-.708-3.047-2.098-.572-1.38.057-2.395.669-3.643l-1.687-1.686c-1.117.547-2.221 1.257-3.642.668-1.374-.571-1.656-1.734-2.1-3.047h-2.386c-.424 1.231-.704 2.468-2.099 3.046-.365.153-.718.226-1.077.226-.843 0-1.539-.392-2.566-.893l-1.687 1.686c.574 1.175 1.251 2.237.669 3.643-.571 1.375-1.734 1.654-3.047 2.098v2.388c1.226.418 2.468.705 3.047 2.098.581 1.403-.075 2.432-.669 3.643l1.687 1.687c1.45-.725 2.355-1.204 3.642-.669 1.378.572 1.655 1.738 2.1 3.047m3.094 1h-3.803c-.681-1.918-.785-2.713-1.773-3.123-1.005-.419-1.731.132-3.466.952l-2.689-2.689c.873-1.837 1.367-2.465.953-3.465-.412-.991-1.192-1.087-3.123-1.773v-3.804c1.906-.678 2.712-.782 3.123-1.773.411-.991-.071-1.613-.953-3.466l2.689-2.688c1.741.828 2.466 1.365 3.465.953.992-.412 1.082-1.185 1.775-3.124h3.802c.682 1.918.788 2.714 1.774 3.123 1.001.416 1.709-.119 3.467-.952l2.687 2.688c-.878 1.847-1.361 2.477-.952 3.465.411.992 1.192 1.087 3.123 1.774v3.805c-1.906.677-2.713.782-3.124 1.773-.403.975.044 1.561.954 3.464l-2.688 2.689c-1.728-.82-2.467-1.37-3.456-.955-.988.41-1.08 1.146-1.785 3.126"/></svg>`, tooltip: 'Settings' },
         ];
 
+        const timeframeButtonNames = ['daily', 'weekly', 'monthly'];
+
         tools.forEach(tool => {
+
+            if (!this.options.showTimeframeButtons &&
+                timeframeButtonNames.includes(tool.name)) {
+                return; // Skip timeframe buttons if disabled
+            }
+
             const button = document.createElement('button');
             button.innerHTML = tool.icon;
             button.title = tool.tooltip;
@@ -277,17 +301,32 @@ class StockChart {
                 } else if (tool.name === 'cursor') {
                     this.setDrawingTool(null);
                     button.style.backgroundColor = this.currentTheme?.gridColor || '#e0e0e0';
+                } else if (this.isTimeframe(tool.name)) {
+                    this.handleTimeframeChange(tool.name);
                 } else {
                     this.setDrawingTool(tool.name);
                     button.style.backgroundColor = this.currentTheme?.gridColor || '#e0e0e0';
                 }
             });
 
+            if (['daily', 'weekly', 'monthly'].includes(tool.name)) {
+                button.style.fontSize = isMobile ? '14px' : '12px';
+                button.style.fontWeight = 'bold';
+            }
+
             toolbar.appendChild(button);
         });
 
         this.wrapper.insertBefore(toolbar, this.canvas);
         this.toolbar = toolbar;
+    }
+
+    /**
+     * @param {string} v
+     * @returns {v is 'daily' | 'weekly' | 'monthly'}
+     */
+    isTimeframe(v) {
+        return v === 'daily' || v === 'weekly' || v === 'monthly';
     }
 
     /**
@@ -570,6 +609,17 @@ class StockChart {
         const mainVisibleData = mainPlot.data.slice(this.dataViewport.startIndex, this.dataViewport.startIndex + this.dataViewport.visibleCount);
         priceRanges.set('main', this.calculatePriceRange(mainPlot, mainVisibleData, this.dataViewport));
 
+        // iterate plots check if overlay is before main plot, if yes then put overlay after main plot
+        this.options.plots.sort((a, b) => {
+            if (a.overlay && !b.overlay) {
+                return 1;
+            }
+            if (!a.overlay && b.overlay) {
+                return -1;
+            }
+            return 0;
+        });
+
         this.options.plots.forEach(plotConfig => {
 
             const isOverlay = plotConfig.overlay || false;
@@ -658,6 +708,11 @@ class StockChart {
                     case 'signal':
                         if (!plotVisibleData || plotVisibleData.length === 0) {
                             // Handle empty or undefined plotVisibleData
+                            return;
+                        }
+
+                        // get current timeframe
+                        if (this.timeframeOnScreen !== 'daily') {
                             return;
                         }
 
@@ -840,7 +895,9 @@ class StockChart {
             this.ctx.fillStyle = color;
             this.ctx.fill(pathsByColor[color]);
         });
+
     }
+
 
     /**
      * Handles mouse down events for dragging.
@@ -1863,6 +1920,11 @@ class StockChart {
             end: lastVisible ? lastVisible.time : 0
         };
 
+        const predictionX = new Set();
+        const predictionY = new Set();
+        let predictionHit = 0;
+        const extraWidthForPrediction = 5 * barWidth;
+
         // For each group, draw an arrow line from first to last point
         groupedPoints.forEach(points => {
             if (points.length < 2) return;
@@ -1910,38 +1972,62 @@ class StockChart {
             // use dashed line for prediction
             if (isPrediction) {
                 this.ctx.setLineDash([5, 5]);
+                
+                predictionX.add(x1);
+                predictionX.add(x2);
+                predictionY.add(y1);
+                predictionY.add(y2);
+                predictionHit++;
+                if (predictionHit === 2) {
+                    const px = [...predictionX].sort((a, b) => a - b);
+                    const py = [...predictionY].sort((a, b) => a - b);
+                    const maxY = Math.max(...py);
+                    const minY = Math.min(...py);
+                    const maxX = Math.max(...px) + extraWidthForPrediction;
+                    const svgPath = makeCurlyBracePath(px[0], py[1], maxX, minY, maxX, maxY, maxX - px[0], 0.55);
+                    const path = new Path2D(svgPath);
+
+                    this.ctx.lineWidth = 2;
+                    this.ctx.stroke(path);
+                }
             }
-            // Draw arrow line
-            const headlen = 10; // arrow head length
-            const dx = x2 - x1;
-            const dy = y2 - y1;
-            const angle = Math.atan2(dy, dx);
-
-            // Draw the line
-            this.ctx.beginPath();
-            this.ctx.strokeStyle = this.currentTheme.textColor;
-            this.ctx.lineWidth = 1.5;
-            this.ctx.moveTo(x1, y1);
-            this.ctx.lineTo(x2, y2);
-            this.ctx.stroke();
-
-            // Reset line dash
-            this.ctx.setLineDash([]);
-
-            // Draw the arrow head
-            this.ctx.beginPath();
-            this.ctx.moveTo(x2, y2);
-            this.ctx.lineTo(
-                x2 - headlen * Math.cos(angle - Math.PI / 6),
-                y2 - headlen * Math.sin(angle - Math.PI / 6)
-            );
-            this.ctx.lineTo(x2, y2);
-            this.ctx.lineTo(
-                x2 - headlen * Math.cos(angle + Math.PI / 6),
-                y2 - headlen * Math.sin(angle + Math.PI / 6)
-            );
-            this.ctx.stroke();
+            else {
+                // Draw arrow line
+                this.drawArrowLine(x2, x1, y2, y1);
+            }
         });
+    }
+
+    drawArrowLine(x2, x1, y2, y1) {
+        const headlen = 10; // arrow head length
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        const angle = Math.atan2(dy, dx);
+
+        // Draw the line
+        this.ctx.beginPath();
+        this.ctx.strokeStyle = this.currentTheme.textColor;
+        this.ctx.lineWidth = 1.5;
+        this.ctx.moveTo(x1, y1);
+        this.ctx.lineTo(x2, y2);
+        this.ctx.stroke();
+
+        // Reset line dash
+        this.ctx.setLineDash([]);
+
+        // Draw the arrow head
+        this.ctx.beginPath();
+        this.ctx.moveTo(x2, y2);
+        this.ctx.lineTo(
+            x2 - headlen * Math.cos(angle - Math.PI / 6),
+            y2 - headlen * Math.sin(angle - Math.PI / 6)
+        );
+        this.ctx.lineTo(x2, y2);
+        this.ctx.lineTo(
+            x2 - headlen * Math.cos(angle + Math.PI / 6),
+            y2 - headlen * Math.sin(angle + Math.PI / 6)
+        );
+        this.ctx.stroke();
     }
 
     // Find index in current data using binary search for better performance
@@ -2126,7 +2212,7 @@ class StockChart {
                                         formattedValue = value.toFixed(2);
                                     } 
                                     else if (typeof value === 'object') {
-                                        if (!value.value) return null;
+                                        if (!value || !value.value) return null;
                                         formattedValue = value.value?.toFixed(2);
                                     }
                                     else {
@@ -2161,6 +2247,8 @@ class StockChart {
                 const textX = plotLayout.x + plotLayout.width - padding; // padding from right edge
                 
                 this.ctx.textAlign = 'right';
+                const isMobile = window.innerWidth <= this.mobileSize;
+                this.ctx.font = isMobile ? '10px Arial' : '12px Arial';
 
                 // Draw each info text on a new line
                 infoTexts.forEach((text, index) => {
@@ -2189,9 +2277,18 @@ class StockChart {
     /**
      * Updates the stock data for all plots at once
      * @param {Array<import('./stock-chart.d.ts').PlotConfig>} plots - Array of plot configurations to update
+     * @param {boolean} [updateOriginalData=true] - Whether to update the original data for the main plot
      * @public
      */
-    updateStockData(plots) {
+    updateStockData(plots, updateOriginalData = true) {
+        // const container = document.getElementById(this.elementId);
+        // if (!container) {
+        //     console.error(`StockChart: Element with ID '${this.elementId}' not found.`);
+        //     return;
+        // }
+        // Ensure container has a valid size
+        // this.ensureContainerSize(container);
+
         if (!Array.isArray(plots)) {
             console.error('StockChart: updateStockData expects an array of plots');
             return;
@@ -2204,8 +2301,10 @@ class StockChart {
             this.drawingPanel.clearDrawings();
         }
 
+        const _plots = [...plots];
+
         this.options.plots.length = 0;
-        this.options.plots = plots;
+        this.options.plots = _plots;
 
         // Recalculate Y-axis width and update layout
         const yAxisWidth = this.calculateYAxisWidth();
@@ -2226,6 +2325,14 @@ class StockChart {
     updateChartName(chartName) {
         this.options.chartName = chartName;
         this.render();
+    }
+
+    /**
+     * Updates the original data used for the main plot
+     * @param {Array<Object>} data - The new original data array
+     */
+    updateMainPlotOriginalData(data) {
+        this.originalData = data;
     }
 
     /**
@@ -2419,6 +2526,76 @@ class StockChart {
         this.ctx.lineTo(x, this.plotLayoutManager.getPlotTotalHeight());
         this.ctx.stroke();
     }
+    /**
+     * Handles timeframe change
+     * @param { 'daily' | 'weekly' | 'monthly' } timeframe The selected timeframe ('daily', 'weekly', 'monthly')
+     * @private
+     */
+    handleTimeframeChange(timeframe) {
+        const mainPlot = this.options.plots.find(p => p.id === 'main');
+        if (!mainPlot) return;
+
+        let aggregatedData;
+        this.timeframeOnScreen = timeframe;
+
+        switch (timeframe) {
+            case 'daily':
+                aggregatedData = [...this.originalData];
+                break;
+            case 'weekly':
+                aggregatedData = aggregateToWeekly([...this.originalData], []);
+                break;
+            case 'monthly':
+                aggregatedData = aggregateToMonthly([...this.originalData], []);
+                break;
+            default:
+                aggregatedData = [...this.originalData];
+        }
+
+        this.updateMetaStringWithTimeframe(timeframe);
+
+        this.options.plots = this.options.plots.filter(p => {
+            return !(['sma', 'ema'].includes(p.indicator?.id));
+        })
+
+        mainPlot.data = aggregatedData;
+        const updateOriginalData = false;
+        this.updateStockData(this.options.plots, updateOriginalData);
+        this.render();
+    }
+
+    updateMetaStringWithTimeframe(timeframe) {
+        const timeframeMap = {
+            intraday: 'Intraday',
+            daily: 'Daily',
+            weekly: 'Weekly',
+            monthly: 'Monthly'
+        };
+        const timeframeText = timeframeMap[timeframe] || '';
+
+        if (!this.options.chartName) {
+            this.options.chartName = {};
+        }
+        if (!this.options.chartName.metaString) {
+            this.options.chartName.metaString  = '';
+        }
+
+        // Remove existing timeframe from meta
+        let meta = this.options.chartName.metaString;
+        meta = meta.replace(/(Intraday|Daily|Weekly|Monthly)/i, '').trim();
+
+        // Append new timeframe if available
+        if (timeframeText) {
+            if (meta.length > 0) {
+                meta = meta.trim();
+            }
+            meta = timeframeText + ' ' + meta;
+            meta = meta.trim();
+        }
+
+        this.options.chartName.metaString = meta;
+    }
+
 }
 export default StockChart;
 

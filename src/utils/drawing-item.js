@@ -457,5 +457,124 @@ class FibonacciZoonDrawing extends DrawingItem {
     }
 }
 
+/**
+ * ArrowLine drawing item for drawing arrowed lines between grouped points
+ */
+class ArrowLineDrawing extends DrawingItem {
+    constructor() {
+        super('arrowLine');
+        this.groups = new Map(); // Map to store points grouped by ID
+    }
+
+    /**
+     * Add a point with ID to the drawing
+     * @param {number} time - The time value
+     * @param {number} price - The price value
+     * @param {number} id - The group ID for the point
+     */
+    addPointWithId(time, price, id) {
+        if (!this.groups.has(id)) {
+            this.groups.set(id, []);
+        }
+        this.groups.get(id).push({ time, price });
+    }
+
+    draw(ctx, plotLayout, viewport, minPrice, maxPrice) {
+        const visibleData = viewport.getVisibleData();
+        if (!visibleData || visibleData.length === 0) return;
+
+        const visibleTimeRange = {
+            start: visibleData[0].time,
+            end: visibleData[visibleData.length - 1].time
+        };
+
+        // For each group of points
+        this.groups.forEach((points, id) => {
+            if (points.length < 2) return;
+
+            // Get first and last points
+            let firstPoint = points[0];
+            let lastPoint = points[points.length - 1];
+
+            // Find visible points if first or last is outside visible range
+            if (firstPoint.time < visibleTimeRange.start) {
+                const visiblePoint = points.find(p => p.time >= visibleTimeRange.start);
+                if (visiblePoint) firstPoint = visiblePoint;
+            }
+            if (lastPoint.time > visibleTimeRange.end) {
+                const visiblePoint = [...points].reverse().find(p => p.time <= visibleTimeRange.end);
+                if (visiblePoint) lastPoint = visiblePoint;
+            }
+
+            // Convert points to pixel coordinates
+            const start = this.getPixelCoordinates(
+                firstPoint.time,
+                firstPoint.price,
+                plotLayout,
+                viewport,
+                minPrice,
+                maxPrice
+            );
+
+            const end = this.getPixelCoordinates(
+                lastPoint.time,
+                lastPoint.price,
+                plotLayout,
+                viewport,
+                minPrice,
+                maxPrice
+            );
+
+            if (!start || !end) return;
+
+            // Draw arrowed line
+            const headlen = 10; // length of arrow head
+            const dx = end.x - start.x;
+            const dy = end.y - start.y;
+            const angle = Math.atan2(dy, dx);
+
+            // Draw the line
+            ctx.beginPath();
+            ctx.strokeStyle = this.style.strokeStyle;
+            ctx.lineWidth = this.style.lineWidth;
+            ctx.moveTo(start.x, start.y);
+            ctx.lineTo(end.x, end.y);
+            ctx.stroke();
+
+            // Draw the arrow head
+            ctx.beginPath();
+            ctx.moveTo(end.x, end.y);
+            ctx.lineTo(
+                end.x - headlen * Math.cos(angle - Math.PI / 6),
+                end.y - headlen * Math.sin(angle - Math.PI / 6)
+            );
+            ctx.moveTo(end.x, end.y);
+            ctx.lineTo(
+                end.x - headlen * Math.cos(angle + Math.PI / 6),
+                end.y - headlen * Math.sin(angle + Math.PI / 6)
+            );
+            ctx.stroke();
+        });
+    }
+
+    /**
+     * Override toJSON to include groups
+     */
+    toJSON() {
+        return {
+            ...super.toJSON(),
+            groups: Array.from(this.groups.entries())
+        };
+    }
+
+    /**
+     * Override fromJSON to handle groups
+     */
+    fromJSON(json) {
+        super.fromJSON(json);
+        this.groups = new Map(json.groups);
+    }
+}
+
 // Export the classes
-export { DrawingItem, LineDrawing, RectangleDrawing, FibonacciDrawing, FibonacciZoonDrawing };
+export { DrawingItem, LineDrawing, RectangleDrawing, FibonacciDrawing, FibonacciZoonDrawing, ArrowLineDrawing };

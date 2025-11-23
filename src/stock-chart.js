@@ -3,6 +3,8 @@
  * @author H Chen
  */
 
+import { drawButtonLegend } from './utils/drawings/legend-button.js';
+
 /**
  * Represents the main StockChart class.
  */
@@ -13,6 +15,8 @@ import { PlotLayoutManager } from './utils/layout.js';
 import { DataViewport, getXPixel, getYPixel, getValueBasedOnY } from './utils/data.js';
 import { getSignalTypeColor } from './utils/helpers.js';
 import { DrawingPanel } from './utils/drawing-panel.js';
+import { aggregateToWeekly, aggregateToMonthly } from './utils/stock-aggregate.js';
+import { makeCurlyBracePath } from './utils/drawings/curly-bracket.js';
 
 /**
  * @typedef {import('./stock-chart.d.ts').StockChartOptions} StockChartOptions
@@ -43,7 +47,7 @@ class StockChart {
             return;
         }
 
-        const chartInstance = new StockChart(container, options);
+        const chartInstance = new StockChart(container, options, elementId);
         chartInstance.render();
         chartInstance.loadIndicatorSettings();
         return chartInstance;
@@ -53,11 +57,15 @@ class StockChart {
      * Constructs a new StockChart instance
      * @param {HTMLElement} container - The HTML element to mount the chart to.
      * @param {StockChartOptions} options - Configuration options for the chart.
+     * @param {string} elementId - The ID of the HTML element to mount the chart to.
      */
-    constructor(container, options) {
+    constructor(container, options, elementId) {
+        this.elementId = elementId;
         // Ensure container has a valid size
         this.ensureContainerSize(container);
 
+        // Bind instance methods
+        this.updateStockData = this.updateStockData.bind(this);
         this.container = container;
         this.options = StockChart.ensureValidOptions(options);
         this.updateStockData = this.updateStockData.bind(this);
@@ -87,7 +95,8 @@ class StockChart {
         if (!mainPlot) {
             throw new Error("StockChart options must include a plot with id 'main'.");
         }
-        this.dataViewport = new DataViewport(mainPlot.data || [], this.options.initialVisibleCandles, 5);
+        this.originalData = mainPlot.data || []; // Store original data
+        this.dataViewport = new DataViewport(this.originalData, this.options.initialVisibleCandles, 5);
 
         // Then initialize plot layout with calculated Y-axis width
         this.plotLayoutManager = new PlotLayoutManager(
@@ -114,6 +123,7 @@ class StockChart {
         this.priceScale = 1.0; // vertical zoom/scale factor
         this.priceOffset = 0; // vertical offset for panning
         this.plotScales = new Map(); // Store scales for each plot
+        this.mobileSize = 768;
         // Initialize drawing panel
         this.drawingPanel = new DrawingPanel(this);
         this.activeDrawingTool = null;
@@ -210,6 +220,9 @@ class StockChart {
         toolbar.style.height = isMobile ? '45px' : 'auto';
         toolbar.style.position = isMobile ? 'absolute' : 'relative';
         toolbar.style.bottom = isMobile ? '-45px' : 'auto';
+        toolbar.style.bottom = isMobile ? '-45px' : 'auto';
+        toolbar.style.overflowX = isMobile ? 'scroll' : 'hidden';
+        toolbar.style.overflowY = isMobile ? 'hidden' : 'auto';
         toolbar.style.backgroundColor = this.currentTheme?.background || '#ffffff';
         toolbar.style.borderRight = isMobile ? 'none' : '1px solid ' + (this.currentTheme?.gridColor || '#e0e0e0');
         toolbar.style.borderTop = isMobile ? '1px solid ' + (this.currentTheme?.gridColor || '#e0e0e0') : 'none';
@@ -223,6 +236,9 @@ class StockChart {
         const iconSize = isMobile ? 24 : 18;
         const tools = [
             { name: 'cursor', icon: `<svg viewBox="0 0 24 24" width="${iconSize}" height="${iconSize}"><path fill="currentColor" d="M13.64,21.97C13.14,22.21 12.54,22 12.31,21.5L10.13,16.76L7.62,18.78C7.45,18.92 7.24,19 7,19A1,1 0 0,1 6,18V3A1,1 0 0,1 7,2C7.24,2 7.47,2.09 7.64,2.23L7.65,2.22L19.14,11.86C19.57,12.22 19.62,12.85 19.27,13.27C19.12,13.45 18.91,13.57 18.7,13.61L15.54,14.23L17.74,18.96C18,19.46 17.76,20.05 17.26,20.28L13.64,21.97Z"/></svg>`, tooltip: 'Select Tool' },
+            { name: 'daily', icon: 'D', tooltip: 'Daily' },
+            { name: 'weekly', icon: 'W', tooltip: 'Weekly' },
+            { name: 'monthly', icon: 'M', tooltip: 'Monthly' },
             { name: 'line', icon: `<svg viewBox="0 0 24 24" width="${iconSize}" height="${iconSize}"><path fill="currentColor" d="M7 21L17 3h2L9 21H7"/></svg>`, tooltip: 'Line Tool' },
             { name: 'vertical-line', icon: `<svg viewBox="0 0 24 24" width="${iconSize}" height="${iconSize}"> <path fill="currentColor" d="M12 3h2v18h-2V3"/></svg>`, tooltip: 'Vertical Line Tool' },
             { name: 'horizontal-line', icon: `<svg viewBox="0 0 24 24" width="${iconSize}" height="${iconSize}"><path fill="currentColor" d="M3 12h18v2H3v-2"/></svg>`, tooltip: 'Horizontal Line Tool' },
@@ -230,10 +246,18 @@ class StockChart {
             { name: 'fibonacci', icon: `<svg viewBox="0 0 24 24" width="${iconSize}" height="${iconSize}"><path fill="currentColor" d="M 3 4 L 3 4 v 17 h 18 v -2 H 5 V 4 H 3 M 7 4 L 21 4 L 21 6 L 7 6 L 7 4 L 7 4 M 7 9 L 21 9 L 21 11 L 7 11 L 7 9 M 7 14 L 21 14 L 21 16 L 7 16 L 7 14"/></svg>`, tooltip: 'Fibonacci Tool' },
             { name: 'fibonacci-zoon', icon: `<svg viewBox="0 0 24 24" width="${iconSize}" height="${iconSize}"><path fill="currentColor" d="M3 3v18h18v-2H5V3H3m5 0v14h2V3H8m5 0v14h2V3h-2m5 0v14h2V3h-2"/></svg>`, tooltip: 'Fibonacci Zoon Tool' },
             { name: 'clear', icon: `<svg viewBox="0 0 24 24" width="${iconSize}" height="${iconSize}"><path fill="currentColor" d="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z"/></svg>`, tooltip: 'Clear All Drawings' },
-            { name: 'settings', icon: `<svg viewBox="0 0 24 24" width="${iconSize}" height="${iconSize}"><path fill="currentColor" d="M12 8.666c-1.838 0-3.333 1.496-3.333 3.334s1.495 3.333 3.333 3.333 3.333-1.495 3.333-3.333-1.495-3.334-3.333-3.334m0 7.667c-2.39 0-4.333-1.943-4.333-4.333s1.943-4.334 4.333-4.334 4.333 1.944 4.333 4.334c0 2.39-1.943 4.333-4.333 4.333m-1.193 6.667h2.386c.379-1.104.668-2.451 2.107-3.05 1.496-.617 2.666.196 3.635.672l1.686-1.688c-.508-1.047-1.266-2.199-.669-3.641.567-1.369 1.739-1.663 3.048-2.099v-2.388c-1.235-.421-2.471-.708-3.047-2.098-.572-1.38.057-2.395.669-3.643l-1.687-1.686c-1.117.547-2.221 1.257-3.642.668-1.374-.571-1.656-1.734-2.1-3.047h-2.386c-.424 1.231-.704 2.468-2.099 3.046-.365.153-.718.226-1.077.226-.843 0-1.539-.392-2.566-.893l-1.687 1.686c.574 1.175 1.251 2.237.669 3.643-.571 1.375-1.734 1.654-3.047 2.098v2.388c1.226.418 2.468.705 3.047 2.098.581 1.403-.075 2.432-.669 3.643l1.687 1.687c1.45-.725 2.355-1.204 3.642-.669 1.378.572 1.655 1.738 2.1 3.047m3.094 1h-3.803c-.681-1.918-.785-2.713-1.773-3.123-1.005-.419-1.731.132-3.466.952l-2.689-2.689c.873-1.837 1.367-2.465.953-3.465-.412-.991-1.192-1.087-3.123-1.773v-3.804c1.906-.678 2.712-.782 3.123-1.773.411-.991-.071-1.613-.953-3.466l2.689-2.688c1.741.828 2.466 1.365 3.465.953.992-.412 1.082-1.185 1.775-3.124h3.802c.682 1.918.788 2.714 1.774 3.123 1.001.416 1.709-.119 3.467-.952l2.687 2.688c-.878 1.847-1.361 2.477-.952 3.465.411.992 1.192 1.087 3.123 1.774v3.805c-1.906.677-2.713.782-3.124 1.773-.403.975.044 1.561.954 3.464l-2.688 2.689c-1.728-.82-2.467-1.37-3.456-.955-.988.41-1.08 1.146-1.785 3.126"/></svg>`, tooltip: 'Settings' }
+            { name: 'settings', icon: `<svg viewBox="0 0 24 24" width="${iconSize}" height="${iconSize}"><path fill="currentColor" d="M12 8.666c-1.838 0-3.333 1.496-3.333 3.334s1.495 3.333 3.333 3.333 3.333-1.495 3.333-3.333-1.495-3.334-3.333-3.334m0 7.667c-2.39 0-4.333-1.943-4.333-4.333s1.943-4.334 4.333-4.334 4.333 1.944 4.333 4.334c0 2.39-1.943 4.333-4.333 4.333m-1.193 6.667h2.386c.379-1.104.668-2.451 2.107-3.05 1.496-.617 2.666.196 3.635.672l1.686-1.688c-.508-1.047-1.266-2.199-.669-3.641.567-1.369 1.739-1.663 3.048-2.099v-2.388c-1.235-.421-2.471-.708-3.047-2.098-.572-1.38.057-2.395.669-3.643l-1.687-1.686c-1.117.547-2.221 1.257-3.642.668-1.374-.571-1.656-1.734-2.1-3.047h-2.386c-.424 1.231-.704 2.468-2.099 3.046-.365.153-.718.226-1.077.226-.843 0-1.539-.392-2.566-.893l-1.687 1.686c.574 1.175 1.251 2.237.669 3.643-.571 1.375-1.734 1.654-3.047 2.098v2.388c1.226.418 2.468.705 3.047 2.098.581 1.403-.075 2.432-.669 3.643l1.687 1.687c1.45-.725 2.355-1.204 3.642-.669 1.378.572 1.655 1.738 2.1 3.047m3.094 1h-3.803c-.681-1.918-.785-2.713-1.773-3.123-1.005-.419-1.731.132-3.466.952l-2.689-2.689c.873-1.837 1.367-2.465.953-3.465-.412-.991-1.192-1.087-3.123-1.773v-3.804c1.906-.678 2.712-.782 3.123-1.773.411-.991-.071-1.613-.953-3.466l2.689-2.688c1.741.828 2.466 1.365 3.465.953.992-.412 1.082-1.185 1.775-3.124h3.802c.682 1.918.788 2.714 1.774 3.123 1.001.416 1.709-.119 3.467-.952l2.687 2.688c-.878 1.847-1.361 2.477-.952 3.465.411.992 1.192 1.087 3.123 1.774v3.805c-1.906.677-2.713.782-3.124 1.773-.403.975.044 1.561.954 3.464l-2.688 2.689c-1.728-.82-2.467-1.37-3.456-.955-.988.41-1.08 1.146-1.785 3.126"/></svg>`, tooltip: 'Settings' },
         ];
 
+        const timeframeButtonNames = ['daily', 'weekly', 'monthly'];
+
         tools.forEach(tool => {
+
+            if (!this.options.showTimeframeButtons &&
+                timeframeButtonNames.includes(tool.name)) {
+                return; // Skip timeframe buttons if disabled
+            }
+
             const button = document.createElement('button');
             button.innerHTML = tool.icon;
             button.title = tool.tooltip;
@@ -277,11 +301,18 @@ class StockChart {
                 } else if (tool.name === 'cursor') {
                     this.setDrawingTool(null);
                     button.style.backgroundColor = this.currentTheme?.gridColor || '#e0e0e0';
+                } else if (['daily', 'weekly', 'monthly'].includes(tool.name)) {
+                    this.handleTimeframeChange(tool.name);
                 } else {
                     this.setDrawingTool(tool.name);
                     button.style.backgroundColor = this.currentTheme?.gridColor || '#e0e0e0';
                 }
             });
+
+            if (['daily', 'weekly', 'monthly'].includes(tool.name)) {
+                button.style.fontSize = isMobile ? '14px' : '12px';
+                button.style.fontWeight = 'bold';
+            }
 
             toolbar.appendChild(button);
         });
@@ -570,6 +601,17 @@ class StockChart {
         const mainVisibleData = mainPlot.data.slice(this.dataViewport.startIndex, this.dataViewport.startIndex + this.dataViewport.visibleCount);
         priceRanges.set('main', this.calculatePriceRange(mainPlot, mainVisibleData, this.dataViewport));
 
+        // iterate plots check if overlay is before main plot, if yes then put overlay after main plot
+        this.options.plots.sort((a, b) => {
+            if (a.overlay && !b.overlay) {
+                return 1;
+            }
+            if (!a.overlay && b.overlay) {
+                return -1;
+            }
+            return 0;
+        });
+
         this.options.plots.forEach(plotConfig => {
 
             const isOverlay = plotConfig.overlay || false;
@@ -660,10 +702,20 @@ class StockChart {
                             // Handle empty or undefined plotVisibleData
                             return;
                         }
-
-                        this.drawSignals(plotVisibleData, plotLayout, barWidth, minPrice, maxPrice);
+                        // reference or safe margin
+                        if (Array.isArray(plotVisibleData[0].value)) {
+                            const _plotVisibleData = this.flattenPlotVisibleData(plotVisibleData);
+                            this.drawSignalsLines(_plotVisibleData, plotLayout, barWidth, minPrice, maxPrice);
+                        } else {
+                            this.drawSignals(plotVisibleData, plotLayout, barWidth, minPrice, maxPrice);
+                        }
                         break;
-                        
+                    case 'arrowLine':
+                        this.drawArrowLines(plotVisibleData, plotLayout, barWidth, minPrice, maxPrice);
+                        break;
+                    case 'order':
+                        this.drawOrders(plotVisibleData, plotLayout, barWidth, minPrice, maxPrice);
+                        break;
                 }
             }
             this.ctx.restore();
@@ -729,8 +781,38 @@ class StockChart {
             this.ctx.setLineDash([]); // Reset line dash
 
         }
+
+        this.drawLegend();
+
         // Display price and indicator info overlay
         this.displayInfoOverlay();
+    }
+
+    flattenPlotVisibleData(plotVisibleData) {
+        const _plotVisibleData = [];
+        for (const d of plotVisibleData) {
+            d.value.forEach(v => {
+                _plotVisibleData.push({
+                    ...d,
+                    value: v
+                });
+            });
+        }
+        return _plotVisibleData;
+    }
+
+    groupByIdAndValue(data) {
+        return data
+            .filter(d => d.value.value)
+            .reduce((acc, item) => {
+                const key = `${item.value.id}_${item.value.value}`; // composite key
+                if (!acc[key]) {
+                    acc[key] = [];
+                }
+
+                acc[key].push(item);
+                return acc;
+            }, {});
     }
 
     /**
@@ -821,17 +903,24 @@ class StockChart {
         this.ctx.imageSmoothingEnabled = false;
 
         const pathsByColor = {};
+        const labelPrice = new Map();
         plotVisibleData.filter(d => d.value != null).forEach((dataPoint, i) => {
             const color = getSignalTypeColor(dataPoint.value.type);
             if (!pathsByColor[color]) {
                 pathsByColor[color] = new Path2D();
             }
 
+            
             if (dataPoint.value.value != null) {
                 const x = Math.floor(plotLayout.x + getXPixel(this.dataViewport.startIndex + i, this.dataViewport.startIndex, this.dataViewport.visibleCount, plotLayout.width, barWidth));
                 const y = Math.floor(getYPixel(dataPoint.value.value, minPrice, maxPrice, plotLayout.height, plotLayout.y));
-    
-                pathsByColor[color].rect(x, y, Math.ceil(barWidth), 10);
+                
+                pathsByColor[color].rect(x, y, Math.ceil(barWidth), 8);
+
+                const hasPrice = labelPrice.get(dataPoint.value.value);
+                if (!hasPrice && dataPoint.value.referTf) {
+                    labelPrice.set(dataPoint.value.value, { label: dataPoint.value.referTf, x, y });
+                }
             }
         });
 
@@ -839,6 +928,73 @@ class StockChart {
         Object.keys(pathsByColor).forEach(color => {
             this.ctx.fillStyle = color;
             this.ctx.fill(pathsByColor[color]);
+        });
+
+        if (this.options.showTimeframeButtons) {
+            // Draw labels for each price level
+            labelPrice.forEach(({ label, x, y }) => {
+                this.ctx.fillStyle = this.currentTheme.textColor;
+                this.ctx.fillText(label, x - 7, y + 5);
+            });
+        }
+    }
+
+    /**
+     * Renders the legend buttons on the chart
+     * @private
+     */
+    drawLegend() {
+        const isMobile = window.innerWidth <= this.mobileSize;
+        // make button legend to right of screen
+        const startX = isMobile ? this.canvas.width - 200 : this.canvas.width - 330;
+        const startY = 10;
+
+        drawButtonLegend(this.ctx, 
+            isMobile, 
+            startX, startY, this.currentTheme.textColor,
+            '  Buy                             Sell   ');
+    }
+
+    /**
+     * Draws the trading signals on the chart.
+     * @param {Array<Object>} plotVisibleData 
+     * @param {import('./stock-chart.d.ts').PlotLayout} plotLayout 
+     * @param {number} barWidth 
+     * @param {number} minPrice 
+     * @param {number} maxPrice 
+     */
+    drawSignalsLines(plotVisibleData, plotLayout, barWidth, minPrice, maxPrice) {
+        this.ctx.imageSmoothingEnabled = false;
+
+        const data = this.groupByIdAndValue(plotVisibleData);
+
+        Object.keys(data).forEach(key => {
+            const group = data[key];
+            const color = this.currentTheme.textColor;
+            const price = group[0].value.value.toFixed(2);
+            const v = group[0].value.value;
+            const startIndex = this.dataViewport.allData.findIndex(d => d.time === group[0].value.time);
+            const endIndex = this.dataViewport.allData.findIndex(d => d.time === group[group.length - 1].value.time);
+            const startX = Math.floor(plotLayout.x + getXPixel(startIndex, 
+                this.dataViewport.startIndex, this.dataViewport.visibleCount, plotLayout.width, barWidth));
+            const endX = Math.floor(plotLayout.x + getXPixel(endIndex,
+                this.dataViewport.startIndex, this.dataViewport.visibleCount, plotLayout.width, barWidth));
+            const y = Math.floor(getYPixel(v, minPrice, maxPrice, plotLayout.height, plotLayout.y));
+
+            // Draw dashed line
+            this.ctx.beginPath();
+            this.ctx.setLineDash([5, 3]); // Create dashed line pattern [dash length, gap length]
+            this.ctx.strokeStyle = color;
+            this.ctx.lineWidth = 1;
+            this.ctx.moveTo(startX, y);
+            this.ctx.lineTo(endX, y);
+            this.ctx.stroke();
+            this.ctx.setLineDash([]); // Reset line dash pattern
+
+            // measure price width and add to left side of line
+            const priceWidth = this.ctx.measureText(price).width;
+            this.ctx.fillStyle = color;
+            this.ctx.fillText(price, startX - priceWidth - 5, y);
         });
     }
 
@@ -1836,6 +1992,59 @@ class StockChart {
      */
 
     /**
+     * Draws order markers on the chart.
+     * @param {Array<Object>} plotVisibleData - The visible data points for the plot.
+     * @param {import('./stock-chart.d.ts').PlotLayout} plotLayout - The layout information for the plot.
+     * @param {number} barWidth - The width of each bar in the plot.
+     * @param {number} minPrice - The minimum price in the visible data range.
+     * @param {number} maxPrice - The maximum price in the visible data range.
+     */
+    drawOrders(plotVisibleData, plotLayout, barWidth, minPrice, maxPrice) {
+        // Draw order markers on the chart
+        plotVisibleData.forEach((point, idx) => {
+            if (point) {
+                const { time, type, value } = point;
+                const firstIndex = this.findTimeIndex(time, this.dataViewport.allData);
+                const x1 = plotLayout.x + getXPixel(
+                    firstIndex,
+                    this.dataViewport.startIndex,
+                    this.dataViewport.visibleCount,
+                    plotLayout.width,
+                    barWidth
+                ) + barWidth / 2;
+
+                const y = plotLayout.y + (1 - (value - minPrice) / (maxPrice - minPrice)) * plotLayout.height;
+
+                // Draw up triangle if type is 1, down triangle otherwise
+                // Make the triangle width equal to the candle/bar width
+                const triangleWidth = barWidth;
+                const triangleHeight = barWidth * 0.6;
+                this.ctx.beginPath();
+                if (type === 1) {
+                    // Up triangle
+                    this.ctx.moveTo(x1, y - triangleHeight / 2);
+                    this.ctx.lineTo(x1 - triangleWidth / 2, y + triangleHeight / 2);
+                    this.ctx.lineTo(x1 + triangleWidth / 2, y + triangleHeight / 2);
+                } else {
+                    // Down triangle
+                    this.ctx.moveTo(x1, y + triangleHeight / 2);
+                    this.ctx.lineTo(x1 - triangleWidth / 2, y - triangleHeight / 2);
+                    this.ctx.lineTo(x1 + triangleWidth / 2, y - triangleHeight / 2);
+                }
+                this.ctx.closePath();
+                this.ctx.fillStyle = this.currentTheme.textColor;
+                this.ctx.fill();
+                this.ctx.strokeStyle = this.currentTheme.gridColor;
+                this.ctx.stroke();
+
+                // // Draw order type label
+                // this.ctx.fillStyle = this.currentTheme.textColor;
+                // this.ctx.fillText(type, x1 + triangleWidth / 2 + 2, y);
+            }
+        });
+    }
+
+    /**
      * Draws arrow lines connecting points with the same ID
      * @param {Array<Object>} plotVisibleData - The visible data points for the plot.
      * @param {import('./stock-chart.d.ts').PlotLayout} plotLayout - The layout information for the plot.
@@ -1863,6 +2072,12 @@ class StockChart {
             end: lastVisible ? lastVisible.time : 0
         };
 
+        const predictionX = new Set();
+        const predictionY = new Set();
+        let predictionHit = 0;
+        let _predictionStartX = null;
+        const extraWidthForPrediction = 5 * barWidth;
+        let lastY = null, lastX = null;
         // For each group, draw an arrow line from first to last point
         groupedPoints.forEach(points => {
             if (points.length < 2) return;
@@ -1896,7 +2111,7 @@ class StockChart {
             const y1 = getYPixel(firstPoint.value, minPrice, maxPrice, plotLayout.height, plotLayout.y);
 
             const lastIndex = this.findTimeIndex(lastPoint.time, this.dataViewport.allData);
-            const x2 = plotLayout.x + getXPixel(
+            let x2 = plotLayout.x + getXPixel(
                 lastIndex,
                 this.dataViewport.startIndex,
                 this.dataViewport.visibleCount,
@@ -1904,44 +2119,80 @@ class StockChart {
                 barWidth
             ) + barWidth / 2;
 
-            const y2 = getYPixel(lastPoint.value, minPrice, maxPrice, plotLayout.height, plotLayout.y);
+            if (x1 == x2) {
+                x2 = lastX;
+            }
+
+            let y2 = getYPixel(lastPoint.value, minPrice, maxPrice, plotLayout.height, plotLayout.y);
+
+            if (y1 == y2) {
+                y2 = lastY
+            }
 
             const isPrediction = firstPoint.isPrediction;
             // use dashed line for prediction
             if (isPrediction) {
                 this.ctx.setLineDash([5, 5]);
+                
+                predictionX.add(x1);
+                predictionX.add(x2);
+                predictionY.add(y1);
+                predictionY.add(y2);
+                predictionHit++;
+                if (predictionHit > 0) {
+                    const px = [...predictionX].sort((a, b) => a - b);
+                    const py = [...predictionY].sort((a, b) => a - b);
+                    const maxY = Math.max(...py);
+                    const minY = Math.min(...py);
+                    const maxX = Math.max(...px) + extraWidthForPrediction;
+                    if (_predictionStartX != null) return;
+                    _predictionStartX = px[0];// py[1]
+                    const svgPath = makeCurlyBracePath(px[0], lastY, maxX, minY, maxX, maxY, maxX - px[0], 0.55);
+                    const path = new Path2D(svgPath);
+
+                    this.ctx.lineWidth = 2;
+                    this.ctx.stroke(path);
+                }
             }
-            // Draw arrow line
-            const headlen = 10; // arrow head length
-            const dx = x2 - x1;
-            const dy = y2 - y1;
-            const angle = Math.atan2(dy, dx);
-
-            // Draw the line
-            this.ctx.beginPath();
-            this.ctx.strokeStyle = this.currentTheme.textColor;
-            this.ctx.lineWidth = 1.5;
-            this.ctx.moveTo(x1, y1);
-            this.ctx.lineTo(x2, y2);
-            this.ctx.stroke();
-
-            // Reset line dash
-            this.ctx.setLineDash([]);
-
-            // Draw the arrow head
-            this.ctx.beginPath();
-            this.ctx.moveTo(x2, y2);
-            this.ctx.lineTo(
-                x2 - headlen * Math.cos(angle - Math.PI / 6),
-                y2 - headlen * Math.sin(angle - Math.PI / 6)
-            );
-            this.ctx.lineTo(x2, y2);
-            this.ctx.lineTo(
-                x2 - headlen * Math.cos(angle + Math.PI / 6),
-                y2 - headlen * Math.sin(angle + Math.PI / 6)
-            );
-            this.ctx.stroke();
+            else {
+                lastY = y2;
+                lastX = x2;
+                // Draw arrow line
+                this.drawArrowLine(x2, x1, y2, y1);
+            }
         });
+    }
+
+    drawArrowLine(x2, x1, y2, y1) {
+        const headlen = 10; // arrow head length
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        const angle = Math.atan2(dy, dx);
+
+        // Draw the line
+        this.ctx.beginPath();
+        this.ctx.strokeStyle = this.currentTheme.textColor;
+        this.ctx.lineWidth = 1.5;
+        this.ctx.moveTo(x1, y1);
+        this.ctx.lineTo(x2, y2);
+        this.ctx.stroke();
+
+        // Reset line dash
+        this.ctx.setLineDash([]);
+
+        // Draw the arrow head
+        this.ctx.beginPath();
+        this.ctx.moveTo(x2, y2);
+        this.ctx.lineTo(
+            x2 - headlen * Math.cos(angle - Math.PI / 6),
+            y2 - headlen * Math.sin(angle - Math.PI / 6)
+        );
+        this.ctx.lineTo(x2, y2);
+        this.ctx.lineTo(
+            x2 - headlen * Math.cos(angle + Math.PI / 6),
+            y2 - headlen * Math.sin(angle + Math.PI / 6)
+        );
+        this.ctx.stroke();
     }
 
     // Find index in current data using binary search for better performance
@@ -2066,6 +2317,9 @@ class StockChart {
                 
                 // Group plots by their base id (removing any suffix like '_upper', '_lower')
                 const groupedPlots = infoPlots.reduce((acc, plot) => {
+                    if (plot.keyLabel && ['Signals', 'Orders'].includes(plot.keyLabel)) {
+                        return acc; // Skip plots with keyLabel 'Signals' or 'Orders'
+                    }
                     if (plot.id === 'main') {
                         const keyLabel = plot.keyLabel || '';
                         if (!acc[keyLabel]) {
@@ -2097,10 +2351,15 @@ class StockChart {
 
                     plots.forEach(infoPlot => {
                         const isMainPlot = infoPlot.id === 'main';
-                        const infoPlotData = infoPlot.data && infoPlot.data.length > 0 ? infoPlot.data : visibleData;
 
+                        if (infoPlot.id === 'fiboLines') return;
+
+                        const infoPlotData = infoPlot.data && infoPlot.data.length > 0 ? infoPlot.data : visibleData;
                         if (actualDataIndex >= 0 && actualDataIndex < infoPlotData.length) {
                             const infoDataPoint = infoPlotData[actualDataIndex];
+
+                            if (!infoDataPoint || typeof infoDataPoint !== 'object') return;
+                            
                             const plotTexts = Object.entries(infoDataPoint)
                                 .map(([key, value]) => {
                                     if (!isMainPlot && (key === 'time' || key === 'date' || key === 'keyLabel')) return null;
@@ -2126,13 +2385,13 @@ class StockChart {
                                         formattedValue = value.toFixed(2);
                                     } 
                                     else if (typeof value === 'object') {
-                                        if (!value.value) return null;
+                                        if (!value || !value.value) return null;
                                         formattedValue = value.value?.toFixed(2);
                                     }
                                     else {
                                         formattedValue = value;
                                     }
-                                    
+
                                     const keyLabel = infoPlot.keyLabel?.trim().length > 0 
                                         ? infoPlot.keyLabel 
                                         : key.charAt(0).toUpperCase() + key.slice(1);
@@ -2153,18 +2412,29 @@ class StockChart {
                         plotLabel = plotLabel.trim() === ':' ? '' : plotLabel; // Avoid showing just ':'
                         infoTexts.push(`${plotLabel}${combinedTexts.join(' | ')}`);
                     }
+
                 });
 
                 // Position text in the top-right corner of the plot, with multiple lines
+                const isMainPlot = infoPlots.some(p => p.id === 'main' || p.targetId === 'main');
                 const lineHeight = 15;
+                const buttonLegendHeight = isMainPlot ? 40 : 0;
                 const padding = 10;
                 const textX = plotLayout.x + plotLayout.width - padding; // padding from right edge
                 
                 this.ctx.textAlign = 'right';
+                const isMobile = window.innerWidth <= this.mobileSize;
+                this.ctx.font = isMobile ? '10px Arial' : '12px Arial';
+
+                if (!isMainPlot) {
+                    const nonMainInfo = infoTexts.join(' | ');
+                    infoTexts.length = 0;
+                    infoTexts.push(nonMainInfo);
+                }
 
                 // Draw each info text on a new line
                 infoTexts.forEach((text, index) => {
-                    const textY = plotLayout.y + (index + 1) * lineHeight;
+                    const textY = plotLayout.y + (index + 1) * lineHeight + buttonLegendHeight;
                     this.ctx.fillText(text, textX, textY);
                 });
                 this.ctx.textAlign = 'left'; // Reset alignment for other text
@@ -2189,9 +2459,18 @@ class StockChart {
     /**
      * Updates the stock data for all plots at once
      * @param {Array<import('./stock-chart.d.ts').PlotConfig>} plots - Array of plot configurations to update
+     * @param {boolean} [updateOriginalData=true] - Whether to update the original data for the main plot
      * @public
      */
-    updateStockData(plots) {
+    updateStockData(plots, updateOriginalData = true) {
+        const container = document.getElementById(this.elementId);
+        if (!container) {
+            console.error(`StockChart: Element with ID '${this.elementId}' not found.`);
+            return;
+        }
+        // Ensure container has a valid size
+        this.ensureContainerSize(container);
+
         if (!Array.isArray(plots)) {
             console.error('StockChart: updateStockData expects an array of plots');
             return;
@@ -2204,8 +2483,10 @@ class StockChart {
             this.drawingPanel.clearDrawings();
         }
 
+        const _plots = [...plots];
+
         this.options.plots.length = 0;
-        this.options.plots = plots;
+        this.options.plots = _plots;
 
         // Recalculate Y-axis width and update layout
         const yAxisWidth = this.calculateYAxisWidth();
@@ -2215,9 +2496,11 @@ class StockChart {
         this.plotLayoutManager.updatePlotConfigurations(this.options.plots);
 
         // Render the updated chart
-        // this.render();
+        this.render();
         this.loadIndicatorSettings();
     }
+
+
 
     /**
      * Updates the chart name information
@@ -2226,6 +2509,14 @@ class StockChart {
     updateChartName(chartName) {
         this.options.chartName = chartName;
         this.render();
+    }
+
+    /**
+     * Updates the original data used for the main plot
+     * @param {Array<Object>} data - The new original data array
+     */
+    updateMainPlotOriginalData(data) {
+        this.originalData = data;
     }
 
     /**
@@ -2419,6 +2710,75 @@ class StockChart {
         this.ctx.lineTo(x, this.plotLayoutManager.getPlotTotalHeight());
         this.ctx.stroke();
     }
+    /**
+     * Handles timeframe change
+     * @param {string} timeframe - The timeframe to change to
+     * @private
+     */
+    handleTimeframeChange(timeframe) {
+        const mainPlot = this.options.plots.find(p => p.id === 'main');
+        if (!mainPlot) return;
+
+        let aggregatedData;
+
+        switch (timeframe) {
+            case 'daily':
+                aggregatedData = [...this.originalData];
+                break;
+            case 'weekly':
+                aggregatedData = aggregateToWeekly([...this.originalData], []);
+                break;
+            case 'monthly':
+                aggregatedData = aggregateToMonthly([...this.originalData], []);
+                break;
+            default:
+                aggregatedData = [...this.originalData];
+        }
+
+        this.updateMetaStringWithTimeframe(timeframe);
+
+        this.options.plots = this.options.plots.filter(p => {
+            return !(['sma', 'ema'].includes(p.indicator?.id));
+        })
+
+        mainPlot.data = aggregatedData;
+        const updateOriginalData = false;
+        this.updateStockData(this.options.plots, updateOriginalData);
+        this.render();
+    }
+
+    updateMetaStringWithTimeframe(timeframe) {
+        const timeframeMap = {
+            intraday: 'Intraday',
+            daily: 'Daily',
+            weekly: 'Weekly',
+            monthly: 'Monthly'
+        };
+        const timeframeText = timeframeMap[timeframe] || '';
+
+        if (!this.options.chartName) {
+            this.options.chartName = {};
+        }
+        if (!this.options.chartName.metaString) {
+            this.options.chartName.metaString  = '';
+        }
+
+        // Remove existing timeframe from meta
+        let meta = this.options.chartName.metaString;
+        meta = meta.replace(/(Intraday|Daily|Weekly|Monthly)/i, '').trim();
+
+        // Append new timeframe if available
+        if (timeframeText) {
+            if (meta.length > 0) {
+                meta = meta.trim();
+            }
+            meta = timeframeText + ' ' + meta;
+            meta = meta.trim();
+        }
+
+        this.options.chartName.metaString = meta;
+    }
+
 }
 export default StockChart;
 

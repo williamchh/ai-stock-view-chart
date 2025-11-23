@@ -22,6 +22,7 @@ export interface StockChartOptions {
   plots?: Array<PlotConfig>;
   initialVisibleCandles?: number;
   showDrawingToolbar?: boolean;
+  showTimeframeButtons?: boolean;
 }
 
 export interface ChartName {
@@ -35,6 +36,7 @@ export interface Signal {
     value: number;
     description?: string;
     strength?: number;
+    referTf?: number;
 }
 
 export interface StockData {
@@ -43,8 +45,39 @@ export interface StockData {
     high: number;
     low: number;
     close: number;
+    id?: number | string;
+    fiboZoneLines?: FiboZoneLine[];
+    referenceLines?: ReferenceLine[];
+    safeMargins?: ReferenceLine[];
     volume?: number;
-    signals?: Signal[];
+    signals?: Signal[] | Signal;
+    retracements?: import('./models/asv-model.d.ts').Retracement[];
+    order: Order | null;
+    timeframe?: any; // e.g., 'daily', 'weekly', 'monthly'
+    timestamp?: any; // Deprecated, use 'time' instead
+    ID?: string; // Deprecated, use 'id' instead
+    date?: string; // Deprecated, use 'time' instead
+}
+
+export interface Order {
+  id: string;
+  time: number;
+  type: number;
+  value: number;
+}
+
+export interface ReferenceLine {
+  id?: number;
+  time: number;
+  type: string;
+  value: number;
+}
+
+export interface FiboZoneLine {
+    id?: number;
+    time: number;
+    value: number;
+    isPrediction?: boolean
 }
 
 export interface PlotConfig {
@@ -96,6 +129,12 @@ export default class StockChart {
    * @param chartName - The new chart name information
    */
   updateChartName(chartName: ChartName): void;
+
+  /**
+   * 
+   * @param data 
+   */
+  updateMainPlotOriginalData(data: Array<StockData>): void;
 
   /**
    * Centers the chart on a specific date and draws a vertical line

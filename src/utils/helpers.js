@@ -10,11 +10,17 @@ export function getSignalTypeColor(type) {
             return 'rgba(0, 255, 0, 0.75)';
         case 'resistance':
             return 'rgba(255, 0, 0, 0.75)';
+        case 'weak-support':
+            return 'rgba(0, 255, 0, 0.3)';
+        case 'weak-resistance':
+            return 'rgba(255, 0, 0, 0.3)';
         case 'uptrend':
             return 'rgba(0, 255, 255, 0.75)';
         case 'downtrend':
             return 'rgba(255, 165, 0, 0.75)';
+        case 'safe-margin':
+            return 'rgba(0, 0, 255, 0.75)'; 
         default:
-            return 'rgba(0, 0, 0, 0.75)';
+            return 'rgba(0, 0, 0, 0)';
     }
 }

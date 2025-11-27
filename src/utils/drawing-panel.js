@@ -22,7 +22,7 @@ function isDarkColor(color) {
 }
 
 import { calculateBollingerBands, calculateDeMarker, calculateEMA, calculateMACD, calculateRSI, calculateSMA } from '../indicators/indicator-utils.js';
-import { DataViewport } from './data.js';
+import { DataViewport, getXPixel } from './data.js';
 import { DrawingItem, LineDrawing, RectangleDrawing, FibonacciDrawing, FibonacciZoonDrawing } from './drawing-item.js';
 import { PlotLayoutManager } from './layout.js';
 ;
@@ -274,6 +274,31 @@ _getTouchCoordinates(touch) {
         const mainPlot = this.stockChart.plotLayoutManager.getPlotLayout('main');
         if (!mainPlot) return;
 
+        // Update crosshair position to follow mouse/finger during drawing
+        if (x >= mainPlot.x && x <= mainPlot.x + mainPlot.width) {
+            const barWidth = mainPlot.width / this.stockChart.dataViewport.visibleCount;
+            
+            // Calculate which candlestick mouse is closest to (same logic as in stock-chart.js)
+            const relativeX = x - mainPlot.x;
+            const dataIndex = Math.round(relativeX / barWidth - 0.5);
+            
+            // Ensure dataIndex stays within valid bounds
+            const clampedIndex = Math.max(0, Math.min(this.stockChart.dataViewport.visibleCount - 1, dataIndex));
+            
+            // Calculate exact center of candlestick
+            const candleX = mainPlot.x + getXPixel(
+                this.stockChart.dataViewport.startIndex + clampedIndex,
+                this.stockChart.dataViewport.startIndex,
+                this.stockChart.dataViewport.visibleCount,
+                mainPlot.width,
+                barWidth
+            );
+            
+            // Update crosshair position
+            /** @type {any} */ (this.stockChart).crosshairX = candleX + (barWidth / 2);
+        }
+        /** @type {any} */ (this.stockChart).crosshairY = y;
+
         if (x >= mainPlot.x && x <= mainPlot.x + mainPlot.width &&
             y >= mainPlot.y && y <= mainPlot.y + mainPlot.height) {
             
@@ -284,8 +309,8 @@ _getTouchCoordinates(touch) {
             const actualDataIndex = this.stockChart.dataViewport.startIndex + dataIndex;
 
             // Get the data point at this index
-            if (!this.stockChart.dataViewport?.allData || 
-                actualDataIndex < 0 || 
+            if (!this.stockChart.dataViewport?.allData ||
+                actualDataIndex < 0 ||
                 actualDataIndex >= this.stockChart.dataViewport.allData.length) return;
 
             const dataPoint = this.stockChart.dataViewport.allData[actualDataIndex];

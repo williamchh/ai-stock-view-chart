@@ -91,6 +91,8 @@ export default class StockChart {
   applyTheme(theme: 'light' | 'dark' | Theme): void;
   resize(): void;
   render(): void;
+  crosshairX: number;
+  crosshairY: number;
   /**
    * Updates the stock data for all plots at once
    * @param plots - Array of plot configurations to update

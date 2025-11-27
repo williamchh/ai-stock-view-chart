@@ -42,40 +42,37 @@ class DrawingItem {
      * @returns {{x: number, y: number}} The pixel coordinates
      */
     getPixelCoordinates(time, price, plotLayout, viewport, minPrice, maxPrice, ignorePriceLimit = false) {
-        if (!viewport?.allData || !viewport.getVisibleData) return null;
-        
-        const allData = viewport.allData;
-        const visibleData = viewport.getVisibleData();
+        if (!viewport?.allData || viewport.allData.length === 0) return null;
 
-        // Find the index of the nearest time in the data
+        const allData = viewport.allData;
+        
+        // Find the index of the time in the full dataset.
+        // This allows us to calculate the position even if the point is off-screen.
         const timeIndex = allData.findIndex(d => d.time >= time);
-        const nearestTimeIndex = timeIndex === -1 ? allData.length - 1 : 
+        const nearestTimeIndex = timeIndex === -1 ? allData.length - 1 :
             (timeIndex === 0 ? 0 :
                 (Math.abs(allData[timeIndex].time - time) < Math.abs(allData[timeIndex - 1].time - time) ?
                     timeIndex : timeIndex - 1));
-        
+
         if (nearestTimeIndex === -1) return null;
 
-        // Calculate relative position in viewport
         const barWidth = plotLayout.width / viewport.visibleCount;
-        
-        // Find the actual index in visible data for more accurate positioning
-        const visibleTimeIndex = visibleData.findIndex(d => d.time >= time);
-        const nearestVisibleIndex = visibleTimeIndex === -1 ? visibleData.length - 1 : 
-            (visibleTimeIndex === 0 ? 0 :
-                (Math.abs(visibleData[visibleTimeIndex].time - time) < Math.abs(visibleData[visibleTimeIndex - 1].time - time) ?
-                    visibleTimeIndex : visibleTimeIndex - 1));
-                    
-        // Calculate x coordinate based on the index in visible data
-        const x = plotLayout.x + (nearestVisibleIndex * barWidth) + barWidth / 2;
 
-        // Check if price is within visible range
-        if ((price < minPrice || price > maxPrice) && !ignorePriceLimit) {
-            return null;
-        }
+        // Calculate the x coordinate based on its position relative to the viewport's start index.
+        const x = plotLayout.x + ((nearestTimeIndex - viewport.startIndex) * barWidth) + barWidth / 2;
 
         // Calculate y coordinate
-        const y = plotLayout.y + ((maxPrice - price) / (maxPrice - minPrice)) * plotLayout.height;
+        const priceRange = maxPrice - minPrice;
+        // Avoid division by zero if price range is zero
+        const y = priceRange > 0
+            ? plotLayout.y + ((maxPrice - price) / priceRange) * plotLayout.height
+            : plotLayout.y + plotLayout.height / 2; // Middle of the plot if no range
+
+        // If we don't ignore price limits and the calculated y is outside the plot, return null.
+        // This check is now less critical as we draw the line to the boundary, but can be useful.
+        if (!ignorePriceLimit && (y < plotLayout.y || y > plotLayout.y + plotLayout.height)) {
+            // We can still return the coordinates because the drawing logic will handle clipping.
+        }
 
         return { x, y };
     }
@@ -134,40 +131,58 @@ class LineDrawing extends DrawingItem {
     draw(ctx, plotLayout, viewport, minPrice, maxPrice, currentTheme, startEndTimes) {
         if (this.points.length < 2) return;
 
-        const start = this.getPixelCoordinates(
-            this.points[0].time,
-            this.points[0].price,
-            plotLayout,
-            viewport,
-            minPrice,
-            maxPrice
-        );
-
-        let endX = this.points[1].time;
-        let endY = this.points[1].price;
+        let p1 = this.points[0];
+        let p2 = this.points[1];
 
         if (this.constraint === 'horizontal') {
-            endY = this.points[0].price;
+            p2 = { ...p2, price: p1.price };
         } else if (this.constraint === 'vertical') {
-            endX = this.points[0].time;
+            p2 = { ...p2, time: p1.time };
         }
 
-        const end = this.getPixelCoordinates(
-            endX,
-            endY,
-            plotLayout,
-            viewport,
-            minPrice,
-            maxPrice
-        );
+        const start = this.getPixelCoordinates(p1.time, p1.price, plotLayout, viewport, minPrice, maxPrice, true);
+        const end = this.getPixelCoordinates(p2.time, p2.price, plotLayout, viewport, minPrice, maxPrice, true);
 
         if (!start || !end) return;
-        ctx.beginPath();
-        ctx.strokeStyle = this.style.strokeStyle;
-        ctx.lineWidth = this.style.lineWidth;
-        ctx.moveTo(start.x, start.y);
-        ctx.lineTo(end.x, end.y);
-        ctx.stroke();
+
+        const plotX1 = plotLayout.x;
+        const plotY1 = plotLayout.y;
+        const plotX2 = plotLayout.x + plotLayout.width;
+        const plotY2 = plotLayout.y + plotLayout.height;
+
+        // Use Liang-Barsky algorithm to clip the line
+        let x1 = start.x, y1 = start.y, x2 = end.x, y2 = end.y;
+        const dx = x2 - x1, dy = y2 - y1;
+        let t0 = 0, t1 = 1;
+        const p = [-dx, dx, -dy, dy];
+        const q = [x1 - plotX1, plotX2 - x1, y1 - plotY1, plotY2 - y1];
+
+        for (let i = 0; i < 4; i++) {
+            if (p[i] === 0) {
+                if (q[i] < 0) return; // Line is outside and parallel
+            } else {
+                const r = q[i] / p[i];
+                if (p[i] < 0) {
+                    t0 = Math.max(t0, r);
+                } else {
+                    t1 = Math.min(t1, r);
+                }
+            }
+        }
+
+        if (t0 < t1) {
+            const clippedX1 = x1 + t0 * dx;
+            const clippedY1 = y1 + t0 * dy;
+            const clippedX2 = x1 + t1 * dx;
+            const clippedY2 = y1 + t1 * dy;
+
+            ctx.beginPath();
+            ctx.strokeStyle = this.style.strokeStyle;
+            ctx.lineWidth = this.style.lineWidth;
+            ctx.moveTo(clippedX1, clippedY1);
+            ctx.lineTo(clippedX2, clippedY2);
+            ctx.stroke();
+        }
     }
 }
 

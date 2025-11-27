@@ -732,8 +732,8 @@ class StockChart {
         // Debug overlay
         // this.ctx.fillText(`Canvas: ${this.canvas.width}x${this.canvas.height}`, 20, 60);
 
-        // Draw crosshair if not in drawing mode
-        if (this.crosshairX !== -1 && this.crosshairY !== -1 && !this.activeDrawingTool && !this.drawingPanel.isEditing) {
+        // Draw crosshair - now also shows when drawing tool is active
+        if (this.crosshairX !== -1 && this.crosshairY !== -1) {
             this.ctx.strokeStyle = this.currentTheme.crosshairColor;
             this.ctx.lineWidth = 1;
             this.ctx.setLineDash([5, 5]); // Dashed line

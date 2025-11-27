@@ -1,5 +1,26 @@
 
 
+/**
+ * Helper function to determine if a color is dark
+ * @param {string} color - The color to check (hex format)
+ * @returns {boolean} True if the color is dark
+ */
+function isDarkColor(color) {
+    // Remove the # if present
+    const hex = color.replace('#', '');
+    
+    // Convert hex to RGB
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+    
+    // Calculate luminance (perceived brightness)
+    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    
+    // Return true if the color is dark (luminance < 0.5)
+    return luminance < 0.5;
+}
+
 import { calculateBollingerBands, calculateDeMarker, calculateEMA, calculateMACD, calculateRSI, calculateSMA } from '../indicators/indicator-utils.js';
 import { DataViewport } from './data.js';
 import { DrawingItem, LineDrawing, RectangleDrawing, FibonacciDrawing, FibonacciZoonDrawing } from './drawing-item.js';
@@ -1188,9 +1209,13 @@ _getTouchCoordinates(touch) {
         `;
 
         // Create modal dialog
+        const currentTheme = this.stockChart.currentTheme;
+        const isDarkTheme = currentTheme.name === 'dark' ||
+                           (currentTheme.background && isDarkColor(currentTheme.background));
+        
         const dialog = document.createElement('div');
         dialog.style.cssText = `
-            background-color: white;
+            background-color: ${currentTheme.background || '#ffffff'};
             border-radius: 8px;
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
             width: 650px;
@@ -1198,20 +1223,21 @@ _getTouchCoordinates(touch) {
             max-height: 80vh;
             overflow: hidden;
             font-family: Arial, sans-serif;
+            color: ${currentTheme.textColor || '#333333'};
         `;
 
         dialog.innerHTML = `
-            <div class="modal-header" style="padding: 20px; border-bottom: 1px solid #e0e0e0; background-color: #f8f9fa;">
-                <h3 style="margin: 0; color: #333; font-size: 18px;">Chart Settings</h3>
+            <div class="modal-header" style="padding: 20px; border-bottom: 1px solid ${currentTheme.gridColor || '#e0e0e0'}; background-color: ${isDarkTheme ? currentTheme.chartAreaBackground || '#2c2c2c' : '#f8f9fa'};">
+                <h3 style="margin: 0; color: ${currentTheme.textColor || '#333'}; font-size: 18px;">Chart Settings</h3>
             </div>
             
-            <div class="main-tab-container" style="display: flex; border-bottom: 1px solid #e0e0e0; background-color: #f8f9fa;">
+            <div class="main-tab-container" style="display: flex; border-bottom: 1px solid ${currentTheme.gridColor || '#e0e0e0'}; background-color: ${isDarkTheme ? currentTheme.chartAreaBackground || '#2c2c2c' : '#f8f9fa'};">
                 <button class="main-tab-btn active" data-group="settings" style="
                     flex: 1;
                     padding: 12px 16px;
                     border: none;
-                    background: white;
-                    color: #333;
+                    background: ${isDarkTheme ? currentTheme.chartAreaBackground || '#2c2c2c' : 'white'};
+                    color: ${currentTheme.textColor || '#333'};
                     cursor: pointer;
                     border-bottom: 2px solid #007bff;
                     font-weight: 500;
@@ -1222,7 +1248,7 @@ _getTouchCoordinates(touch) {
                     padding: 12px 16px;
                     border: none;
                     background: transparent;
-                    color: #666;
+                    color: ${isDarkTheme ? '#aaa' : '#666'};
                     cursor: pointer;
                     border-bottom: 2px solid transparent;
                     font-weight: 500;
@@ -1231,13 +1257,13 @@ _getTouchCoordinates(touch) {
             </div>
 
             <div id="settings-group" class="tab-group active" style="display: block;">
-                <div class="sub-tab-container" style="display: flex; border-bottom: 1px solid #e0e0e0; background-color: #f8f9fa; overflow-x: auto;">
+                <div class="sub-tab-container" style="display: flex; border-bottom: 1px solid ${currentTheme.gridColor || '#e0e0e0'}; background-color: ${isDarkTheme ? currentTheme.chartAreaBackground || '#2c2c2c' : '#f8f9fa'}; overflow-x: auto;">
                     <button class="tab-btn active" data-tab="theme" style="
                         flex: 0 0 auto;
                         padding: 12px 16px;
                         border: none;
-                        background: white;
-                        color: #333;
+                        background: ${isDarkTheme ? currentTheme.chartAreaBackground || '#2c2c2c' : 'white'};
+                        color: ${currentTheme.textColor || '#333'};
                         cursor: pointer;
                         border-bottom: 2px solid #007bff;
                         font-weight: 500;
@@ -1248,14 +1274,14 @@ _getTouchCoordinates(touch) {
             </div>
 
             <div id="indicators-group" class="tab-group" style="display: none;">
-                <div class="sub-tab-container" style="display: flex; border-bottom: 1px solid #e0e0e0; background-color: #f8f9fa; overflow-x: auto;">
+                <div class="sub-tab-container" style="display: flex; border-bottom: 1px solid ${currentTheme.gridColor || '#e0e0e0'}; background-color: ${isDarkTheme ? currentTheme.chartAreaBackground || '#2c2c2c' : '#f8f9fa'}; overflow-x: auto;">
                     ${this.indicators.map((indicator, index) => `
                         <button class="tab-btn ${index === 0 ? 'active' : ''}" data-tab="${indicator.id}" style="
                             flex: 0 0 auto;
                             padding: 12px 16px;
                             border: none;
-                            background: ${index === 0 ? 'white' : 'transparent'};
-                            color: ${index === 0 ? '#333' : '#666'};
+                            background: ${index === 0 ? (isDarkTheme ? currentTheme.chartAreaBackground || '#2c2c2c' : 'white') : 'transparent'};
+                            color: ${index === 0 ? (currentTheme.textColor || '#333') : (isDarkTheme ? '#aaa' : '#666')};
                             cursor: pointer;
                             border-bottom: 2px solid ${index === 0 ? '#007bff' : 'transparent'};
                             font-weight: 500;
@@ -1266,14 +1292,14 @@ _getTouchCoordinates(touch) {
                 </div>
             </div>
             
-            <div class="tab-content" style="padding: 20px; max-height: 450px; overflow-y: auto;">
+            <div class="tab-content" style="padding: 20px; max-height: min(450px, calc(80vh - 200px)); overflow-y: auto; background-color: ${currentTheme.background || '#ffffff'};">
                 <div id="theme-tab" class="tab-pane active" style="display: block;">
                     <div class="theme-settings">
-                        <h4 style="margin: 0 0 20px 0; color: #333; font-size: 16px;">Theme Settings</h4>
+                        <h4 style="margin: 0 0 20px 0; color: ${currentTheme.textColor || '#333'}; font-size: 16px;">Theme Settings</h4>
                         <form class="settings-form" id="theme-form">
                             <div class="form-group" style="margin-bottom: 16px;">
-                                <label style="display: block; margin-bottom: 6px; color: #333; font-weight: 500; font-size: 14px;">Theme Type</label>
-                                <select name="themeType" style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; background: white;">
+                                <label style="display: block; margin-bottom: 6px; color: ${currentTheme.textColor || '#333'}; font-weight: 500; font-size: 14px;">Theme Type</label>
+                                <select name="themeType" style="width: 100%; padding: 8px 12px; border: 1px solid ${currentTheme.gridColor || '#ddd'}; border-radius: 4px; font-size: 14px; background: ${isDarkTheme ? currentTheme.chartAreaBackground || '#2c2c2c' : 'white'}; color: ${currentTheme.textColor || '#333'};">
                                     <option value="dark">Dark Theme</option>
                                     <option value="light">Light Theme</option>
                                     <option value="custom">Custom Theme</option>
@@ -1282,66 +1308,66 @@ _getTouchCoordinates(touch) {
                             <div id="custom-theme-controls" style="display: none;">
                                 <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px;">
                                     <div class="form-group">
-                                        <label for="background" style="display: block; margin-bottom: 6px; color: #333; font-weight: 500; font-size: 14px;">Background:</label>
+                                        <label for="background" style="display: block; margin-bottom: 6px; color: ${currentTheme.textColor || '#333'}; font-weight: 500; font-size: 14px;">Background:</label>
                                         <div style="display: flex; align-items: center; gap: 10px;">
-                                            <input type="color" name="background" value="#1A1A1D" style="width: 50px; height: 35px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; background: white; padding: 2px;">
-                                            <input type="text" name="background_hex" value="#1A1A1D" maxlength="7" style="flex: 1; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; font-family: monospace;">
+                                            <input type="color" name="background" value="#1A1A1D" style="width: 50px; height: 35px; border: 1px solid ${currentTheme.gridColor || '#ddd'}; border-radius: 4px; cursor: pointer; background: ${isDarkTheme ? currentTheme.chartAreaBackground || '#2c2c2c' : 'white'}; padding: 2px;">
+                                            <input type="text" name="background_hex" value="#1A1A1D" maxlength="7" style="flex: 1; padding: 8px 12px; border: 1px solid ${currentTheme.gridColor || '#ddd'}; border-radius: 4px; font-size: 14px; font-family: monospace; background: ${isDarkTheme ? currentTheme.chartAreaBackground || '#2c2c2c' : 'white'}; color: ${currentTheme.textColor || '#333'};">
                                         </div>
                                     </div>
                                     <div class="form-group">
-                                        <label for="chartAreaBackground" style="display: block; margin-bottom: 6px; color: #333; font-weight: 500; font-size: 14px;">Chart Area:</label>
+                                        <label for="chartAreaBackground" style="display: block; margin-bottom: 6px; color: ${currentTheme.textColor || '#333'}; font-weight: 500; font-size: 14px;">Chart Area:</label>
                                         <div style="display: flex; align-items: center; gap: 10px;">
-                                            <input type="color" name="chartAreaBackground" value="#292930" style="width: 50px; height: 35px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; background: white; padding: 2px;">
-                                            <input type="text" name="chartAreaBackground_hex" value="#292930" maxlength="7" style="flex: 1; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; font-family: monospace;">
+                                            <input type="color" name="chartAreaBackground" value="#292930" style="width: 50px; height: 35px; border: 1px solid ${currentTheme.gridColor || '#ddd'}; border-radius: 4px; cursor: pointer; background: ${isDarkTheme ? currentTheme.chartAreaBackground || '#2c2c2c' : 'white'}; padding: 2px;">
+                                            <input type="text" name="chartAreaBackground_hex" value="#292930" maxlength="7" style="flex: 1; padding: 8px 12px; border: 1px solid ${currentTheme.gridColor || '#ddd'}; border-radius: 4px; font-size: 14px; font-family: monospace; background: ${isDarkTheme ? currentTheme.chartAreaBackground || '#2c2c2c' : 'white'}; color: ${currentTheme.textColor || '#333'};">
                                         </div>
                                     </div>
                                     <div class="form-group">
-                                        <label for="textColor" style="display: block; margin-bottom: 6px; color: #333; font-weight: 500; font-size: 14px;">Text:</label>
+                                        <label for="textColor" style="display: block; margin-bottom: 6px; color: ${currentTheme.textColor || '#333'}; font-weight: 500; font-size: 14px;">Text:</label>
                                         <div style="display: flex; align-items: center; gap: 10px;">
-                                            <input type="color" name="textColor" value="#C5C6C7" style="width: 50px; height: 35px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; background: white; padding: 2px;">
-                                            <input type="text" name="textColor_hex" value="#C5C6C7" maxlength="7" style="flex: 1; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; font-family: monospace;">
+                                            <input type="color" name="textColor" value="#C5C6C7" style="width: 50px; height: 35px; border: 1px solid ${currentTheme.gridColor || '#ddd'}; border-radius: 4px; cursor: pointer; background: ${isDarkTheme ? currentTheme.chartAreaBackground || '#2c2c2c' : 'white'}; padding: 2px;">
+                                            <input type="text" name="textColor_hex" value="#C5C6C7" maxlength="7" style="flex: 1; padding: 8px 12px; border: 1px solid ${currentTheme.gridColor || '#ddd'}; border-radius: 4px; font-size: 14px; font-family: monospace; background: ${isDarkTheme ? currentTheme.chartAreaBackground || '#2c2c2c' : 'white'}; color: ${currentTheme.textColor || '#333'};">
                                         </div>
                                     </div>
                                     <div class="form-group">
-                                        <label for="gridColor" style="display: block; margin-bottom: 6px; color: #333; font-weight: 500; font-size: 14px;">Grid:</label>
+                                        <label for="gridColor" style="display: block; margin-bottom: 6px; color: ${currentTheme.textColor || '#333'}; font-weight: 500; font-size: 14px;">Grid:</label>
                                         <div style="display: flex; align-items: center; gap: 10px;">
-                                            <input type="color" name="gridColor" value="#4E4E50" style="width: 50px; height: 35px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; background: white; padding: 2px;">
-                                            <input type="text" name="gridColor_hex" value="#4E4E50" maxlength="7" style="flex: 1; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; font-family: monospace;">
+                                            <input type="color" name="gridColor" value="#4E4E50" style="width: 50px; height: 35px; border: 1px solid ${currentTheme.gridColor || '#ddd'}; border-radius: 4px; cursor: pointer; background: ${isDarkTheme ? currentTheme.chartAreaBackground || '#2c2c2c' : 'white'}; padding: 2px;">
+                                            <input type="text" name="gridColor_hex" value="#4E4E50" maxlength="7" style="flex: 1; padding: 8px 12px; border: 1px solid ${currentTheme.gridColor || '#ddd'}; border-radius: 4px; font-size: 14px; font-family: monospace; background: ${isDarkTheme ? currentTheme.chartAreaBackground || '#2c2c2c' : 'white'}; color: ${currentTheme.textColor || '#333'};">
                                         </div>
                                     </div>
                                     <div class="form-group">
-                                        <label for="lineColor" style="display: block; margin-bottom: 6px; color: #333; font-weight: 500; font-size: 14px;">Line:</label>
+                                        <label for="lineColor" style="display: block; margin-bottom: 6px; color: ${currentTheme.textColor || '#333'}; font-weight: 500; font-size: 14px;">Line:</label>
                                         <div style="display: flex; align-items: center; gap: 10px;">
-                                            <input type="color" name="lineColor" value="#66FCF1" style="width: 50px; height: 35px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; background: white; padding: 2px;">
-                                            <input type="text" name="lineColor_hex" value="#66FCF1" maxlength="7" style="flex: 1; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; font-family: monospace;">
+                                            <input type="color" name="lineColor" value="#66FCF1" style="width: 50px; height: 35px; border: 1px solid ${currentTheme.gridColor || '#ddd'}; border-radius: 4px; cursor: pointer; background: ${isDarkTheme ? currentTheme.chartAreaBackground || '#2c2c2c' : 'white'}; padding: 2px;">
+                                            <input type="text" name="lineColor_hex" value="#66FCF1" maxlength="7" style="flex: 1; padding: 8px 12px; border: 1px solid ${currentTheme.gridColor || '#ddd'}; border-radius: 4px; font-size: 14px; font-family: monospace; background: ${isDarkTheme ? currentTheme.chartAreaBackground || '#2c2c2c' : 'white'}; color: ${currentTheme.textColor || '#333'};">
                                         </div>
                                     </div>
                                     <div class="form-group">
-                                        <label for="positiveColor" style="display: block; margin-bottom: 6px; color: #333; font-weight: 500; font-size: 14px;">Positive:</label>
+                                        <label for="positiveColor" style="display: block; margin-bottom: 6px; color: ${currentTheme.textColor || '#333'}; font-weight: 500; font-size: 14px;">Positive:</label>
                                         <div style="display: flex; align-items: center; gap: 10px;">
-                                            <input type="color" name="positiveColor" value="#45A29E" style="width: 50px; height: 35px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; background: white; padding: 2px;">
-                                            <input type="text" name="positiveColor_hex" value="#45A29E" maxlength="7" style="flex: 1; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; font-family: monospace;">
+                                            <input type="color" name="positiveColor" value="#45A29E" style="width: 50px; height: 35px; border: 1px solid ${currentTheme.gridColor || '#ddd'}; border-radius: 4px; cursor: pointer; background: ${isDarkTheme ? currentTheme.chartAreaBackground || '#2c2c2c' : 'white'}; padding: 2px;">
+                                            <input type="text" name="positiveColor_hex" value="#45A29E" maxlength="7" style="flex: 1; padding: 8px 12px; border: 1px solid ${currentTheme.gridColor || '#ddd'}; border-radius: 4px; font-size: 14px; font-family: monospace; background: ${isDarkTheme ? currentTheme.chartAreaBackground || '#2c2c2c' : 'white'}; color: ${currentTheme.textColor || '#333'};">
                                         </div>
                                     </div>
                                     <div class="form-group">
-                                        <label for="negativeColor" style="display: block; margin-bottom: 6px; color: #333; font-weight: 500; font-size: 14px;">Negative:</label>
+                                        <label for="negativeColor" style="display: block; margin-bottom: 6px; color: ${currentTheme.textColor || '#333'}; font-weight: 500; font-size: 14px;">Negative:</label>
                                         <div style="display: flex; align-items: center; gap: 10px;">
-                                            <input type="color" name="negativeColor" value="#C5433D" style="width: 50px; height: 35px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; background: white; padding: 2px;">
-                                            <input type="text" name="negativeColor_hex" value="#C5433D" maxlength="7" style="flex: 1; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; font-family: monospace;">
+                                            <input type="color" name="negativeColor" value="#C5433D" style="width: 50px; height: 35px; border: 1px solid ${currentTheme.gridColor || '#ddd'}; border-radius: 4px; cursor: pointer; background: ${isDarkTheme ? currentTheme.chartAreaBackground || '#2c2c2c' : 'white'}; padding: 2px;">
+                                            <input type="text" name="negativeColor_hex" value="#C5433D" maxlength="7" style="flex: 1; padding: 8px 12px; border: 1px solid ${currentTheme.gridColor || '#ddd'}; border-radius: 4px; font-size: 14px; font-family: monospace; background: ${isDarkTheme ? currentTheme.chartAreaBackground || '#2c2c2c' : 'white'}; color: ${currentTheme.textColor || '#333'};">
                                         </div>
                                     </div>
                                     <div class="form-group">
-                                        <label for="candleUp" style="display: block; margin-bottom: 6px; color: #333; font-weight: 500; font-size: 14px;">Candle Up:</label>
+                                        <label for="candleUp" style="display: block; margin-bottom: 6px; color: ${currentTheme.textColor || '#333'}; font-weight: 500; font-size: 14px;">Candle Up:</label>
                                         <div style="display: flex; align-items: center; gap: 10px;">
-                                            <input type="color" name="candleUp" value="#45A29E" style="width: 50px; height: 35px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; background: white; padding: 2px;">
-                                            <input type="text" name="candleUp_hex" value="#45A29E" maxlength="7" style="flex: 1; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; font-family: monospace;">
+                                            <input type="color" name="candleUp" value="#45A29E" style="width: 50px; height: 35px; border: 1px solid ${currentTheme.gridColor || '#ddd'}; border-radius: 4px; cursor: pointer; background: ${isDarkTheme ? currentTheme.chartAreaBackground || '#2c2c2c' : 'white'}; padding: 2px;">
+                                            <input type="text" name="candleUp_hex" value="#45A29E" maxlength="7" style="flex: 1; padding: 8px 12px; border: 1px solid ${currentTheme.gridColor || '#ddd'}; border-radius: 4px; font-size: 14px; font-family: monospace; background: ${isDarkTheme ? currentTheme.chartAreaBackground || '#2c2c2c' : 'white'}; color: ${currentTheme.textColor || '#333'};">
                                         </div>
                                     </div>
                                     <div class="form-group">
-                                        <label for="candleDown" style="display: block; margin-bottom: 6px; color: #333; font-weight: 500; font-size: 14px;">Candle Down:</label>
+                                        <label for="candleDown" style="display: block; margin-bottom: 6px; color: ${currentTheme.textColor || '#333'}; font-weight: 500; font-size: 14px;">Candle Down:</label>
                                         <div style="display: flex; align-items: center; gap: 10px;">
-                                            <input type="color" name="candleDown" value="#C5433D" style="width: 50px; height: 35px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; background: white; padding: 2px;">
-                                            <input type="text" name="candleDown_hex" value="#C5433D" maxlength="7" style="flex: 1; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; font-family: monospace;">
+                                            <input type="color" name="candleDown" value="#C5433D" style="width: 50px; height: 35px; border: 1px solid ${currentTheme.gridColor || '#ddd'}; border-radius: 4px; cursor: pointer; background: ${isDarkTheme ? currentTheme.chartAreaBackground || '#2c2c2c' : 'white'}; padding: 2px;">
+                                            <input type="text" name="candleDown_hex" value="#C5433D" maxlength="7" style="flex: 1; padding: 8px 12px; border: 1px solid ${currentTheme.gridColor || '#ddd'}; border-radius: 4px; font-size: 14px; font-family: monospace; background: ${isDarkTheme ? currentTheme.chartAreaBackground || '#2c2c2c' : 'white'}; color: ${currentTheme.textColor || '#333'};">
                                         </div>
                                     </div>
                                 </div>
@@ -1355,21 +1381,22 @@ _getTouchCoordinates(touch) {
                 ${this.indicators.map((indicator, index) => `
                     <div id="${indicator.id}-tab" class="tab-pane" style="display: none;">
                         <div class="indicator-settings">
-                            <h4 style="margin: 0 0 20px 0; color: #333; font-size: 16px;">${indicator.name} Settings</h4>
+                            <h4 style="margin: 0 0 20px 0; color: ${currentTheme.textColor || '#333'}; font-size: 16px;">${indicator.name} Settings</h4>
                             
                             <form class="settings-form" data-indicator="${indicator.id}">
                                 ${indicator.settings.map(setting => {
                                     if (setting.type === 'select') {
                                         return `
                                             <div class="form-group" style="margin-bottom: 16px;">
-                                                <label style="display: block; margin-bottom: 6px; color: #333; font-weight: 500; font-size: 14px;">${setting.label}</label>
+                                                <label style="display: block; margin-bottom: 6px; color: ${currentTheme.textColor || '#333'}; font-weight: 500; font-size: 14px;">${setting.label}</label>
                                                 <select name="${setting.key}" style="
                                                     width: 100%;
                                                     padding: 8px 12px;
-                                                    border: 1px solid #ddd;
+                                                    border: 1px solid ${currentTheme.gridColor || '#ddd'};
                                                     border-radius: 4px;
                                                     font-size: 14px;
-                                                    background: white;
+                                                    background: ${isDarkTheme ? currentTheme.chartAreaBackground || '#2c2c2c' : 'white'};
+                                                    color: ${currentTheme.textColor || '#333'};
                                                 ">
                                                     ${setting.options.map(option => `
                                                         <option value="${option.value}" ${option.value === setting.default ? 'selected' : ''}>${option.label}</option>
@@ -1380,7 +1407,7 @@ _getTouchCoordinates(touch) {
                                     } else if (setting.type === 'color') {
                                         return `
                                             <div class="form-group" style="margin-bottom: 16px;">
-                                                <label style="display: block; margin-bottom: 6px; color: #333; font-weight: 500; font-size: 14px;">${setting.label}</label>
+                                                <label style="display: block; margin-bottom: 6px; color: ${currentTheme.textColor || '#333'}; font-weight: 500; font-size: 14px;">${setting.label}</label>
                                                 <div style="display: flex; align-items: center; gap: 10px;">
                                                     <input 
                                                         type="color" 
@@ -1390,10 +1417,10 @@ _getTouchCoordinates(touch) {
                                                         style="
                                                             width: 50px;
                                                             height: 35px;
-                                                            border: 1px solid #ddd;
+                                                            border: 1px solid ${currentTheme.gridColor || '#ddd'};
                                                             border-radius: 4px;
                                                             cursor: pointer;
-                                                            background: white;
+                                                            background: ${isDarkTheme ? currentTheme.chartAreaBackground || '#2c2c2c' : 'white'};
                                                             padding: 2px;
                                                         "
                                                     />
@@ -1406,16 +1433,18 @@ _getTouchCoordinates(touch) {
                                                         style="
                                                             flex: 1;
                                                             padding: 8px 12px;
-                                                            border: 1px solid #ddd;
+                                                            border: 1px solid ${currentTheme.gridColor || '#ddd'};
                                                             border-radius: 4px;
                                                             font-size: 14px;
                                                             font-family: monospace;
                                                             box-sizing: border-box;
+                                                            background: ${isDarkTheme ? currentTheme.chartAreaBackground || '#2c2c2c' : 'white'};
+                                                            color: ${currentTheme.textColor || '#333'};
                                                         "
                                                     />
                                                     ${setting.opacity ? `
                                                         <div style="display: flex; align-items: center; gap: 5px; min-width: 80px;">
-                                                            <label style="font-size: 12px; color: #666;">Opacity:</label>
+                                                            <label style="font-size: 12px; color: ${isDarkTheme ? '#aaa' : '#666'};">Opacity:</label>
                                                             <input 
                                                                 type="range" 
                                                                 name="${setting.key}_opacity"
@@ -1425,7 +1454,7 @@ _getTouchCoordinates(touch) {
                                                                 value="0.3"
                                                                 style="width: 60px;"
                                                             />
-                                                            <span class="opacity-value" style="font-size: 11px; color: #666; min-width: 25px;">0.3</span>
+                                                            <span class="opacity-value" style="font-size: 11px; color: ${isDarkTheme ? '#aaa' : '#666'}; min-width: 25px;">0.3</span>
                                                         </div>
                                                     ` : ''}
                                                 </div>
@@ -1434,7 +1463,7 @@ _getTouchCoordinates(touch) {
                                     } else {
                                         return `
                                             <div class="form-group" style="margin-bottom: 16px;">
-                                                <label style="display: block; margin-bottom: 6px; color: #333; font-weight: 500; font-size: 14px;">${setting.label}</label>
+                                                <label style="display: block; margin-bottom: 6px; color: ${currentTheme.textColor || '#333'}; font-weight: 500; font-size: 14px;">${setting.label}</label>
                                                 <input 
                                                     type="${setting.type}" 
                                                     name="${setting.key}" 
@@ -1446,10 +1475,12 @@ _getTouchCoordinates(touch) {
                                                     style="
                                                         width: 100%;
                                                         padding: 8px 12px;
-                                                        border: 1px solid #ddd;
+                                                        border: 1px solid ${currentTheme.gridColor || '#ddd'};
                                                         border-radius: 4px;
                                                         font-size: 14px;
                                                         box-sizing: border-box;
+                                                        background: ${isDarkTheme ? currentTheme.chartAreaBackground || '#2c2c2c' : 'white'};
+                                                        color: ${currentTheme.textColor || '#333'};
                                                     "
                                                 />
                                             </div>
@@ -1471,8 +1502,8 @@ _getTouchCoordinates(touch) {
                                 </div>
                             </form>
                             
-                            <div class="active-instances" style="margin-top: 24px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
-                                <h5 style="margin: 0 0 12px 0; color: #333; font-size: 14px;">Active ${indicator.name} Instances</h5>
+                            <div class="active-instances" style="margin-top: 24px; padding-top: 20px; border-top: 1px solid ${currentTheme.gridColor || '#e0e0e0'};">
+                                <h5 style="margin: 0 0 12px 0; color: ${currentTheme.textColor || '#333'}; font-size: 14px;">Active ${indicator.name} Instances</h5>
                                 <div id="${indicator.id}-instances" class="instances-list">
                                     <!-- Active instances will be populated here -->
                                 </div>
@@ -1484,8 +1515,8 @@ _getTouchCoordinates(touch) {
             
             <div class="modal-footer" style="
                 padding: 16px 20px;
-                border-top: 1px solid #e0e0e0;
-                background-color: #f8f9fa;
+                border-top: 1px solid ${currentTheme.gridColor || '#e0e0e0'};
+                background-color: ${isDarkTheme ? currentTheme.chartAreaBackground || '#2c2c2c' : '#f8f9fa'};
                 display: flex;
                 justify-content: center;
                 align-items: center;
@@ -1586,11 +1617,15 @@ _getTouchCoordinates(touch) {
         
         mainTabBtns.forEach(btn => {
             btn.addEventListener('click', () => {
+                const currentTheme = this.stockChart.currentTheme;
+                const isDarkTheme = currentTheme.name === 'dark' ||
+                                   (currentTheme.background && isDarkColor(currentTheme.background));
+                
                 // Remove active class from all main tabs and groups
                 mainTabBtns.forEach(b => {
                     b.classList.remove('active');
                     b.style.background = 'transparent';
-                    b.style.color = '#666';
+                    b.style.color = isDarkTheme ? '#aaa' : '#666';
                     b.style.borderBottomColor = 'transparent';
                 });
                 tabGroups.forEach(group => {
@@ -1607,14 +1642,14 @@ _getTouchCoordinates(touch) {
                 dialog.querySelectorAll('.tab-btn').forEach(tabBtn => {
                     tabBtn.classList.remove('active');
                     tabBtn.style.background = 'transparent';
-                    tabBtn.style.color = '#666';
+                    tabBtn.style.color = isDarkTheme ? '#aaa' : '#666';
                     tabBtn.style.borderBottomColor = 'transparent';
                 });
 
                 // Add active class to clicked main tab
                 btn.classList.add('active');
-                btn.style.background = 'white';
-                btn.style.color = '#333';
+                btn.style.background = isDarkTheme ? currentTheme.chartAreaBackground || '#2c2c2c' : 'white';
+                btn.style.color = currentTheme.textColor || '#333';
                 btn.style.borderBottomColor = '#007bff';
 
                 // Show corresponding group and activate its first tab
@@ -1629,8 +1664,8 @@ _getTouchCoordinates(touch) {
                     const firstTabId = firstTabBtn?.dataset.tab;
                     if (firstTabBtn && firstTabId) {
                         firstTabBtn.classList.add('active');
-                        firstTabBtn.style.background = 'white';
-                        firstTabBtn.style.color = '#333';
+                        firstTabBtn.style.background = isDarkTheme ? currentTheme.chartAreaBackground || '#2c2c2c' : 'white';
+                        firstTabBtn.style.color = currentTheme.textColor || '#333';
                         firstTabBtn.style.borderBottomColor = '#007bff';
 
                         const firstTabPane = dialog.querySelector(`#${firstTabId}-tab`);
@@ -1654,6 +1689,9 @@ _getTouchCoordinates(touch) {
 
         tabBtns.forEach(btn => {
             btn.addEventListener('click', () => {
+                const currentTheme = this.stockChart.currentTheme;
+                const isDarkTheme = currentTheme.name === 'dark' ||
+                                   (currentTheme.background && isDarkColor(currentTheme.background));
                 // Find the parent group
                 const parentGroup = btn.closest('.tab-group');
                 if (!parentGroup) return;
@@ -1671,14 +1709,14 @@ _getTouchCoordinates(touch) {
                 groupTabBtns.forEach(b => {
                     b.classList.remove('active');
                     b.style.background = 'transparent';
-                    b.style.color = '#666';
+                    b.style.color = isDarkTheme ? '#aaa' : '#666';
                     b.style.borderBottomColor = 'transparent';
                 });
 
                 // Add active class to clicked tab
                 btn.classList.add('active');
-                btn.style.background = 'white';
-                btn.style.color = '#333';
+                btn.style.background = isDarkTheme ? currentTheme.chartAreaBackground || '#2c2c2c' : 'white';
+                btn.style.color = currentTheme.textColor || '#333';
                 btn.style.borderBottomColor = '#007bff';
                 
                 // Show only the target pane

@@ -62,7 +62,21 @@ export class PlotLayoutManager {
         const nonOverlayPlots = this.plotConfigs.filter(p => !p.overlay);
         const totalRatio = nonOverlayPlots.reduce((sum, p) => sum + p.heightRatio, 0);
 
-        this.plotConfigs.forEach(config => {
+        // Sort plots to ensure consistent order: main plot first, volume plot second, then other indicators
+        const sortedConfigs = [...this.plotConfigs].sort((a, b) => {
+            // Main plot always comes first
+            if (a.id === 'main') return -1;
+            if (b.id === 'main') return 1;
+            
+            // Volume plot comes second
+            if (a.id === 'volume') return -1;
+            if (b.id === 'volume') return 1;
+            
+            // Maintain original order for other plots
+            return 0;
+        });
+
+        sortedConfigs.forEach(config => {
             if (config.overlay) {
                 // An overlay plot should be drawn on top of a main plot.
                 // Find the main plot's layout and assign it to the overlay plot.

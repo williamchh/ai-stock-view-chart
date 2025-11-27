@@ -733,7 +733,7 @@ class StockChart {
         // this.ctx.fillText(`Canvas: ${this.canvas.width}x${this.canvas.height}`, 20, 60);
 
         // Draw crosshair if not in drawing mode
-        if (this.crosshairX !== -1 && this.crosshairY !== -1 && !this.activeDrawingTool) {
+        if (this.crosshairX !== -1 && this.crosshairY !== -1 && !this.activeDrawingTool && !this.drawingPanel.isEditing) {
             this.ctx.strokeStyle = this.currentTheme.crosshairColor;
             this.ctx.lineWidth = 1;
             this.ctx.setLineDash([5, 5]); // Dashed line
@@ -931,10 +931,11 @@ class StockChart {
         }
         
         // Then check if clicking on a resize handle
-        for (let i = 0; i < this.options.plots.length - 1; i++) {
-            const plot = this.options.plots[i];
-            if (!plot.overlay) {
-                const layout = this.plotLayoutManager.getPlotLayout(plot.id);
+        const nonOverlayPlots = this.options.plots.filter(p => !p.overlay);
+        for (let i = 0; i < nonOverlayPlots.length - 1; i++) {
+            const plot = nonOverlayPlots[i];
+            const layout = this.plotLayoutManager.getPlotLayout(plot.id);
+            if (layout) {
                 const handleY = layout.y + layout.height;
                 if (Math.abs(mouseY - handleY) < this.resizeHandleHeight) {
                     this.isResizingPlot = true;
@@ -1014,15 +1015,13 @@ class StockChart {
             this.lastMouseY = event.clientY;
 
             // Find the plot being resized and the next plot
-            const plotIndex = this.options.plots.findIndex(p => p.id === this.resizingPlotId);
+            const nonOverlayPlots = this.options.plots.filter(p => !p.overlay);
+            const plotIndex = nonOverlayPlots.findIndex(p => p.id === this.resizingPlotId);
             let nextPlotIndex = plotIndex + 1;
-            while (nextPlotIndex < this.options.plots.length && this.options.plots[nextPlotIndex].overlay) {
-                nextPlotIndex++;
-            }
-
-            if (plotIndex >= 0 && nextPlotIndex < this.options.plots.length) {
-                const plot = this.options.plots[plotIndex];
-                const nextPlot = this.options.plots[nextPlotIndex];
+            
+            if (plotIndex >= 0 && nextPlotIndex < nonOverlayPlots.length) {
+                const plot = nonOverlayPlots[plotIndex];
+                const nextPlot = nonOverlayPlots[nextPlotIndex];
                 
                 // Calculate new height ratios
                 const totalRatio = plot.heightRatio + nextPlot.heightRatio;
@@ -1057,8 +1056,8 @@ class StockChart {
             let specialCursor = false;
             // Use dynamic Y-axis width
             const yAxisWidth = this.plotLayoutManager.yAxisWidth || this.calculateYAxisWidth();
-            for (const plot of this.options.plots) {
-                if (plot.overlay) continue;
+            const nonOverlayPlots = this.options.plots.filter(p => !p.overlay);
+            for (const plot of nonOverlayPlots) {
                 const layout = this.plotLayoutManager.getPlotLayout(plot.id);
                 if (layout) {
                     // Check resize handle
@@ -1540,15 +1539,13 @@ class StockChart {
                 const deltaY = touchY - this.lastTouchY;
                 this.lastTouchY = touchY;
 
-                const plotIndex = this.options.plots.findIndex(p => p.id === this.resizingPlotId);
+                const nonOverlayPlots = this.options.plots.filter(p => !p.overlay);
+                const plotIndex = nonOverlayPlots.findIndex(p => p.id === this.resizingPlotId);
                 let nextPlotIndex = plotIndex + 1;
-                while (nextPlotIndex < this.options.plots.length && this.options.plots[nextPlotIndex].overlay) {
-                    nextPlotIndex++;
-                }
-
-                if (plotIndex >= 0 && nextPlotIndex < this.options.plots.length) {
-                    const plot = this.options.plots[plotIndex];
-                    const nextPlot = this.options.plots[nextPlotIndex];
+                
+                if (plotIndex >= 0 && nextPlotIndex < nonOverlayPlots.length) {
+                    const plot = nonOverlayPlots[plotIndex];
+                    const nextPlot = nonOverlayPlots[nextPlotIndex];
                     
                     const totalRatio = plot.heightRatio + nextPlot.heightRatio;
                     const plotLayout = this.plotLayoutManager.getPlotLayout(plot.id);
@@ -1723,15 +1720,19 @@ class StockChart {
 
         // Helper function to format date based on range and available space
         const formatDate = (date) => {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0'); // getMonth() returns 0-11
+            const day = String(date.getDate()).padStart(2, '0');
+            
             if (Math.abs(daysDiff) > 365) {
                 // For ranges over a year
-                return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short' });
+                return `${year}/${date.toLocaleDateString(undefined, { month: 'short' })}`;
             } else if (Math.abs(daysDiff) > 30) {
                 // For ranges over a month
-                return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+                return `${year}/${month}/${day}`;
             } else {
                 // For shorter ranges
-                return date.toLocaleDateString(undefined, { month: 'numeric', day: 'numeric' });
+                return `${year}/${month}/${day}`;
             }
         };
 
@@ -1752,7 +1753,10 @@ class StockChart {
             );
 
             const date = new Date(dataPoint.time * 1000);
-            const label = date.toLocaleDateString(undefined, { year: 'numeric', month: 'numeric', day: 'numeric' });
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0'); // getMonth() returns 0-11
+            const day = String(date.getDate()).padStart(2, '0');
+            const label = `${year}/${month}/${day}`;
             
             const labelX = mainPlotLayout.x + x + barWidth / 2;
             // Only draw if the label would be within the plot area
@@ -2115,11 +2119,10 @@ class StockChart {
                 // Show date at the bottom of crosshair
                 if (plotConfig.id === 'main' && dataPoint.time !== undefined) {
                     const date = new Date(dataPoint.time * 1000);
-                    const dateText = date.toLocaleDateString(undefined, { 
-                        year: 'numeric', 
-                        month: 'numeric', 
-                        day: 'numeric'
-                    });
+                    const year = date.getFullYear();
+                    const month = String(date.getMonth() + 1).padStart(2, '0'); // getMonth() returns 0-11
+                    const day = String(date.getDate()).padStart(2, '0');
+                    const dateText = `${year}/${month}/${day}`;
                     this.ctx.textAlign = 'center';
                     this.ctx.textBaseline = 'middle';
                     // Position the date text 5 pixels below the bottom of the plot area
@@ -2181,11 +2184,10 @@ class StockChart {
 
                                     if (key === 'time' && isMainPlot) {
                                         const date = new Date(value * 1000);
-                                        formattedValue = date.toLocaleDateString(undefined, { 
-                                            year: 'numeric', 
-                                            month: 'numeric', 
-                                            day: 'numeric' 
-                                        });
+                                        const year = date.getFullYear();
+                                        const month = String(date.getMonth() + 1).padStart(2, '0'); // getMonth() returns 0-11
+                                        const day = String(date.getDate()).padStart(2, '0');
+                                        formattedValue = `${year}/${month}/${day}`;
                                         return `${formattedValue}`;
                                     }
 

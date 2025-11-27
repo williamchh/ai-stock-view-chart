@@ -1776,12 +1776,16 @@ _getTouchCoordinates(touch) {
         // Close functionality
         dialog.querySelector('#close-indicator-settings').addEventListener('click', () => {
             document.body.removeChild(overlay);
+            // Reset drawing states to ensure crosshair works
+            this.resetDrawingStates();
         });
 
         // Close on overlay click
         overlay.addEventListener('click', (e) => {
             if (e.target === overlay) {
                 document.body.removeChild(overlay);
+                // Reset drawing states to ensure crosshair works
+                this.resetDrawingStates();
             }
         });
 
@@ -2298,29 +2302,44 @@ _getTouchCoordinates(touch) {
             
             const removedPlotIds = [plotToRemove.id, ...relatedPlots.map(p => p.id)];
             
-            const plot = this.stockChart.options.plots.find(p => p.id === plotId);
+            // Remove all plots at once
             this.stockChart.options.plots = this.stockChart.options.plots.filter(plot => !removedPlotIds.includes(plot.id));
-            // this.stockChart.plotLayoutManager.calculateLayout();
-            // @ts-ignore
-            this.stockChart.plotLayoutManager.updatePlotIndicator(plotToRemove, 'delete');
             
-            if (relatedPlots && relatedPlots.length) {
-                relatedPlots.forEach(p => {
-                    //@ts-ignore
-                    this.stockChart.plotLayoutManager.updatePlotIndicator(p, 'delete');
-                });
-            }
+            // Update the plot configurations in the layout manager
+            this.stockChart.plotLayoutManager.updatePlotConfigurations(this.stockChart.options.plots);
+            
+            // Recalculate layout and render once
+            this.stockChart.plotLayoutManager.calculateLayout();
             this.stockChart.render();
-            this.stockChart.options.plots = this.stockChart.options.plots.filter(
-                plot => !removedPlotIds.includes(plot.id)
-            );
             
-            if (plot && plot.indicator) {
+            if (plotToRemove && plotToRemove.indicator) {
                 // Remove indicator settings from local storage
                 const savedIndicators = JSON.parse(localStorage.getItem('asv-chart-indicator-settings')) || [];
-                const updatedIndicators = savedIndicators.filter(i => i.id !== plot.indicator.id);
+                const updatedIndicators = savedIndicators.filter(i => i.id !== plotToRemove.indicator.id);
                 localStorage.setItem('asv-chart-indicator-settings', JSON.stringify(updatedIndicators));
             }
+        }
+    }
+
+     /**
+     * Reset drawing states to ensure crosshair works properly
+     */
+    resetDrawingStates() {
+        this.isDrawing = false;
+        this.selectedDrawing = null;
+        this.selectedPoint = null;
+        this.isEditing = false;
+        this._isChartFrozen = false;
+        this.currentDrawing = null;
+        
+        // Also reset the stock chart's drawing tool
+        if (this.stockChart && this.stockChart.setDrawingTool) {
+            this.stockChart.setDrawingTool(null);
+        }
+        
+        // Trigger a render to update the chart
+        if (this.stockChart && this.stockChart.render) {
+            this.stockChart.render();
         }
     }
 

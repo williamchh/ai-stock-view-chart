@@ -1957,6 +1957,11 @@ _getTouchCoordinates(touch) {
                     renderInstances.push(instance);
                 }
             });
+
+            const backgroundColor = isDarkColor ? '#333' : '#f9f9f9';
+            const borderColor = isDarkColor ? '#555' : '#e0e0e0';
+            const textColor = isDarkColor ? '#f9f9f9' : '#333';
+            const subTextColor = isDarkColor ? '#bbb' : '#666';
             // For single-plot indicators, show all instances
             instancesContainer.innerHTML = renderInstances.map(instance => `
                 <div class="instance-item" style="
@@ -1964,17 +1969,17 @@ _getTouchCoordinates(touch) {
                     align-items: center;
                     justify-content: space-between;
                     padding: 10px 12px;
-                    border: 1px solid #e0e0e0;
+                    border: 1px solid ${borderColor};
                     border-radius: 4px;
                     margin-bottom: 8px;
-                    background: #f9f9f9;
+                    background: ${backgroundColor};
                 ">
                     <div style="flex: 1;">
-                        <div style="font-weight: 500; color: #333; font-size: 13px; display: flex; align-items: center; gap: 8px;">
+                        <div style="font-weight: 500; color: ${textColor}; font-size: 13px; display: flex; align-items: center; gap: 8px;">
                             ${instance.name}
                             ${this.getColorIndicatorsForInstance(instance)}
                         </div>
-                        <div style="color: #666; font-size: 11px;">${this.formatInstances(instance)}</div>
+                        <div style="color: ${subTextColor}; font-size: 11px;">${this.formatInstances(instance)}</div>
                     </div>
                     <div style="display: flex; gap: 6px;">
                         <button class="edit-instance-btn" data-plot-id="${instance.plotId}" style="

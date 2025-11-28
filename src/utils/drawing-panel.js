@@ -689,13 +689,17 @@ _getTouchCoordinates(touch) {
 
     /**
      * Clear all drawings
+     * @param {boolean} removeFromDb - Whether to also remove from IndexedDB
      */
-    async clearDrawings() {
+    async clearDrawings(removeFromDb = false) {
         this.drawings = [];
         this.currentDrawing = null;
         this.isDrawing = false;
         this.selectedDrawing = null;
         
+        if (!removeFromDb) {
+            return;
+        }
         // Also clear from IndexedDB
         try {
             const chartName = this.stockChart.options?.chartName;

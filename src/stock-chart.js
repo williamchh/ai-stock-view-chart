@@ -577,6 +577,7 @@ class StockChart {
                     this.drawingPanel.isEditing = false;
                     this.drawingPanel._isChartFrozen = false;
                     this.render();
+                    this.drawingPanel.saveDrawingsToIndexedDB();
                 }
             }
         }
@@ -2415,7 +2416,8 @@ class StockChart {
      * Clear all drawings from the chart
      */
     clearDrawings() {
-        this.drawingPanel.clearDrawings();
+        const removeFromDb = true;
+        this.drawingPanel.clearDrawings(removeFromDb);
         this.render();
     }
 

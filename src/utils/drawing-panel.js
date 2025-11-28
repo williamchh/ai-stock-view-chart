@@ -160,7 +160,7 @@ _getTouchCoordinates(touch) {
      * @param {string} tool - The tool to activate (null to disable drawing)
      */
     setActiveTool(tool) {
-        console.log('setActiveTool', tool);
+
         if (tool === 'settings') {
             this.showIndicatorSettings();
             return;
@@ -2323,8 +2323,6 @@ _getTouchCoordinates(touch) {
     }   
 
     previewIndicator(indicatorId, settings) {
-        // Implement preview functionality - could show a temporary overlay or highlight
-        console.log(`Previewing ${indicatorId} with settings:`, settings);
         
         // Example: Show an alert with the configuration
         const settingsText = Object.entries(settings)

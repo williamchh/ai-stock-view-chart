@@ -2378,7 +2378,7 @@ class StockChart {
             const buttons = this.toolbar.querySelectorAll('button');
             buttons.forEach(button => {
                 const isSelectTool = button.title === 'Select Tool';
-                console.log(`title ${button.title}, tool ${tool}`)
+
                 // Only highlight the select tool when tool is null, or highlight the specific active tool
                 if (tool === null) {
                     button.style.backgroundColor = isSelectTool ? 

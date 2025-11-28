@@ -1534,11 +1534,11 @@ class StockChart {
                 this.plotScales.set(this.resizingPlotId, plotScale);
                 
                 this.render();
-            } else if (this.isResizingPlot && this.resizingPlotId) {
-                // Handle plot resize
+            } else if (this.isResizingPlot) {
                 const deltaY = touchY - this.lastTouchY;
                 this.lastTouchY = touchY;
 
+                // Find the plot being resized and the next plot
                 const nonOverlayPlots = this.options.plots.filter(p => !p.overlay);
                 const plotIndex = nonOverlayPlots.findIndex(p => p.id === this.resizingPlotId);
                 let nextPlotIndex = plotIndex + 1;
@@ -1547,17 +1547,22 @@ class StockChart {
                     const plot = nonOverlayPlots[plotIndex];
                     const nextPlot = nonOverlayPlots[nextPlotIndex];
                     
+                    // Calculate new height ratios
                     const totalRatio = plot.heightRatio + nextPlot.heightRatio;
                     const plotLayout = this.plotLayoutManager.getPlotLayout(plot.id);
                     const pixelsPerRatio = plotLayout.height / plot.heightRatio;
                     const ratioChange = deltaY / pixelsPerRatio;
                     
+                    // Ensure minimum height for both plots (10% of their combined height)
                     const minRatio = totalRatio * 0.1;
                     const newRatio = Math.max(minRatio, Math.min(totalRatio - minRatio, plot.heightRatio + ratioChange));
                     
                     plot.heightRatio = newRatio;
                     nextPlot.heightRatio = totalRatio - newRatio;
+
+                    this.plotLayoutManager.calculateLayout();
                     
+                    // Recalculate layout and render
                     this.resize();
                     this.render();
                 }

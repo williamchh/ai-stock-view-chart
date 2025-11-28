@@ -93,7 +93,7 @@ export class DrawingPanel {
         
         // Drawing styles
         this.defaultStyles = {
-            line: {
+            'trend-line': {
                 strokeStyle: '#ff6b35',
                 lineWidth: 2,
                 fillStyle: 'rgba(255, 107, 53, 0.1)'
@@ -113,7 +113,7 @@ export class DrawingPanel {
                 lineWidth: 2,
                 fillStyle: 'rgba(255, 107, 53, 0.1)'
             },
-            fibonacci: {
+            'fibonacci-retrace': {
                 strokeStyle: stockChart.options.theme === 'dark' ? '#ffffffc5' : '#000000a9',
                 lineWidth: 1,
                 fillStyle: 'rgba(76, 175, 80, 0.1)'
@@ -227,13 +227,13 @@ _getTouchCoordinates(touch) {
 
         // Create the appropriate drawing item
         switch (type) {
-            case 'line':
+            case 'trend-line':
                 this.currentDrawing = new LineDrawing(barWidth);
                 break;
             case 'rectangle':
                 this.currentDrawing = new RectangleDrawing();
                 break;
-            case 'fibonacci':
+            case 'fibonacci-retrace':
                 this.currentDrawing = new FibonacciDrawing(this.stockChart.options.theme);
                 break;
             case 'fibonacci-zoon':
@@ -731,7 +731,7 @@ _getTouchCoordinates(touch) {
         ctx.save();
         
         switch (type) {
-            case 'line':
+            case 'trend-line':
             case 'horizontal-line':
             case 'vertical-line':
                 this.renderLine(ctx, points, style, type);
@@ -739,7 +739,7 @@ _getTouchCoordinates(touch) {
             case 'rectangle':
                 this.renderRectangle(ctx, points, style);
                 break;
-            case 'fibonacci':
+            case 'fibonacci-retrace':
             case 'fibonacci-zoon':
                 const times = this.stockChart.dataViewport.getVisibleStartEndTime();
                 drawing.draw(ctx, 
@@ -936,11 +936,11 @@ _getTouchCoordinates(touch) {
 
         // Check if point is near the drawing based on its type
         switch (drawing.type) {
-            case 'line':
+            case 'trend-line':
                 return this.isPointNearLine(x, y, screenPoints, 10); // 10px threshold
             case 'rectangle':
                 return this.isPointInRectangle(x, y, screenPoints);
-            case 'fibonacci':
+            case 'fibonacci-retrace':
                 return this.isPointNearLine(x, y, screenPoints, 10); // Handle like a line
             default:
                 return false;

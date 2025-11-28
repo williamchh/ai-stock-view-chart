@@ -120,12 +120,12 @@ class LineDrawing extends DrawingItem {
      * @param {number} barWidth - The width of each bar/candle in pixels
      * @param {string} type - The type of line ('line', 'horizontal-line', or 'vertical-line')
      */
-    constructor(barWidth, type = 'line') {
+    constructor(barWidth, type = 'trend-line') {
         super(type);
         this.barWidth = barWidth;
         this.constraint = type === 'horizontal-line' ? 'horizontal' :
                          type === 'vertical-line' ? 'vertical' :
-                         'line';
+                         'trend-line';
     }
 
     draw(ctx, plotLayout, viewport, minPrice, maxPrice, currentTheme, startEndTimes) {
@@ -237,7 +237,7 @@ class RectangleDrawing extends DrawingItem {
  */
 class FibonacciDrawing extends DrawingItem {
     constructor(theme) {
-        super('fibonacci');
+        super('fibonacci-retrace');
         // Fibonacci levels (0%, 23.6%, 38.2%, 61.8%, 100%, 161.8%, 200%, 261.8%, 361.8%, 423.6%)
         this.levels = [0, 0.236, 0.382, 0.618, 1, 1.618, 2, 2.618, 3.618, 4.236];
         this.style.strokeStyle = theme === 'dark' ? '#FFFFFF' : '#000000';

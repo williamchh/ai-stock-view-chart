@@ -122,6 +122,9 @@ class StockChart {
         this.drawingPanel = new DrawingPanel(this);
         this.activeDrawingTool = null;
         this.eligibleMainPlotKeys = ['time', 'open', 'high', 'low', 'close'];
+        
+        // Load existing drawings from IndexedDB after initialization
+        this.loadDrawingsFromIndexedDB();
 
         this.canvas.addEventListener('mousedown', this.handleMouseDown.bind(this));
         this.canvas.addEventListener('mousemove', this.handleMouseMove.bind(this));
@@ -157,6 +160,19 @@ class StockChart {
         this.resizeObserver.observe(this.container);
 
         this.applyTheme(this.options.theme);
+    }
+
+    /**
+     * Load existing drawings from IndexedDB
+     */
+    async loadDrawingsFromIndexedDB() {
+        try {
+            if (this.drawingPanel && typeof this.drawingPanel.loadDrawingsFromIndexedDB === 'function') {
+                await this.drawingPanel.loadDrawingsFromIndexedDB();
+            }
+        } catch (error) {
+            console.error('Failed to load drawings from IndexedDB:', error);
+        }
     }
 
     loadIndicatorSettings() {
@@ -2310,8 +2326,12 @@ class StockChart {
      * Updates the chart name information
      * @param {import('./stock-chart.d.ts').ChartName} chartName - The new chart name information
      */
-    updateChartName(chartName) {
+    async updateChartName(chartName) {
         this.options.chartName = chartName;
+        
+        // Load drawings for the new chart name
+        await this.loadDrawingsFromIndexedDB();
+        
         this.render();
     }
 

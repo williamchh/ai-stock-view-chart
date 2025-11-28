@@ -25,7 +25,7 @@ import { calculateBollingerBands, calculateDeMarker, calculateEMA, calculateMACD
 import { DataViewport, getXPixel } from './data.js';
 import { DrawingItem, LineDrawing, RectangleDrawing, FibonacciDrawing, FibonacciZoonDrawing } from './drawing-item.js';
 import { PlotLayoutManager } from './layout.js';
-;
+import { indexedDBHelper } from './indexeddb-helper.js';
 /**
  * @typedef {Object} StockChart
  * @property {HTMLCanvasElement} canvas - The chart canvas element.
@@ -396,6 +396,8 @@ _getTouchCoordinates(touch) {
         if (this.isEditing) {
             // Keep editing mode active, just release the point being edited
             this.selectedPoint = null;
+            // Save drawings after editing
+            this.saveDrawingsToIndexedDB();
         } else if (this.isDrawing && this.currentDrawing && this.currentDrawing.points.length >= 2) {
             // Complete new drawing
             this.drawings.push(this.currentDrawing);
@@ -413,6 +415,82 @@ _getTouchCoordinates(touch) {
             if (this.stockChart && typeof this.stockChart.setDrawingTool === 'function') {
                 this.stockChart.setDrawingTool(null);
             }
+            
+            // Save drawings to IndexedDB
+            this.saveDrawingsToIndexedDB();
+        }
+    }
+
+    /**
+     * Save all drawings to IndexedDB
+     */
+    async saveDrawingsToIndexedDB() {
+        try {
+            const chartName = this.stockChart.options?.chartName;
+            if (!chartName) {
+                console.warn('No chart name provided, skipping save to IndexedDB');
+                return;
+            }
+
+            // Convert drawings to JSON format
+            const drawingsJSON = this.drawings.map(drawing => drawing.toJSON());
+            
+            await indexedDBHelper.saveDrawings(chartName, drawingsJSON);
+        } catch (error) {
+            console.error('Failed to save drawings to IndexedDB:', error);
+        }
+    }
+
+    /**
+     * Load drawings from IndexedDB
+     */
+    async loadDrawingsFromIndexedDB() {
+        try {
+            const chartName = this.stockChart.options?.chartName;
+            if (!chartName) {
+                console.warn('No chart name provided, skipping load from IndexedDB');
+                return;
+            }
+
+            const drawingsJSON = await indexedDBHelper.loadDrawings(chartName);
+            
+            // Clear existing drawings
+            this.drawings = [];
+            
+            // Recreate drawing objects from JSON
+            drawingsJSON.forEach(drawingJSON => {
+                let drawing;
+                
+                switch (drawingJSON.type) {
+                    case 'trend-line':
+                    case 'horizontal-line':
+                    case 'vertical-line':
+                        drawing = new LineDrawing(10, drawingJSON.type); // barWidth will be updated dynamically
+                        break;
+                    case 'rectangle':
+                        drawing = new RectangleDrawing();
+                        break;
+                    case 'fibonacci-retrace':
+                        drawing = new FibonacciDrawing(this.stockChart.options.theme);
+                        break;
+                    case 'fibonacci-zoon':
+                        drawing = new FibonacciZoonDrawing(this.stockChart.options.theme, 10); // barWidth will be updated dynamically
+                        break;
+                    default:
+                        console.warn('Unknown drawing type:', drawingJSON.type);
+                        return;
+                }
+                
+                drawing.fromJSON(drawingJSON);
+                this.drawings.push(drawing);
+            });
+            
+            // Re-render the chart to show loaded drawings
+            if (this.stockChart) {
+                this.stockChart.render();
+            }
+        } catch (error) {
+            console.error('Failed to load drawings from IndexedDB:', error);
         }
     }
 
@@ -612,11 +690,21 @@ _getTouchCoordinates(touch) {
     /**
      * Clear all drawings
      */
-    clearDrawings() {
+    async clearDrawings() {
         this.drawings = [];
         this.currentDrawing = null;
         this.isDrawing = false;
         this.selectedDrawing = null;
+        
+        // Also clear from IndexedDB
+        try {
+            const chartName = this.stockChart.options?.chartName;
+            if (chartName) {
+                await indexedDBHelper.saveDrawings(chartName, []);
+            }
+        } catch (error) {
+            console.error('Failed to clear drawings from IndexedDB:', error);
+        }
     }
 
     /**

@@ -4,7 +4,7 @@
 export class IndexedDBHelper {
     constructor() {
         this.dbName = 'StockChartDrawings';
-        this.dbVersion = 1;
+        this.dbVersion = 2;
         this.storeName = 'drawings';
         this.db = null;
     }
@@ -34,17 +34,16 @@ export class IndexedDBHelper {
             request.onupgradeneeded = (event) => {
                 const db = /** @type {IDBDatabase} */ (/** @type {IDBOpenDBRequest} */ (event.target).result);
                 
-                // Create object store for drawings if it doesn't exist
-                if (!db.objectStoreNames.contains(this.storeName)) {
-                    const store = db.createObjectStore(this.storeName, { keyPath: 'id', autoIncrement: true });
-                    
-                    // Create indexes for efficient querying
-                    store.createIndex('chartName', 'chartName', { unique: false });
-                    store.createIndex('chartCode', 'chartCode', { unique: false });
-                    store.createIndex('chartNameAndCode', ['chartName', 'chartCode'], { unique: false });
-                    // Add index for cross-timeframe support - allows loading drawings without timeframe
-                    store.createIndex('chartNameAndCodeOnly', ['chartName', 'chartCode'], { unique: false, multiEntry: true });
+                // Recreate object store with corrected schema (removed invalid multiEntry composite index)
+                if (db.objectStoreNames.contains(this.storeName)) {
+                    db.deleteObjectStore(this.storeName);
                 }
+                const store = db.createObjectStore(this.storeName, { keyPath: 'id', autoIncrement: true });
+                
+                // Create indexes for efficient querying
+                store.createIndex('chartName', 'chartName', { unique: false });
+                store.createIndex('chartCode', 'chartCode', { unique: false });
+                store.createIndex('chartNameAndCode', ['chartName', 'chartCode'], { unique: false });
             };
         });
     }

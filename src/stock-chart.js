@@ -161,7 +161,7 @@ class StockChart {
 
         this.applyTheme(this.options.theme);
 
-        this.updateMetaStringWithTimeframe(this.timeframeOnScreen);
+        this.updateMetaStringWithTimeframe('daily');
     }
 
     /**

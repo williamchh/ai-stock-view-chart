@@ -42,6 +42,8 @@ export class IndexedDBHelper {
                     store.createIndex('chartName', 'chartName', { unique: false });
                     store.createIndex('chartCode', 'chartCode', { unique: false });
                     store.createIndex('chartNameAndCode', ['chartName', 'chartCode'], { unique: false });
+                    // Add index for cross-timeframe support - allows loading drawings without timeframe
+                    store.createIndex('chartNameAndCodeOnly', ['chartName', 'chartCode'], { unique: false, multiEntry: true });
                 }
             };
         });
@@ -133,6 +135,46 @@ export class IndexedDBHelper {
 
             request.onerror = () => {
                 reject(new Error('Failed to load drawings'));
+            };
+        });
+    }
+
+    /**
+     * Load drawings for a specific chart across all timeframes
+     * @param {Object} chartName - Chart name information {name, code}
+     * @returns {Promise<Array>} Array of drawing objects from all timeframes
+     */
+    async loadDrawingsAcrossTimeframes(chartName) {
+        if (!chartName || (!chartName.name && !chartName.code)) {
+            return [];
+        }
+
+        await this.init();
+
+        return new Promise((resolve, reject) => {
+            const transaction = this.db.transaction([this.storeName], 'readonly');
+            const store = transaction.objectStore(this.storeName);
+            
+            // Get all drawings for this chart regardless of timeframe
+            const request = store.index('chartNameAndCode').getAll(
+                IDBKeyRange.bound(
+                    [chartName.name || '', chartName.code || ''],
+                    [chartName.name || '', chartName.code || '\uffff']
+                )
+            );
+
+            request.onsuccess = () => {
+                const drawings = request.result;
+                // Remove IndexedDB specific fields before returning
+                const cleanDrawings = drawings.map(drawing => {
+                    const { id, chartName, chartCode, chartMetaString, timestamp, ...drawingData } = drawing;
+                    return drawingData;
+                });
+                resolve(cleanDrawings);
+            };
+
+            request.onerror = () => {
+                reject(new Error('Failed to load drawings across timeframes'));
             };
         });
     }

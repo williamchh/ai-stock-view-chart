@@ -160,6 +160,8 @@ class StockChart {
         this.resizeObserver.observe(this.container);
 
         this.applyTheme(this.options.theme);
+
+        this.updateMetaStringWithTimeframe(this.timeframeOnScreen);
     }
 
     /**
@@ -2304,6 +2306,8 @@ class StockChart {
             // update view port allData
             this.dataViewport = new DataViewport(mainPlot.data, this.options.initialVisibleCandles, 5);
             this.drawingPanel.clearDrawings();
+            // Reload drawings after clearing to support cross-timeframe drawings
+            this.loadDrawingsFromIndexedDB();
         }
 
         const _plots = [...plots];
@@ -2332,6 +2336,8 @@ class StockChart {
         
         // Load drawings for the new chart name
         await this.loadDrawingsFromIndexedDB();
+
+        this.updateMetaStringWithTimeframe('daily'); // Default timeframe
         
         this.render();
     }

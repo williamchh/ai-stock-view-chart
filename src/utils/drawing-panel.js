@@ -452,13 +452,20 @@ _getTouchCoordinates(touch) {
                 return;
             }
 
+            // First try to load drawings for the current timeframe
             const drawingsJSON = await indexedDBHelper.loadDrawings(chartName);
+            
+            // If no drawings found for current timeframe, try loading across all timeframes
+            let allDrawingsJSON = drawingsJSON;
+            if (drawingsJSON.length === 0) {
+                allDrawingsJSON = await indexedDBHelper.loadDrawingsAcrossTimeframes(chartName);
+            }
             
             // Clear existing drawings
             this.drawings = [];
             
             // Recreate drawing objects from JSON
-            drawingsJSON.forEach(drawingJSON => {
+            allDrawingsJSON.forEach(drawingJSON => {
                 let drawing;
                 
                 switch (drawingJSON.type) {

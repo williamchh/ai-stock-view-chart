@@ -2288,11 +2288,12 @@ class StockChart {
      * @public
      */
     updateStockData(plots, updateOriginalData = true) {
-        // const container = document.getElementById(this.elementId);
-        // if (!container) {
-        //     console.error(`StockChart: Element with ID '${this.elementId}' not found.`);
-        //     return;
-        // }
+        debugger
+        const container = document.getElementById(this.elementId);
+        if (!container) {
+            console.error(`StockChart: Element with ID '${this.elementId}' not found.`);
+            return;
+        }
         // Ensure container has a valid size
         // this.ensureContainerSize(container);
 

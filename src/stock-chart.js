@@ -2288,7 +2288,8 @@ class StockChart {
      * @public
      */
     updateStockData(plots, updateOriginalData = true) {
-        debugger
+        this.timeframeOnScreen = 'daily';
+
         const container = document.getElementById(this.elementId);
         if (!container) {
             console.error(`StockChart: Element with ID '${this.elementId}' not found.`);
@@ -2577,6 +2578,11 @@ class StockChart {
         mainPlot.data = aggregatedData;
         const updateOriginalData = false;
         this.updateStockData(this.options.plots, updateOriginalData);
+        
+        if (this.isValidTimeframe(timeframe)) {
+            this.timeframeOnScreen = timeframe;
+        }
+        
         this.render();
     }
 

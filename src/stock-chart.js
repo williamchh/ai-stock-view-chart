@@ -2290,11 +2290,11 @@ class StockChart {
     updateStockData(plots, updateOriginalData = true) {
         this.timeframeOnScreen = 'daily';
 
-        const container = document.getElementById(this.elementId);
-        if (!container) {
-            console.error(`StockChart: Element with ID '${this.elementId}' not found.`);
-            return;
-        }
+        // const container = document.getElementById(this.elementId);
+        // if (!container) {
+        //     console.error(`StockChart: Element with ID '${this.elementId}' not found.`);
+        //     return;
+        // }
         // Ensure container has a valid size
         // this.ensureContainerSize(container);
 
@@ -2579,9 +2579,7 @@ class StockChart {
         const updateOriginalData = false;
         this.updateStockData(this.options.plots, updateOriginalData);
         
-        if (this.isValidTimeframe(timeframe)) {
-            this.timeframeOnScreen = timeframe;
-        }
+        this.timeframeOnScreen = timeframe;
         
         this.render();
     }

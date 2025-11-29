@@ -16,6 +16,7 @@ An interactive stock charting library supporting candlestick and line charts, mu
 - 🗑️ Ability to clear all drawings
 - ⚙️ Settings panel for technical indicators
 - 💾 Indicator settings are saved to local storage
+- 🗃️ Drawing items are saved to IndexedDB for persistent storage
 
 ## Demo
 

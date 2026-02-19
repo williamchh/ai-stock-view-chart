@@ -1622,7 +1622,18 @@ _getTouchCoordinates(touch) {
                                         cursor: pointer;
                                         font-size: 14px;
                                         font-weight: 500;
-                                    ">${this.editPlotId ? 'Update Indicator' : '➕ Add Indicator'}</button>
+                                    ">➕ Add Indicator</button>
+                                    <button type="button" class="cancel-edit-btn" id="cancel-edit-btn" style="
+                                        background: #6c757d;
+                                        color: white;
+                                        border: none;
+                                        padding: 10px 20px;
+                                        border-radius: 4px;
+                                        cursor: pointer;
+                                        font-size: 14px;
+                                        font-weight: 500;
+                                        display: none;
+                                    ">Cancel Edit</button>
                                 </div>
                             </form>
                             
@@ -1855,15 +1866,19 @@ _getTouchCoordinates(touch) {
                     this.updateInstancesList(btn.dataset.tab);
                 }
 
-                // Reset form for this indicator
+                // Reset form for this indicator (only if not editing)
                 if (btn.dataset.tab !== 'theme') {
                     const form = targetTab.querySelector('form');
-                    if (form) {
+                    if (form && !this.editPlotId) {
                         form.reset();
-                        const editBtn = form.querySelector('.add-indicator-btn');
-                        if (editBtn) {
-                            editBtn.textContent = '➕ Add Indicator';
-                            editBtn.style.background = '#00c2ff';
+                        const addBtn = form.querySelector('.add-indicator-btn');
+                        const cancelBtn = form.querySelector('.cancel-edit-btn');
+                        if (addBtn) {
+                            addBtn.textContent = '➕ Add Indicator';
+                            addBtn.style.background = '#00c2ff';
+                        }
+                        if (cancelBtn) {
+                            cancelBtn.style.display = 'none';
                         }
                     }
                 }
@@ -1900,15 +1915,25 @@ _getTouchCoordinates(touch) {
             
             // Show success feedback
             const submitBtn = form.querySelector('.add-indicator-btn');
-            // add emoji
-            const originalText = '➕ Add Indicator';
+            const isEditing = this.editPlotId !== null;
+            const originalText = isEditing ? '✏️ Update Indicator' : '➕ Add Indicator';
             submitBtn.textContent = '✓ Successfully';
             submitBtn.style.background = '#28a745';
             
             setTimeout(() => {
                 submitBtn.textContent = originalText;
-                submitBtn.style.background = '#00c2ff';
+                submitBtn.style.background = isEditing ? '#ffc107' : '#00c2ff';
             }, 2000);
+            
+            // Reset edit mode after successful submission
+            if (isEditing) {
+                this.editPlotId = null;
+                const cancelBtn = form.querySelector('.cancel-edit-btn');
+                if (cancelBtn) {
+                    cancelBtn.style.display = 'none';
+                }
+                this.updateInstancesList(indicatorId);
+            }
         });
 
         // Preview functionality
@@ -1926,11 +1951,29 @@ _getTouchCoordinates(touch) {
             if (event.target.classList.contains('edit-instance-btn')) {
                 const plotId = event.target.dataset.plotId;
                 this.editIndicatorInstance(plotId);
-
-                // update button label
-                const editBtn = document.getElementById(`add-indicator-btn`);
-                if (editBtn) {
-                    editBtn.textContent = `✏️ Update Indicator`;
+            }
+            
+            // Cancel edit functionality
+            if (event.target.classList.contains('cancel-edit-btn')) {
+                const form = event.target.closest('form');
+                if (form) {
+                    form.reset();
+                    const addBtn = form.querySelector('.add-indicator-btn');
+                    const cancelBtn = form.querySelector('.cancel-edit-btn');
+                    if (addBtn) {
+                        addBtn.textContent = '➕ Add Indicator';
+                        addBtn.style.background = '#00c2ff';
+                    }
+                    if (cancelBtn) {
+                        cancelBtn.style.display = 'none';
+                    }
+                }
+                this.editPlotId = null;
+                
+                // Update instances list to remove highlight
+                const indicatorId = form?.dataset.indicator;
+                if (indicatorId) {
+                    this.updateInstancesList(indicatorId);
                 }
             }
         });
@@ -2062,8 +2105,16 @@ _getTouchCoordinates(touch) {
             const textColor = isDarkColor ? '#f9f9f9' : '#333';
             const subTextColor = isDarkColor ? '#bbb' : '#666';
             // For single-plot indicators, show all instances
-            instancesContainer.innerHTML = renderInstances.map(instance => `
-                <div class="instance-item" style="
+            instancesContainer.innerHTML = renderInstances.map(instance => {
+                const isEditing = this.editPlotId === instance.plotId;
+                const editingStyle = isEditing ? `
+                    border-color: #007bff;
+                    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.2);
+                    background: ${isDarkColor ? '#2a3a4a' : '#e3f2fd'};
+                ` : '';
+                
+                return `
+                <div class="instance-item ${isEditing ? 'editing' : ''}" data-plot-id="${instance.plotId}" style="
                     display: flex;
                     align-items: center;
                     justify-content: space-between;
@@ -2072,24 +2123,26 @@ _getTouchCoordinates(touch) {
                     border-radius: 4px;
                     margin-bottom: 8px;
                     background: ${backgroundColor};
+                    ${editingStyle}
                 ">
                     <div style="flex: 1;">
                         <div style="font-weight: 500; color: ${textColor}; font-size: 13px; display: flex; align-items: center; gap: 8px;">
                             ${instance.name}
+                            ${isEditing ? '<span style="background: #007bff; color: white; font-size: 10px; padding: 2px 6px; border-radius: 3px;">Editing</span>' : ''}
                             ${this.getColorIndicatorsForInstance(instance)}
                         </div>
                         <div style="color: ${subTextColor}; font-size: 11px;">${this.formatInstances(instance)}</div>
                     </div>
                     <div style="display: flex; gap: 6px;">
                         <button class="edit-instance-btn" data-plot-id="${instance.plotId}" style="
-                            background: #ffc107;
-                            color: #212529;
+                            background: ${isEditing ? '#007bff' : '#ffc107'};
+                            color: ${isEditing ? 'white' : '#212529'};
                             border: none;
                             padding: 4px 8px;
                             border-radius: 3px;
                             cursor: pointer;
                             font-size: 11px;
-                        ">Edit</button>
+                        ">${isEditing ? 'Editing' : 'Edit'}</button>
                         <button class="remove-instance-btn" data-plot-id="${instance.plotId}" data-indicator-id="${indicatorId}" style="
                             background: #dc3545;
                             color: white;
@@ -2101,7 +2154,7 @@ _getTouchCoordinates(touch) {
                         ">Remove</button>
                     </div>
                 </div>
-            `).join('');
+            `}).join('');
         }
     }
 
@@ -2334,11 +2387,11 @@ _getTouchCoordinates(touch) {
                 break;
             case 'sma':
                 plots.push({
-                    id: 'sma' + totalPlots,
+                    id: 'sma_' + settings.period,
                     type: 'line',
                     data: data,
                     targetId: 'main',
-                    keyLabel: 'SMA',
+                    keyLabel: `SMA (${settings.period})`,
                     overlay: true,
                     style: {
                         lineColor: settings.lineColor,
@@ -2348,12 +2401,12 @@ _getTouchCoordinates(touch) {
                 break;
             case 'ema':
                 plots.push({
-                    id: 'ema' + totalPlots,
+                    id: 'ema_' + settings.period,
                     type: 'line',
                     heightRatio: 0.15,
                     targetId: 'main',
                     data: data,
-                    keyLabel: 'EMA',
+                    keyLabel: `EMA (${settings.period})`,
                     overlay: true,
                     style: {
                         lineColor: settings.lineColor,
@@ -2445,12 +2498,35 @@ _getTouchCoordinates(touch) {
                     (inputEle instanceof HTMLInputElement || inputEle instanceof HTMLSelectElement)
                         ? inputEle.value = value
                         : null;
+                    
+                    // Update hex input if it's a color
+                    const hexInput = document.getElementById(`${indicatorId}-${key}_hex`);
+                    if (hexInput && hexInput instanceof HTMLInputElement) {
+                        hexInput.value = value;
+                    }
                 }
             });
 
         this.editPlotId = plotId;
 
-        // this.showIndicatorSettings({ indicatorId, settings, plotId });
+        // Update button to show edit mode
+        const form = document.querySelector(`#${indicatorId}-tab .settings-form`);
+        if (form) {
+            const addBtn = form.querySelector('.add-indicator-btn');
+            const cancelBtn = form.querySelector('.cancel-edit-btn');
+            if (addBtn) {
+                addBtn.textContent = '✏️ Update Indicator';
+                // @ts-ignore
+                addBtn.style.background = '#ffc107';
+            }
+            if (cancelBtn) {
+                // @ts-ignore
+                cancelBtn.style.display = 'inline-block';
+            }
+        }
+
+        // Update instances list to show highlight
+        this.updateInstancesList(indicatorId);
     }
 
     /**
@@ -2462,10 +2538,23 @@ _getTouchCoordinates(touch) {
         if (this.stockChart.options.plots) {
 
             const plotToRemove = this.stockChart.options.plots.find(plot => plot.id === plotId);
-            const relatedPlots = this.stockChart.options.plots.filter(plot => plot.indicator?.id === plotId);
-
             
-            const removedPlotIds = [plotToRemove.id, ...relatedPlots.map(p => p.id)];
+            // For single-plot indicators (sma, ema, rsi, demarker), only remove the specific plot
+            // For multi-plot indicators (macd, bollinger), find and remove all related plots
+            let removedPlotIds = [plotId];
+            
+            if (plotToRemove && plotToRemove.indicator) {
+                const indicatorId = plotToRemove.indicator.id;
+                
+                // Multi-plot indicators have related sub-plots that should also be removed
+                if (['macd', 'bollinger'].includes(indicatorId)) {
+                    // Find all plots with the same indicator type
+                    const relatedPlots = this.stockChart.options.plots.filter(plot =>
+                        plot.indicator?.id === indicatorId
+                    );
+                    removedPlotIds = relatedPlots.map(p => p.id);
+                }
+            }
             
             // Remove all plots at once
             this.stockChart.options.plots = this.stockChart.options.plots.filter(plot => !removedPlotIds.includes(plot.id));
@@ -2480,7 +2569,19 @@ _getTouchCoordinates(touch) {
             if (plotToRemove && plotToRemove.indicator) {
                 // Remove indicator settings from local storage
                 const savedIndicators = JSON.parse(localStorage.getItem('asv-chart-indicator-settings')) || [];
-                const updatedIndicators = savedIndicators.filter(i => i.id !== plotToRemove.indicator.id);
+                const { id: indicatorId, settings: indicatorSettings } = plotToRemove.indicator;
+                
+                // For SMA/EMA, match both id and period. For others, match by id only.
+                const updatedIndicators = savedIndicators.filter(i => {
+                    if (['sma', 'ema'].includes(indicatorId)) {
+                        // Remove only the indicator with matching id AND period
+                        return !(i.id === indicatorId && i.settings.period === indicatorSettings.period);
+                    } else {
+                        // For other indicators, remove by id only
+                        return i.id !== indicatorId;
+                    }
+                });
+                
                 localStorage.setItem('asv-chart-indicator-settings', JSON.stringify(updatedIndicators));
             }
         }

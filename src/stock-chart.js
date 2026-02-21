@@ -15,6 +15,7 @@ import { getSignalTypeColor } from './utils/helpers.js';
 import { DrawingPanel } from './utils/drawing-panel.js';
 import { aggregateToWeekly, aggregateToMonthly } from './utils/stock-aggregate.js';
 import { makeCurlyBracePath } from './utils/drawings/curly-bracket.js';
+import { ClickHandler } from './utils/click-handler.js';
 
 /**
  * @typedef {import('./stock-chart.d.ts').StockChartOptions} StockChartOptions
@@ -123,6 +124,9 @@ class StockChart {
         this.activeDrawingTool = null;
         this.eligibleMainPlotKeys = ['time', 'open', 'high', 'low', 'close'];
         
+        // Initialize click handler for candle click events
+        this.clickHandler = new ClickHandler(this, { enabled: this.options.emitCandleClick });
+        
         // Load existing drawings from IndexedDB after initialization
         this.loadDrawingsFromIndexedDB();
 
@@ -198,6 +202,8 @@ class StockChart {
         ],
         initialVisibleCandles: 100,
         showDrawingToolbar: true, // Control whether to show the drawing toolbar
+        showTimeframeButtons: true, // Control whether to show timeframe buttons
+        emitCandleClick: true // Control whether to emit candle click events
         // Add more default options as needed
     };
     
@@ -450,7 +456,6 @@ class StockChart {
 
     /**
      * Resizes the canvas to match the container's dimensions and redraws the chart.
-     * @private
      */
     resize() {
         let { clientWidth, clientHeight } = this.container;
@@ -908,6 +913,9 @@ class StockChart {
         const mouseX = event.clientX - rect.left;
         const mouseY = event.clientY - rect.top;
         
+        // Track click for candle click event emission
+        this.clickHandler.handleMouseDown(mouseX, mouseY);
+        
         // Check if we're in drawing mode
         if (this.activeDrawingTool) {
             // Only allow drawing in the main plot area
@@ -1172,6 +1180,15 @@ class StockChart {
                     }
                 }
             }
+            return; // Don't emit click event for double click
+        }
+
+        // Handle candle click event (single click only)
+        if (event && event.detail !== 2) {
+            const rect = this.canvas.getBoundingClientRect();
+            const mouseX = event.clientX - rect.left;
+            const mouseY = event.clientY - rect.top;
+            this.clickHandler.handleMouseUp(mouseX, mouseY, event);
         }
     }
 
@@ -1182,6 +1199,7 @@ class StockChart {
         this.isDragging = false;
         this.crosshairX = -1;
         this.crosshairY = -1;
+        this.clickHandler.reset();
         this.render();
     }
 
@@ -1301,6 +1319,9 @@ class StockChart {
             const touch = event.touches[0];
             const touchX = touch.clientX - rect.left;
             const touchY = touch.clientY - rect.top;
+
+            // Track touch for candle click event emission
+            this.clickHandler.handleTouchStart(touchX, touchY);
 
             // Store initial touch position for movement detection
             this.initialTouchX = touchX;
@@ -1663,6 +1684,15 @@ class StockChart {
             this.isPinching = false;
             this.initialPinchDistance = 0;
             this.lastPinchDistance = 0;
+            
+            // Handle candle click event for touch (use changedTouches to get the ended touch position)
+            if (event.changedTouches && event.changedTouches.length === 1) {
+                const touch = event.changedTouches[0];
+                const rect = this.canvas.getBoundingClientRect();
+                const touchX = touch.clientX - rect.left;
+                const touchY = touch.clientY - rect.top;
+                this.clickHandler.handleTouchEnd(touchX, touchY, event);
+            }
             
             // Handle crosshair mode
             if (!this.isCrosshairMode) {
@@ -2614,6 +2644,22 @@ class StockChart {
         }
 
         this.options.chartName.metaString = meta;
+    }
+
+    /**
+     * Enable or disable candle click event emission
+     * @param {boolean} enabled - Whether to enable candle click events
+     */
+    setCandleClickEnabled(enabled) {
+        this.clickHandler.setEnabled(enabled);
+    }
+
+    /**
+     * Check if candle click events are enabled
+     * @returns {boolean}
+     */
+    isCandleClickEnabled() {
+        return this.clickHandler.isEnabled();
     }
 
 }

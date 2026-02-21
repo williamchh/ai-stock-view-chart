@@ -23,6 +23,7 @@ export interface StockChartOptions {
   initialVisibleCandles?: number;
   showDrawingToolbar?: boolean;
   showTimeframeButtons?: boolean;
+  emitCandleClick?: boolean;
 }
 
 export interface ChartName {
@@ -82,6 +83,24 @@ export interface PlotLayout {
   height: number;
 }
 
+export interface CandleClickEventDetail {
+  data: {
+    time: number;
+    open: number;
+    high: number;
+    low: number;
+    close: number;
+    volume?: number;
+    signals?: Signal[];
+  };
+  index: number;
+  plotId: string;
+  originalEvent: MouseEvent | TouchEvent;
+  position: { x: number; y: number };
+}
+
+export interface CandleClickEvent extends CustomEvent<CandleClickEventDetail> {}
+
 /**
  * Main interface for StockChart library
  */
@@ -93,6 +112,12 @@ export default class StockChart {
   render(): void;
   crosshairX: number;
   crosshairY: number;
+  
+  // Internal properties used by ClickHandler
+  plotLayoutManager: any;
+  dataViewport: any;
+  options: StockChartOptions;
+  canvas: HTMLCanvasElement;
   /**
    * Updates the stock data for all plots at once
    * @param plots - Array of plot configurations to update
@@ -120,4 +145,15 @@ export default class StockChart {
     lineWidth?: number;
     drawLine?: boolean;
   }): void;
+
+  /**
+   * Enable or disable candle click event emission
+   * @param enabled - Whether to enable candle click events
+   */
+  setCandleClickEnabled(enabled: boolean): void;
+
+  /**
+   * Check if candle click events are enabled
+   */
+  isCandleClickEnabled(): boolean;
 }

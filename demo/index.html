@@ -87,7 +87,22 @@
       </div>
     </div>
   </div>
-  <div id="chart-container"></div> <!-- Include UMD builds directly -->
+  <div id="chart-container"></div>
+
+  <div id="candle-click-info" style="margin-top: 20px; padding: 15px; border: 1px solid #ccc; border-radius: 5px; background: #fff;">
+    <h3 style="margin-top: 0;">Candle Click Event Test</h3>
+    <div style="margin-bottom: 10px;">
+      <label>
+        <input type="checkbox" id="emit-click-toggle" checked>
+        Emit Candle Click Events
+      </label>
+    </div>
+    <div id="click-status" style="padding: 10px; background: #f0f0f0; border-radius: 4px; font-family: monospace; font-size: 12px;">
+      Click on a candle to see the data here...
+    </div>
+  </div>
+
+  <!-- Include UMD builds directly -->
   <script src="./stock-chart.umd.min.js"></script>
   <script src="./demo.umd.min.js"></script>
   <script>
@@ -119,21 +134,50 @@
       initialVisibleCandles: 100,
       showDrawingToolbar: true,
       showTimeframeButtons: true,
+      emitCandleClick: true,
       plots: [
-        { 
-          id: 'main', 
+        {
+          id: 'main',
           type: 'candlestick',
-          heightRatio: 0.6, 
+          heightRatio: 0.6,
           data: candlestickData ,
           targetId: 'main',
         },
-        { 
-          id: 'volume', 
-          type: 'volume', 
-          heightRatio: 0.1, 
-          data: volumeData 
+        {
+          id: 'volume',
+          type: 'volume',
+          heightRatio: 0.1,
+          data: volumeData
         },
       ]
+    });
+
+    // Candle click event listener
+    function handleCandleClick(event) {
+      const { data, index, plotId, position } = event.detail;
+      const clickStatus = document.getElementById('click-status');
+      const date = new Date(data.time * 1000);
+      
+      clickStatus.innerHTML = `
+        <div style="margin-bottom: 8px;"><strong>Clicked Candle #${index}</strong></div>
+        <div>Date: ${date.toLocaleDateString()} ${date.toLocaleTimeString()}</div>
+        <div>OHLC: O=${data.open.toFixed(2)} H=${data.high.toFixed(2)} L=${data.low.toFixed(2)} C=${data.close.toFixed(2)}</div>
+        <div>Volume: ${data.volume ? data.volume.toLocaleString() : 'N/A'}</div>
+        <div>Plot ID: ${plotId}</div>
+        <div>Position: x=${position.x.toFixed(0)}, y=${position.y.toFixed(0)}</div>
+      `;
+    }
+
+    // Listen on canvas
+    window.chartInstance.canvas.addEventListener('candleClick', handleCandleClick);
+
+    // Toggle for enabling/disabling candle click events
+    document.getElementById('emit-click-toggle').addEventListener('change', (e) => {
+      window.chartInstance.setCandleClickEnabled(e.target.checked);
+      const clickStatus = document.getElementById('click-status');
+      clickStatus.innerHTML = e.target.checked
+        ? 'Click on a candle to see the data here...'
+        : 'Candle click events are disabled.';
     });
 
     function updateCustomTheme() {

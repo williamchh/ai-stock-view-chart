@@ -126,6 +126,7 @@ Initializes a new chart instance.
 | `plots`                 | `Array<PlotConfig>`                 | `[{ id: 'main', ... }]`               | An array of plot configurations that define the different sections of the chart (e.g., price, volume, indicators).                                   |
 | `showDrawingToolbar`    | `boolean`                           | `true`                                | Controls the visibility of the drawing toolbar.                                                                                                      |
 | `showTimeframeButtons`  | `boolean`                           | `true`                                | Controls the visibility of the timeframe selection buttons.                                                                                          |
+| `emitCandleClick`       | `boolean`                           | `true`                                | Controls whether to emit candle click events when user clicks on a candlestick.                                                                      |
 
 #### ChartName
 
@@ -134,6 +135,36 @@ Initializes a new chart instance.
 | `name`       | `string` | The main name or title (e.g., "Apple ").  |
 | `code`       | `string` | The ticker or symbol (e.g., "AAPL").      |
 | `metaString` | `string` | Additional info (e.g., "NASDAQ, 1D").     |
+
+### Events
+
+#### candleClick
+
+Emitted when the user clicks on a candlestick. The event is only emitted for true clicks (not drags, double-clicks, or other interactions).
+
+```javascript
+// Listen on the canvas element
+chart.canvas.addEventListener('candleClick', (event) => {
+  const { data, index, plotId, position } = event.detail;
+  console.log('Clicked candle:', data);
+  console.log('Index:', index);
+  console.log('OHLC:', data.open, data.high, data.low, data.close);
+});
+
+// Or listen globally via window
+window.addEventListener('candleClick', (event) => {
+  console.log('Clicked candle:', event.detail.data);
+});
+```
+
+Event detail properties:
+| Property       | Type                          | Description                                    |
+| -------------- | ----------------------------- | ---------------------------------------------- |
+| `data`         | `Object`                      | The candlestick data (time, OHLC, volume)      |
+| `index`        | `number`                      | The index of the clicked candle in the data    |
+| `plotId`       | `string`                      | The plot ID where the click occurred           |
+| `originalEvent`| `MouseEvent` \| `TouchEvent`  | The original DOM event                         |
+| `position`     | `{ x: number, y: number }`    | The click position relative to the canvas      |
 
 #### PlotStyle
 

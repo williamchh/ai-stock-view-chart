@@ -16,6 +16,7 @@ import { DrawingPanel } from './utils/drawing-panel.js';
 import { aggregateToWeekly, aggregateToMonthly } from './utils/stock-aggregate.js';
 import { makeCurlyBracePath } from './utils/drawings/curly-bracket.js';
 import { ClickHandler } from './utils/click-handler.js';
+import { PositionMarker } from './utils/drawings/position-marker.js';
 
 /**
  * @typedef {import('./stock-chart.d.ts').StockChartOptions} StockChartOptions
@@ -126,6 +127,9 @@ class StockChart {
         
         // Initialize click handler for candle click events
         this.clickHandler = new ClickHandler(this, { enabled: this.options.emitCandleClick });
+        
+        // Initialize position marker for stock positions
+        this.positionMarker = new PositionMarker(this);
         
         // Load existing drawings from IndexedDB after initialization
         this.loadDrawingsFromIndexedDB();
@@ -746,10 +750,13 @@ class StockChart {
             this.ctx.rect(mainPlotLayout.x, mainPlotLayout.y, mainPlotLayout.width, mainPlotLayout.height);
             this.ctx.clip();
         }
-
+    
         // Render drawings
         this.drawingPanel.render(this.ctx);
-
+    
+        // Render position markers
+        this.positionMarker.render(this.ctx);
+    
         // Restore transformation state
         this.ctx.restore();
 
@@ -2474,6 +2481,85 @@ class StockChart {
      */
     exportDrawings() {
         return this.drawingPanel.exportDrawings();
+    }
+
+    /**
+     * Adds a position marker to the chart.
+     * @param {Object} position - The position to add
+     * @param {number|Date} position.timestamp - Unix timestamp (in seconds) or Date object for position
+     * @param {number} position.price - The price level of position
+     * @param {'buy'|'sell'} position.orderType - Type of order ('buy' or 'sell')
+     * @param {number} [position.lots] - Optional number of lots/shares
+     * @param {string} [position.id] - Optional unique identifier for the position
+     * @returns {string} The ID of the added position
+     *
+     * @example
+     * // Add a buy position using timestamp
+     * chart.addPosition({
+     *   timestamp: 1640995200,  // Unix timestamp in seconds
+     *   price: 150.50,
+     *   orderType: 'buy',
+     *   lots: 100
+     * });
+     *
+     * // Add a sell position using Date object
+     * chart.addPosition({
+     *   timestamp: new Date('2022-01-01'),
+     *   price: 145.25,
+     *   orderType: 'sell'
+     * });
+     */
+    addPosition(position) {
+        const id = this.positionMarker.addPosition(position);
+        this.render();
+        return id;
+    }
+
+    /**
+     * Removes a position marker by ID.
+     * @param {string} id - The ID of the position to remove
+     * @returns {boolean} True if position was found and removed
+     */
+    removePosition(id) {
+        const removed = this.positionMarker.removePosition(id);
+        if (removed) {
+            this.render();
+        }
+        return removed;
+    }
+
+    /**
+     * Updates an existing position marker.
+     * @param {string} id - The ID of the position to update
+     * @param {Object} updates - The fields to update
+     * @param {number|Date} [updates.timestamp] - New timestamp (Date object or Unix timestamp in seconds)
+     * @param {number} [updates.price] - New price
+     * @param {'buy'|'sell'} [updates.orderType] - New order type
+     * @param {number} [updates.lots] - New lots
+     * @returns {boolean} True if position was found and updated
+     */
+    updatePosition(id, updates) {
+        const updated = this.positionMarker.updatePosition(id, updates);
+        if (updated) {
+            this.render();
+        }
+        return updated;
+    }
+
+    /**
+     * Clears all position markers.
+     */
+    clearPositions() {
+        this.positionMarker.clearPositions();
+        this.render();
+    }
+
+    /**
+     * Gets all position markers.
+     * @returns {Array} Array of all positions
+     */
+    getPositions() {
+        return this.positionMarker.getPositions();
     }
 
     /**

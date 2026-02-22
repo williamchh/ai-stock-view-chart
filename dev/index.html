@@ -93,7 +93,40 @@
       </div>
     </div>
   </div>
-  <div id="chart-container"></div> 
+  <div id="chart-container"></div>
+
+  <div id="position-test" style="margin-top: 20px; padding: 15px; border: 1px solid #ccc; border-radius: 5px; background: #fff;">
+    <h3 style="margin-top: 0;">Position Marker Test</h3>
+    <div style="margin-bottom: 10px;">
+      <label>
+        <input type="radio" name="order-type" value="buy" checked>
+        Buy
+      </label>
+      <label style="margin-left: 10px;">
+        <input type="radio" name="order-type" value="sell">
+        Sell
+      </label>
+    </div>
+    <div style="margin-bottom: 10px;">
+      <label for="position-price">Price:</label>
+      <input type="number" id="position-price" step="0.01" style="padding: 4px; width: 100px;">
+    </div>
+    <div style="margin-bottom: 10px;">
+      <label for="position-lots">Lots (optional):</label>
+      <input type="number" id="position-lots" step="1" style="padding: 4px; width: 100px;">
+    </div>
+    <div style="margin-bottom: 10px;">
+      <label for="position-date">Date:</label>
+      <input type="date" id="position-date" style="padding: 4px;">
+    </div>
+    <div style="margin-bottom: 10px;">
+      <button id="add-position-btn" style="padding: 6px 12px;">Add Position</button>
+      <button id="clear-positions-btn" style="padding: 6px 12px; margin-left: 10px;">Clear All Positions</button>
+    </div>
+    <div id="positions-status" style="padding: 10px; background: #f0f0f0; border-radius: 4px; font-family: monospace; font-size: 12px;">
+      Click "Add Position" to add a position marker at the current chart center date...
+    </div>
+  </div>
 
   <div id="candle-click-info" style="margin-top: 20px; padding: 15px; border: 1px solid #ccc; border-radius: 5px; background: #fff;">
     <h3 style="margin-top: 0;">Candle Click Event Test</h3>
@@ -238,9 +271,99 @@
     document.getElementById('emit-click-toggle').addEventListener('change', (e) => {
       chartInstance.setCandleClickEnabled(e.target.checked);
       const clickStatus = document.getElementById('click-status');
-      clickStatus.innerHTML = e.target.checked 
-        ? 'Click on a candle to see the data here...' 
+      clickStatus.innerHTML = e.target.checked
+        ? 'Click on a candle to see the data here...'
         : 'Candle click events are disabled.';
+    });
+
+    // Center on Date functionality
+    document.getElementById('center-date-btn').addEventListener('click', () => {
+      const datePickerValue = document.getElementById('date-picker').value;
+      if (!datePickerValue) {
+        alert('Please select a date to center on.');
+        return;
+      }
+      
+      // Convert date string to timestamp in milliseconds
+      const selectedDate = new Date(datePickerValue);
+      const timestamp = selectedDate.getTime();
+      
+      // Call centerOnDate with timestamp in milliseconds
+      chartInstance.centerOnDate(timestamp);
+    });
+
+    // Initialize position date picker to today
+    const positionDateInput = document.getElementById('position-date');
+    const today = new Date();
+    positionDateInput.value = today.toISOString().split('T')[0];
+
+    // Position marker test functionality
+    document.getElementById('add-position-btn').addEventListener('click', () => {
+      const orderType = document.querySelector('input[name="order-type"]:checked').value;
+      const priceInput = document.getElementById('position-price');
+      const lotsInput = document.getElementById('position-lots');
+      const positionDateValue = document.getElementById('position-date').value;
+      
+      if (!positionDateValue) {
+        alert('Please select a date for the position.');
+        return;
+      }
+
+      // Parse the selected date and find the corresponding data point
+      const selectedDate = new Date(positionDateValue);
+      const selectedTimestamp = Math.floor(selectedDate.getTime() / 1000);
+      
+      // Search for data point closest to the selected date
+      const allData = chartInstance.dataViewport.allData;
+      let closestData = null;
+      let minDiff = Infinity;
+      
+      for (let data of allData) {
+        const diff = Math.abs(data.time - selectedTimestamp);
+        if (diff < minDiff) {
+          minDiff = diff;
+          closestData = data;
+        }
+      }
+      
+      if (!closestData) {
+        alert('No data found for the selected date.');
+        return;
+      }
+
+      // Use provided price or default to the close price of the data point
+      const price = priceInput.value ? parseFloat(priceInput.value) : closestData.close;
+      const lots = lotsInput.value ? parseInt(lotsInput.value) : undefined;
+
+      // Add position
+      const positionId = chartInstance.addPosition({
+        timestamp: closestData.time,
+        price: price,
+        orderType: orderType,
+        lots: lots
+      });
+
+      // Update status
+      const positionsStatus = document.getElementById('positions-status');
+      const positions = chartInstance.getPositions();
+      positionsStatus.innerHTML = `
+        <div style="margin-bottom: 8px;"><strong>Added Position #${positions.length}</strong></div>
+        <div>ID: ${positionId}</div>
+        <div>Type: ${orderType.toUpperCase()}</div>
+        <div>Price: ${price.toFixed(2)}</div>
+        <div>Lots: ${lots !== undefined ? lots : 'N/A'}</div>
+        <div>Date: ${new Date(closestData.time * 1000).toLocaleDateString()}</div>
+        <div style="margin-top: 8px; color: #666;">Total positions: ${positions.length}</div>
+      `;
+
+      // Clear price input after adding
+      priceInput.value = '';
+    });
+
+    document.getElementById('clear-positions-btn').addEventListener('click', () => {
+      chartInstance.clearPositions();
+      const positionsStatus = document.getElementById('positions-status');
+      positionsStatus.innerHTML = 'All positions cleared. Click "Add Position" to add a new position marker...';
     });
 
   </script>

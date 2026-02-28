@@ -191,6 +191,13 @@ export default class StockChart {
   addPosition(position: Position): string;
 
   /**
+   * Adds multiple position markers to the chart at once
+   * @param positions - Array of positions to add
+   * @returns Array of IDs of the added positions
+   */
+  addPositions(positions: Position[]): string[];
+
+  /**
    * Removes a position marker by ID
    * @param id - The ID of the position to remove
    * @returns True if position was found and removed

@@ -2520,6 +2520,34 @@ class StockChart {
     }
 
     /**
+     * Adds multiple position markers to the chart at once.
+     * @param {Object[]} positions - Array of positions to add
+     * @returns {string[]} Array of IDs of the added positions
+     *
+     * @example
+     * // Add multiple positions at once
+     * chart.addPositions([
+     *   {
+     *     timestamp: 1640995200,
+     *     price: 150.50,
+     *     orderType: 'buy',
+     *     lots: 100
+     *   },
+     *   {
+     *     timestamp: 1640995800,
+     *     price: 145.25,
+     *     orderType: 'sell',
+     *     lots: 50
+     *   }
+     * ]);
+     */
+    addPositions(positions) {
+        const ids = this.positionMarker.addPositions(positions);
+        this.render();
+        return ids;
+    }
+
+    /**
      * Removes a position marker by ID.
      * @param {string} id - The ID of the position to remove
      * @returns {boolean} True if position was found and removed

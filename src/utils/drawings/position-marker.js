@@ -50,6 +50,15 @@ export class PositionMarker {
     }
 
     /**
+     * Adds multiple position markers to the chart at once.
+     * @param {Object[]} positions - Array of positions to add
+     * @returns {string[]} Array of IDs of the added positions
+     */
+    addPositions(positions) {
+        return positions.map(position => this.addPosition(position));
+    }
+
+    /**
      * Removes a position marker by ID.
      * @param {string} id - The ID of position to remove
      * @returns {boolean} True if position was found and removed

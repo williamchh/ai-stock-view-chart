@@ -116,6 +116,25 @@ export interface PositionUpdate {
   lots?: number;
 }
 
+export interface IndicatorValue {
+  name: string;
+  settings?: {
+    [key: string]: any;
+  };
+  value: number | {
+    [key: string]: number | null;
+  };
+}
+
+export interface ExportedStockData extends StockData {
+  indicators?: IndicatorValue[];
+}
+
+export interface ExportedChartData {
+  data: ExportedStockData[];
+  exportTime: number;
+}
+
 /**
  * Main interface for StockChart library
  */
@@ -222,4 +241,10 @@ export default class StockChart {
    * @returns Array of all positions
    */
   getPositions(): Array<any>;
+
+  /**
+   * Exports all chart data including candlestick data, indicators, and configurations
+   * @returns Exported chart data object with all data and configurations
+   */
+  exportChartData(): ExportedChartData;
 }

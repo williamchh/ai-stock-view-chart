@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Export Chart Data Example</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            gap: 20px;
+        }
+        .chart-container {
+            flex: 1;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 20px;
+        }
+        .data-container {
+            flex: 1;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 20px;
+            max-height: 800px;
+            overflow-y: auto;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        h2 {
+            color: #555;
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+        button {
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+        button:hover {
+            background-color: #1976D2;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .stat-item {
+            background: #f9f9f9;
+            padding: 10px;
+            border-radius: 4px;
+            border-left: 3px solid #2196F3;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 4px;
+        }
+        .stat-value {
+            font-size: 16px;
+            font-weight: bold;
+            color: #333;
+        }
+        pre {
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 12px;
+            margin: 10px 0;
+        }
+        .section {
+            margin-bottom: 20px;
+        }
+        .info {
+            background: #e3f2fd;
+            border-left: 3px solid #2196F3;
+            padding: 10px;
+            margin-bottom: 15px;
+            font-size: 13px;
+        }
+        .data-point {
+            background: #fff;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        .data-point-header {
+            font-weight: bold;
+            color: #2196F3;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        .ohlc {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 5px;
+            margin-bottom: 10px;
+            font-size: 12px;
+        }
+        .ohlc-item {
+            background: #f9f9f9;
+            padding: 5px;
+            border-radius: 3px;
+        }
+        .indicator-item {
+            background: #f0f0f0;
+            padding: 8px;
+            margin: 5px 0;
+            border-radius: 3px;
+            border-left: 3px solid #4CAF50;
+        }
+        .indicator-name {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        .indicator-value {
+            font-size: 13px;
+            color: #555;
+        }
+        .table-container {
+            overflow-x: auto;
+            margin-top: 10px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f5f5f5;
+            font-weight: bold;
+        }
+        .null-value {
+            color: #999;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <h1>Stock Chart Data Export Demo</h1>
+    
+    <div class="container">
+        <div class="chart-container">
+            <div id="chart-container" style="width:100%; height:600px;"></div>
+        </div>
+        
+        <div class="data-container">
+            <button id="exportBtn">Export Chart Data</button>
+            
+            <div class="info">
+                Click to export all K-line data with indicators merged by timestamp. Each data point contains OHLC data plus all indicator values for that time.
+            </div>
+            
+            <div id="stats"></div>
+            <div id="output"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        import StockChart from '../dist/stock-chart.js';
+
+        // Generate sample candlestick data
+        function generateCandlestickData(count = 200) {
+            const data = [];
+            let lastClose = 200;
+            let date = new Date('2024-01-01');
+            
+            for (let i = 0; i < count; i++) {
+                const open = lastClose + (Math.random() - 0.5) * 10;
+                const close = open + (Math.random() - 0.5) * 15;
+                const high = Math.max(open, close) + Math.random() * 8;
+                const low = Math.min(open, close) - Math.random() * 8;
+                const volume = Math.floor(Math.random() * 10000 + 1000);
+                
+                data.push({
+                    time: Math.floor(date.getTime() / 1000),
+                    open: parseFloat(open.toFixed(2)),
+                    high: parseFloat(high.toFixed(2)),
+                    low: parseFloat(low.toFixed(2)),
+                    close: parseFloat(close.toFixed(2)),
+                    volume: volume
+                });
+                
+                lastClose = close;
+                date.setDate(date.getDate() + 1);
+            }
+            
+            return data;
+        }
+
+        // Simple RSI calculation
+        function calculateRSI(data, period = 14) {
+            let gains = 0;
+            let losses = 0;
+            const rsiData = [];
+            
+            for (let i = 0; i < data.length; i++) {
+                if (i === 0) {
+                    rsiData.push({ time: data[i].time, value: null });
+                    continue;
+                }
+                
+                const change = data[i].close - data[i - 1].close;
+                const gain = Math.max(0, change);
+                const loss = Math.max(0, -change);
+                
+                if (i < period) {
+                    gains += gain;
+                    losses += loss;
+                    rsiData.push({ time: data[i].time, value: null });
+                } else if (i === period) {
+                    gains += gain;
+                    losses += loss;
+                    const avgGain = gains / period;
+                    const avgLoss = losses / period;
+                    
+                    if (avgLoss === 0) {
+                        rsiData.push({ time: data[i].time, value: 100 });
+                    } else {
+                        const rs = avgGain / avgLoss;
+                        const rsi = 100 - (100 / (1 + rs));
+                        rsiData.push({ time: data[i].time, value: parseFloat(rsi.toFixed(2)) });
+                    }
+                } else {
+                    const avgGain = (gains * (period - 1) + gain) / period;
+                    const avgLoss = (losses * (period - 1) + loss) / period;
+                    gains = avgGain;
+                    losses = avgLoss;
+                    
+                    if (avgLoss === 0) {
+                        rsiData.push({ time: data[i].time, value: 100 });
+                    } else {
+                        const rs = avgGain / avgLoss;
+                        const rsi = 100 - (100 / (1 + rs));
+                        rsiData.push({ time: data[i].time, value: parseFloat(rsi.toFixed(2)) });
+                    }
+                }
+            }
+            
+            return rsiData;
+        }
+
+        // Simple SMA calculation
+        function calculateSMA(data, period = 20) {
+            const smaData = [];
+            
+            for (let i = 0; i < data.length; i++) {
+                if (i < period - 1) {
+                    smaData.push({ time: data[i].time, value: null });
+                } else {
+                    const sum = data.slice(i - period + 1, i + 1).reduce((a, b) => a + b.close, 0);
+                    const sma = sum / period;
+                    smaData.push({ time: data[i].time, value: parseFloat(sma.toFixed(2)) });
+                }
+            }
+            
+            return smaData;
+        }
+
+        // Simple MACD calculation
+        function calculateMACD(data, fastPeriod = 12, slowPeriod = 26, signalPeriod = 9) {
+            function calculateEMA(prices, period) {
+                const k = 2 / (period + 1);
+                const ema = [prices[0]];
+                
+                for (let i = 1; i < prices.length; i++) {
+                    ema.push(prices[i] * k + ema[i - 1] * (1 - k));
+                }
+                
+                return ema;
+            }
+            
+            const closes = data.map(d => d.close);
+            const fastEMA = calculateEMA(closes, fastPeriod);
+            const slowEMA = calculateEMA(closes, slowPeriod);
+            
+            const macdLine = [];
+            for (let i = 0; i < data.length; i++) {
+                macdLine.push(fastEMA[i] - slowEMA[i]);
+            }
+            
+            const signalLine = calculateEMA(macdLine, signalPeriod);
+            const histogram = [];
+            
+            for (let i = 0; i < data.length; i++) {
+                histogram.push(macdLine[i] - signalLine[i]);
+            }
+            
+            const macdData = [];
+            for (let i = 0; i < data.length; i++) {
+                if (i < slowPeriod + signalPeriod - 2) {
+                    macdData.push({
+                        time: data[i].time,
+                        macd: null,
+                        signal: null,
+                        histogram: null
+                    });
+                } else {
+                    macdData.push({
+                        time: data[i].time,
+                        macd: parseFloat(macdLine[i].toFixed(4)),
+                        signal: parseFloat(signalLine[i].toFixed(4)),
+                        histogram: parseFloat(histogram[i].toFixed(4))
+                    });
+                }
+            }
+            
+            return macdData;
+        }
+
+        // Initialize chart
+        const candlestickData = generateCandlestickData(200);
+        
+        const chart = StockChart.init('chart-container', {
+            theme: 'light',
+            initialVisibleCandles: 50,
+            chartName: {
+                name: 'Demo Stock',
+                code: 'DEMO',
+                metaString: 'NYSE, 1D'
+            },
+            plots: [
+                {
+                    id: 'main',
+                    type: 'candlestick',
+                    heightRatio: 0.6,
+                    data: candlestickData,
+                },
+                {
+                    id: 'volume',
+                    type: 'volume',
+                    heightRatio: 0.15,
+                    data: candlestickData.map(d => ({
+                        time: d.time,
+                        volume: d.volume
+                    }))
+                },
+                {
+                    id: 'rsi',
+                    type: 'line',
+                    heightRatio: 0.25,
+                    keyLabel: 'RSI(14)',
+                    data: calculateRSI(candlestickData, 14),
+                    indicator: {
+                        id: 'rsi',
+                        period: 14
+                    }
+                },
+                {
+                    id: 'sma',
+                    type: 'line',
+                    overlay: true,
+                    targetId: 'main',
+                    data: calculateSMA(candlestickData, 20),
+                    indicator: {
+                        id: 'sma',
+                        period: 20
+                    }
+                },
+                {
+                    id: 'macd',
+                    type: 'histogram',
+                    heightRatio: 0.25,
+                    keyLabel: 'MACD',
+                    data: calculateMACD(candlestickData, 12, 26, 9),
+                    indicator: {
+                        id: 'macd',
+                        fastPeriod: 12,
+                        slowPeriod: 26,
+                        signalPeriod: 9
+                    }
+                }
+            ]
+        });
+
+        // Export button handler
+        document.getElementById('exportBtn').addEventListener('click', () => {
+            const exportedData = chart.exportChartData();
+            
+            // Display statistics
+            const statsHtml = `
+                <div class="section">
+                    <h2>Export Statistics</h2>
+                    <div class="stats">
+                        <div class="stat-item">
+                            <div class="stat-label">Export Time</div>
+                            <div class="stat-value">${new Date(exportedData.exportTime).toLocaleTimeString()}</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Total Data Points</div>
+                            <div class="stat-value">${exportedData.data.length}</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Indicators Found</div>
+                            <div class="stat-value">${getIndicatorCount(exportedData.data)}</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Data Structure</div>
+                            <div class="stat-value">Merged by Time</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Display data samples
+            const samplesHtml = `
+                <div class="section">
+                    <h2>Data Structure Preview (First 3 records)</h2>
+                    ${exportedData.data.slice(0, 3).map((point, index) => `
+                        <div class="data-point">
+                            <div class="data-point-header">Record #${index + 1} - ${new Date(point.time * 1000).toLocaleDateString()}</div>
+                            <div class="ohlc">
+                                <div class="ohlc-item">Open: ${point.open}</div>
+                                <div class="ohlc-item">High: ${point.high}</div>
+                                <div class="ohlc-item">Low: ${point.low}</div>
+                                <div class="ohlc-item">Close: ${point.close}</div>
+                            </div>
+                            ${point.indicators.length > 0 ? `
+                                <div style="margin-top: 10px;">
+                                    <strong>Indicators (${point.indicators.length}):</strong>
+                                    ${point.indicators.map(ind => `
+                                        <div class="indicator-item">
+                                            <div class="indicator-name">${ind.name.toUpperCase()}</div>
+                                            <div style="font-size: 11px; color: #666; margin-bottom: 4px;">
+                                                Settings: ${JSON.stringify(ind.settings)}
+                                            </div>
+                                            <div class="indicator-value">
+                                                Value: ${formatIndicatorValue(ind.value)}
+                                            </div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            ` : '<div style="margin-top: 10px; color: #999;">No indicators</div>'}
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+            
+            // Display table
+            const tableHtml = `
+                <div class="section">
+                    <h2>Data Table (First 10 records)</h2>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Open</th>
+                                    <th>High</th>
+                                    <th>Low</th>
+                                    <th>Close</th>
+                                    <th>Volume</th>
+                                    <th>Indicators</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${exportedData.data.slice(0, 10).map(point => `
+                                    <tr>
+                                        <td>${new Date(point.time * 1000).toLocaleDateString()}</td>
+                                        <td>${point.open}</td>
+                                        <td>${point.high}</td>
+                                        <td>${point.low}</td>
+                                        <td>${point.close}</td>
+                                        <td>${point.volume || '-'}</td>
+                                        <td>${point.indicators.map(i => i.name).join(', ') || '-'}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+            
+            // Display raw JSON
+            const rawHtml = `
+                <div class="section">
+                    <h2>Raw Data Structure</h2>
+                    <pre>${JSON.stringify(exportedData.data.slice(0, 2), null, 2)}</pre>
+                </div>
+            `;
+            
+            document.getElementById('stats').innerHTML = statsHtml;
+            document.getElementById('output').innerHTML = samplesHtml + tableHtml + rawHtml;
+            
+            console.log('Exported chart data:', exportedData);
+        });
+
+        function getIndicatorCount(data) {
+            const indicators = new Set();
+            data.forEach(point => {
+                point.indicators.forEach(ind => indicators.add(ind.name));
+            });
+            return indicators.size;
+        }
+
+        function formatIndicatorValue(value) {
+            if (value === null || value === undefined) {
+                return '<span class="null-value">null (warmup)</span>';
+            } else if (typeof value === 'object') {
+                return Object.entries(value).map(([k, v]) => 
+                    `${k}: ${v !== null ? v : '<span class="null-value">null</span>'}`
+                ).join(', ');
+            }
+            return value;
+        }
+    </script>
+</body>
+</html>

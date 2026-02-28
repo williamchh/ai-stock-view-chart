@@ -2595,6 +2595,80 @@ class StockChart {
     }
 
     /**
+     * Exports all chart data including candlestick data, indicators, and configurations
+     * @returns {import('./stock-chart.d.ts').ExportedChartData} Exported chart data object
+     */
+    exportChartData() {
+        const mainPlot = this.options.plots.find(p => p.id === 'main');
+        const candlestickData = mainPlot ? [...mainPlot.data] : [];
+
+        const indicatorMap = new Map();
+
+        this.options.plots.forEach(plot => {
+            if (plot.indicator && plot.data && plot.data.length > 0) {
+                const indicatorName = plot.indicator.id || plot.id;
+                const settings = { ...plot.indicator };
+                delete settings.id;
+
+                plot.data.forEach((dataPoint, index) => {
+                    const time = dataPoint.time;
+                    if (!indicatorMap.has(time)) {
+                        indicatorMap.set(time, []);
+                    }
+
+                    let value;
+                    if (dataPoint.value !== undefined) {
+                        value = dataPoint.value;
+                    } else if (dataPoint.macd !== undefined) {
+                        value = {
+                            macd: dataPoint.macd,
+                            signal: dataPoint.signal,
+                            histogram: dataPoint.histogram
+                        };
+                    } else if (dataPoint.upper !== undefined) {
+                        value = {
+                            upper: dataPoint.upper,
+                            middle: dataPoint.middle,
+                            lower: dataPoint.lower
+                        };
+                    } else {
+                        value = dataPoint;
+                    }
+
+                    indicatorMap.get(time).push({
+                        name: indicatorName,
+                        settings,
+                        value
+                    });
+                });
+            }
+        });
+
+        const exportedData = candlestickData.map(candle => ({
+            time: candle.time,
+            open: candle.open,
+            high: candle.high,
+            low: candle.low,
+            close: candle.close,
+            id: candle.id,
+            volume: candle.volume,
+            signals: candle.signals,
+            fiboZoneLines: candle.fiboZoneLines,
+            referenceLines: candle.referenceLines,
+            safeMargins: candle.safeMargins,
+            retracements: candle.retracements,
+            order: candle.order,
+            timeframe: candle.timeframe,
+            indicators: indicatorMap.get(candle.time) || []
+        }));
+
+        return {
+            data: exportedData,
+            exportTime: Date.now()
+        };
+    }
+
+    /**
      * Centers the chart on a specific date and draws a vertical line
      * @param {number} timestamp - Unix timestamp (in seconds) to center on
      * @param {Object} [options] - Configuration options

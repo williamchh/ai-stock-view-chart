@@ -12,10 +12,69 @@
       padding: 20px;
     }
 
+    /* --- ResizeObserver 写回循环 bug 复现布局 ---
+       卡片高度不设置(由内容撑起),内含 44px 图例栏 + padding:
+       正是 resize() "抄父元素 clientHeight 写回容器" 引发棘轮增长的结构 */
+    #chart-card {
+      border: 2px solid #999;
+      border-radius: 8px;
+      padding: 20px;
+      background: #fff;
+    }
+
+    #chart-legend {
+      height: 44px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 0 12px;
+      border: 1px solid #e0e0e0;
+      border-radius: 4px;
+      background: #fafafa;
+      font-size: 13px;
+      color: #555;
+      box-sizing: border-box;
+    }
+
+    .legend-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+
+    .legend-chip i {
+      display: inline-block;
+      width: 12px;
+      height: 3px;
+      border-radius: 2px;
+    }
+
     #chart-container {
       width: 100%;
+      height: 500px;
       border: 1px solid #ccc;
     }
+
+    #bug-hud {
+      position: fixed;
+      top: 12px;
+      right: 12px;
+      z-index: 9999;
+      padding: 10px 14px;
+      background: #1e1e1e;
+      color: #d4d4d4;
+      border: 1px solid #555;
+      border-radius: 6px;
+      font-family: monospace;
+      font-size: 12px;
+      line-height: 1.7;
+      min-width: 320px;
+    }
+
+    #bug-hud .ok { color: #4ec9b0; }
+    #bug-hud .bad { color: #f14c4c; font-weight: bold; }
+    #bug-hud .hint { color: #888; }
   </style>
 </head>
 
@@ -93,7 +152,26 @@
       </div>
     </div>
   </div>
-  <div id="chart-container"></div>
+  <!-- BUG 复现卡片:父级高度由内容撑起 + 44px 图例栏兄弟元素 + padding,
+       触发 resize() 抄父尺寸写回 → 每轮净增(图例44 + padding40)px 的棘轮增长 -->
+  <div id="chart-card">
+    <div id="chart-legend">
+      <span class="legend-chip"><i style="background:#3498DB"></i>SMA(20)</span>
+      <span class="legend-chip"><i style="background:#E74C3C"></i>MACD(12,26,9)</span>
+      <span class="legend-chip"><i style="background:#9B59B6"></i>VOL</span>
+      <span style="margin-left:auto;">stcd · NASDAQ · 1D</span>
+    </div>
+    <div id="chart-container"></div>
+  </div>
+
+  <div id="bug-hud">
+    <div><strong>ResizeObserver Loop Diagnostics</strong></div>
+    <div>container: <span id="hud-container-h">-</span>px | card: <span id="hud-card-h">-</span>px</div>
+    <div>RO notifications: <span id="hud-ro-count">0</span></div>
+    <div>growth: <span id="hud-growth">-</span></div>
+    <div id="hud-verdict" class="ok">waiting...</div>
+    <div class="hint">打开 DevTools Console,观察 "ResizeObserver loop completed with undelivered notifications" 报错</div>
+  </div>
 
   <div id="position-test" style="margin-top: 20px; padding: 15px; border: 1px solid #ccc; border-radius: 5px; background: #fff;">
     <h3 style="margin-top: 0;">Position Marker Test</h3>
@@ -365,6 +443,51 @@
       const positionsStatus = document.getElementById('positions-status');
       positionsStatus.innerHTML = 'All positions cleared. Click "Add Position" to add a new position marker...';
     });
+
+    // --- ResizeObserver 写回循环诊断 ---
+    // 用独立的 RO 观察同一容器,统计通知次数;采样高度计算增长率。
+    // 面板为 position:fixed 且不写图表容器样式,不参与布局反馈。
+    const diagContainer = document.getElementById('chart-container');
+    const diagCard = document.getElementById('chart-card');
+    const hudContainerH = document.getElementById('hud-container-h');
+    const hudCardH = document.getElementById('hud-card-h');
+    const hudRoCount = document.getElementById('hud-ro-count');
+    const hudGrowth = document.getElementById('hud-growth');
+    const hudVerdict = document.getElementById('hud-verdict');
+
+    let roCount = 0;
+    new ResizeObserver(() => { roCount++; }).observe(diagContainer);
+
+    let lastH = diagContainer.clientHeight;
+    let lastT = performance.now();
+    let growingSamples = 0;
+
+    setInterval(() => {
+      const now = performance.now();
+      const h = diagContainer.clientHeight;
+      const dt = (now - lastT) / 1000;
+      const rate = (h - lastH) / dt;
+
+      hudContainerH.textContent = String(Math.round(h));
+      hudCardH.textContent = String(Math.round(diagCard.clientHeight));
+      hudRoCount.textContent = String(roCount);
+      hudGrowth.textContent = `${rate >= 0 ? '+' : ''}${rate.toFixed(0)} px/s`;
+
+      // 连续两个采样周期高度都在涨 → 判定循环复现
+      growingSamples = rate > 1 ? growingSamples + 1 : 0;
+      if (growingSamples >= 2) {
+        hudVerdict.textContent = 'BUG 复现:容器高度持续增长';
+        hudVerdict.className = 'bad';
+        hudGrowth.className = 'bad';
+      } else {
+        hudVerdict.textContent = '稳定:高度无持续增长';
+        hudVerdict.className = 'ok';
+        hudGrowth.className = 'ok';
+      }
+
+      lastH = h;
+      lastT = now;
+    }, 500);
 
   </script>
 </body>

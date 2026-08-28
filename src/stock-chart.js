@@ -66,12 +66,20 @@ class StockChart {
         this.container = container;
         this.options = StockChart.ensureValidOptions(options);
         this.updateStockData = this.updateStockData.bind(this);
-        // Create wrapper div for toolbar and canvas
+        // Create wrapper div for toolbar and canvas.
+        // The wrapper is taken out of the flow (absolute, inset 0) so the canvas
+        // can never influence the container's or any ancestor's layout. Writing
+        // sizes back into a content-driven parent previously created a
+        // ResizeObserver feedback loop (container observed by this.resize()).
         this.wrapper = document.createElement('div');
-        this.wrapper.style.position = 'relative';
+        this.wrapper.style.position = 'absolute';
+        this.wrapper.style.inset = '0';
         this.wrapper.style.display = 'flex';
-        this.wrapper.style.width = '100%';
-        this.wrapper.style.height = '100%';
+        // The wrapper's containing block must be the container; only promote the
+        // container when the user hasn't positioned it (static is the default).
+        if (window.getComputedStyle(container).position === 'static') {
+            container.style.position = 'relative';
+        }
         this.container.appendChild(this.wrapper);
 
         // Create toolbar
@@ -464,54 +472,26 @@ class StockChart {
 
     /**
      * Resizes the canvas to match the container's dimensions and redraws the chart.
+     * Read-only with respect to layout: the container's size is fully decided by
+     * user CSS (or the one-time fallback in ensureContainerSize). This method
+     * must never write styles — the container is observed by a ResizeObserver,
+     * and writing sizes here re-triggers the observer whenever an ancestor's
+     * height is content-driven, causing unbounded growth.
      */
     resize() {
-        let { clientWidth, clientHeight } = this.container;
-        const parentElement = this.container.parentElement;
-
-        // Fallback to window dimensions if container size is not set
-        if (clientWidth === 0) {
-            clientWidth = window.innerWidth;
-        }
-        if (clientHeight === 0) {
-            clientHeight = window.innerHeight;
-        }
-
-        // if parent is not match
-        if (parentElement) {
-            // check if parentElement is body
-            const isBody = parentElement.tagName === 'BODY';
-            if (isBody) {
-                clientWidth = window.innerWidth * 0.9;
-                clientHeight = window.innerHeight * 0.8;
-
-                // Update the actual container dimensions via style
-                this.container.style.width = `${clientWidth}px`;
-                this.container.style.height = `${clientHeight}px`;
-            }
-            else {
-                const { clientWidth: parentWidth, clientHeight: parentHeight } = parentElement;
-                if (parentWidth !== clientWidth || parentHeight !== clientHeight) {
-                    clientWidth = parentWidth;
-                    clientHeight = parentHeight;
-
-                    // Update the actual container dimensions via style
-                    this.container.style.width = `${parentWidth}px`;
-                    this.container.style.height = `${parentHeight}px`;
-                }                
-            }
-        }
+        const { clientWidth, clientHeight } = this.container;
 
         // Adjust width to account for toolbar if shown
         const toolbarWidth = this.options.showDrawingToolbar ? 40 : 0;
-        const chartWidth = clientWidth - toolbarWidth;
+        const chartWidth = Math.max(0, clientWidth - toolbarWidth);
+        const chartHeight = Math.max(0, clientHeight);
 
         this.canvas.width = chartWidth;
-        this.canvas.height = clientHeight;
+        this.canvas.height = chartHeight;
 
         // Calculate Y-axis width and update layout
         const yAxisWidth = this.calculateYAxisWidth();
-        this.plotLayoutManager.updateCanvasDimensions(chartWidth, clientHeight, yAxisWidth);
+        this.plotLayoutManager.updateCanvasDimensions(chartWidth, chartHeight, yAxisWidth);
     }
 
     /**
@@ -2409,7 +2389,13 @@ class StockChart {
         if (!needsHeight && !needsWidth) {
             return;
         }
-        
+
+        console.warn(
+            'StockChart: the chart container has no explicit dimensions; applying a one-time ' +
+            'fallback size. Set a CSS width/height on the container instead — the fallback is ' +
+            'written as inline styles and takes precedence over any CSS sizing applied later.'
+        );
+
         // If parent exists and has both valid dimensions, and container needs at least one dimension
         if (parentContainer && 
             parentContainer.clientHeight > 1 && 
